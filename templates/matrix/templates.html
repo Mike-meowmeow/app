@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Roster templates{% endblock %}
+{% block content %}
+<h1 class="h4">Official roster templates</h1>
+<p class="small text-muted">Register a template file with <code>manage.py register_roster_template &lt;file.xlsx&gt;</code>. Each recruitment type uses only its own approved template; approving a new version retires the previous one. Default signatories apply to new roster versions only.</p>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table align-middle mb-0">
+  <thead class="table-light"><tr><th>Template</th><th>Recruitment type</th><th>Status</th><th>Default signatories</th><th></th></tr></thead>
+  <tbody>
+    {% for template in templates %}
+    <tr>
+      <td>{{ template.name }} <span class="text-muted">v{{ template.version }}</span><div class="small text-muted font-monospace">sha256 {{ template.sha256|truncatechars:20 }}</div></td>
+      <td>{{ template.recruitment_type.name }}</td>
+      <td>{{ template.get_status_display }}{% if template.approved_by %}<div class="small text-muted">{{ template.approved_by.get_full_name|default:template.approved_by.username }}, {{ template.approved_at|date:"M j, Y" }}</div>{% endif %}</td>
+      <td class="small">
+        Prepared: {{ template.signatory_defaults.prepared_by.name|default:"—" }}{% if template.signatory_defaults.prepared_by.position %}, {{ template.signatory_defaults.prepared_by.position }}{% endif %}<br>
+        Noted: {{ template.signatory_defaults.noted_by.name|default:"—" }}{% if template.signatory_defaults.noted_by.position %}, {{ template.signatory_defaults.noted_by.position }}{% endif %}
+      </td>
+      <td class="text-nowrap">
+        {% if can_manage and template.status != 'retired' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'matrix:template_signatories' template.pk %}">Signatories</a>{% endif %}
+        {% if can_manage and template.status == 'draft' %}<form class="d-inline" method="post" action="{% url 'matrix:template_approve' template.pk %}">{% csrf_token %}<button class="btn btn-sm btn-success" type="submit">Approve</button></form>{% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" class="text-center text-muted py-4">No templates registered. Rosters cannot be prepared until one is approved.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

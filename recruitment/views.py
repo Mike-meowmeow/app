@@ -75,6 +75,7 @@ def vacancy_detail(request, pk):
         'versions': vacancy.requirement_versions.filter(published_at__isnull=False)
                     .select_related('published_by'),
         'can_manage': can_manage,
+        'can_view_roster': can_manage or roles.has_role(request.user, roles.APPROVER),
         'can_assign': selectors.can_assign_staff(request.user, vacancy),
         'assignments': vacancy.assignments.select_related('user', 'assigned_by'),
         'problems': services.publication_problems(vacancy, draft) if draft else [],

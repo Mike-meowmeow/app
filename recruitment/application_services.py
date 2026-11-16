@@ -21,6 +21,7 @@ from audit import services as audit
 
 from . import application_selectors as access
 from . import fact_schema
+from .signals import application_changed
 from .models import (Application, ApplicationCorrection, ApplicationFact, ApplicationSnapshot,
                      ApplicationStatus, CorrectionRequest, CorrectionStatus, FactReviewStatus,
                      FactType, QualificationStandard, RelevanceStatus, SnapshotType, Vacancy,
@@ -52,6 +53,7 @@ CONCLUDED = {S.WITHDRAWN, S.NOT_SELECTED, S.CLOSED_WITHOUT_SELECTION}
 def _bump_revision(application):
     Application.objects.filter(pk=application.pk).update(revision=F('revision') + 1)
     application.refresh_from_db(fields=['revision'])
+    application_changed.send(sender=Application, application=application)
 
 
 def _lock(application):

@@ -1,0 +1,14 @@
+from django.apps import AppConfig
+
+
+class MatrixConfig(AppConfig):
+    default_auto_field = 'django.db.models.BigAutoField'
+    name = 'matrix'
+    verbose_name = 'Official applicant roster'
+
+    def ready(self):
+        from recruitment.signals import application_changed
+
+        from . import services
+        application_changed.connect(services.mark_outdated,
+                                    dispatch_uid='matrix.mark_outdated')

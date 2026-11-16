@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'documents.apps.DocumentsConfig',
     'recruitment.apps.RecruitmentConfig',
     'applicants.apps.ApplicantsConfig',
+    'matrix.apps.MatrixConfig',
 ]
 
 MIDDLEWARE = [
@@ -176,6 +177,12 @@ MALWARE_SCAN_COMMAND = env('MALWARE_SCAN_COMMAND', '')
 
 # Default correction window offered to HR when requesting corrections.
 CORRECTION_WINDOW_DAYS = int(env('CORRECTION_WINDOW_DAYS', '5'))
+
+# Official roster (FR-021 to FR-023). Whether the preparer may approve their
+# own roster is an institutional decision; it is refused until HR confirms.
+ROSTER_ALLOW_SELF_APPROVAL = env_bool('ROSTER_ALLOW_SELF_APPROVAL', False)
+# Recruitment type codes allowed to use the PART-TIME roster form.
+ROSTER_PART_TIME_TYPES = ('PTI',)
 
 
 # Email: console backend for local development.

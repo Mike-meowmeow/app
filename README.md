@@ -28,6 +28,9 @@ database specification, development guide) live in the separate project vault.
 - **The MySQL port.** The default is 3306. Setup detects 3306–3308 automatically; if your server
   uses another port, you will set `DB_PORT` in `.env`.
 - **Internet access** for the first run (Python packages are downloaded).
+- **The official roster form** `MATRIX_TEACHING APPLICANTS FOR PSB.xlsx` (PART-TIME worksheet),
+  obtained from HRMDO. It is **not** stored in the repository. Without it you can register a
+  synthetic development template instead (section 3, step 4).
 
 ### Check the MySQL server is running
 
@@ -93,7 +96,16 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
    .\.venv\Scripts\python.exe manage.py seed_reference_data --sample-department
    ```
    Real departments are added by a System Administrator in the Django admin (**/admin/**).
-4. **Start the server:**
+4. **Register the official roster template** (needed before HR can prepare rosters). The file is
+   checked against the PART-TIME layout, copied into `private/templates/`, and recorded with its
+   SHA-256; `--approve-as` must name an HR Head / Approver or System Administrator:
+   ```powershell
+   .\.venv\Scripts\python.exe manage.py register_roster_template "C:\path\to\MATRIX_TEACHING APPLICANTS FOR PSB.xlsx" --approve-as <username>
+   ```
+   No official file yet? Use `register_roster_template --sample --approve-as <username>` for a
+   clearly labeled development template. Set the default signatories afterwards at
+   **/rosters/templates/** (they are not copied from the file).
+5. **Start the server:**
    ```powershell
    .\.venv\Scripts\python.exe manage.py runserver
    ```
@@ -116,6 +128,7 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
 | Re-run the full setup | `.\setup.ps1` or `./setup.sh` |
 | Assign / revoke a role | `manage.py assign_role <user> "<Role>"` (add `--revoke` to remove) |
 | Seed roles and reference data | `manage.py seed_reference_data` |
+| Register a roster template | `manage.py register_roster_template <file.xlsx> --approve-as <user>` |
 
 On macOS/Linux use `python3 setup_db.py` instead of `py setup_db.py`.
 Tests need the MySQL test database permission that setup grants; they take about a minute.
@@ -142,9 +155,11 @@ After pulling changes, run `py setup_db.py` (or the full setup if `requirements.
 | `DEFAULT_FROM_EMAIL` | Sender address on system emails | `EVSU Recruitment <no-reply@localhost>` |
 | `CORRECTION_WINDOW_DAYS` | Default deadline HR is offered for correction requests | `5` |
 | `MALWARE_SCAN_COMMAND` | Optional scanner (e.g. `clamscan --no-summary`); exit 0 clean, 1 infected | empty = "not scanned" |
+| `ROSTER_ALLOW_SELF_APPROVAL` | Whether the HR preparer may also approve their own roster | `False` |
 
-Uploaded documents are stored privately under `private/documents/` (git-ignored) and are only
-served through permission-checked download links. Back this folder up together with the database.
+Uploaded documents (`private/documents/`), roster templates (`private/templates/`), and generated
+roster files (`private/exports/`) are git-ignored and only served through permission-checked
+download links. Back up the whole `private/` folder together with the database.
 
 Restart the server after editing `.env`.
 
@@ -189,6 +204,7 @@ app/
   recruitment/    Vacancies, requirement versions, staff assignments, applications,
                   snapshots, facts, corrections, workflow
   applicants/     Applicant profiles and qualification records
+  matrix/         Official applicant roster: templates, versions, approval, Excel/PDF export
   templates/      Django templates (Bootstrap 5, served locally from static/vendor)
   setup.ps1 / setup.sh / setup_dev.py   Machine setup
   setup_db.py     Database provisioning, time zones, migrations, seeding
@@ -209,8 +225,11 @@ records are view-only there.
 | 3 Accounts, roles, access | Done |
 | 4 Vacancies and applicant profiles | Done |
 | 5 Applications, documents, manual review | Done |
-| 6–11 Roster, committees, notifications, staging, AI, release | Not started |
+| 6 Official roster, approval, Excel/PDF | Done |
+| 7–11 Committees, notifications, staging, AI, release | Not started |
 
 Pending institutional inputs (HR): official privacy notice wording, document checklist,
-qualification reference values, approval authorities, and roster conventions. Seeded document
-types and the privacy notice are development placeholders until then.
+qualification reference values, approval authorities (including self-approval of rosters), and
+roster conventions (row order, missing-value labels, remark wording, signatories, treatment of
+unverified values at release). Seeded document types and the privacy notice are development
+placeholders until then.

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Row {{ entry.sequence_number }} · Roster v{{ roster.version }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <a class="small" href="{% url 'matrix:roster_detail' roster.pk %}">&larr; Roster version {{ roster.version }}</a>
+  <div class="card shadow-sm mt-2"><div class="card-body p-4">
+    <h1 class="h5">Row {{ entry.sequence_number }}: {{ entry.application.applicant.user.last_name }}, {{ entry.application.applicant.user.first_name }}</h1>
+    <p class="small text-muted">{{ entry.application.reference }} · <a href="{% url 'recruitment:application_review' entry.application.pk %}">Open the application review</a> to verify documents or accept and correct facts, then regenerate the roster.</p>
+    {% if flags or documents %}
+      <div class="alert alert-warning small">
+        <strong>Flagged values</strong>
+        <ul class="mb-0">
+          {% for label, value, flag in flags %}<li>{{ label }}: <em>{{ flag }}</em>{% if value %} — {{ value }}{% endif %}</li>{% endfor %}
+          {% if documents %}<li>{{ documents.count }} uploaded file{{ documents.count|pluralize }} not yet verified</li>{% endif %}
+        </ul>
+      </div>
+    {% endif %}
+    {% if entry.review_flags.acknowledged %}<p class="small text-success">Flags acknowledged by {{ entry.review_flags.acknowledged.name }}.</p>{% endif %}
+    {% include "includes/form_errors.html" %}
+    <form method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+      <button class="btn btn-primary" type="submit">Save</button>
+      <a class="btn btn-link" href="{% url 'matrix:roster_detail' roster.pk %}">Cancel</a>
+    </form>
+  </div></div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Official roster · {{ vacancy.position_title }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:vacancy_detail' vacancy.pk %}">&larr; {{ vacancy.position_title }}</a>
+<h1 class="h4 mt-2">Official applicant roster</h1>
+<p class="small text-muted mb-3">{{ vacancy.reference }} · {{ vacancy.department.name }} · {{ submitted_count }} submitted application{{ submitted_count|pluralize }}.
+  The roster lists <strong>every</strong> application submitted on or before the cutoff, including withdrawn and not-selected ones. Row numbers are positions, not ranks.</p>
+
+{% for problem in problems %}<div class="alert alert-warning">{{ problem }}</div>{% endfor %}
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card shadow-sm"><div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light"><tr><th>Version</th><th>Status</th><th>Cutoff</th><th>Prepared</th><th>Approved</th></tr></thead>
+        <tbody>
+          {% for roster in rosters %}
+          <tr>
+            <td><a href="{% url 'matrix:roster_detail' roster.pk %}">Version {{ roster.version }}</a></td>
+            <td>{% include "matrix/_status.html" %}</td>
+            <td class="small">{{ roster.cutoff_at|date:"M j, Y g:i A" }}</td>
+            <td class="small">{{ roster.prepared_by.get_full_name|default:roster.prepared_by.username }}<div class="text-muted">{{ roster.created_at|date:"M j, Y" }}</div></td>
+            <td class="small">{% if roster.approved_by %}{{ roster.approved_by.get_full_name|default:roster.approved_by.username }}<div class="text-muted">{{ roster.approved_at|date:"M j, Y" }}</div>{% else %}—{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center text-muted py-4">No roster has been generated for this vacancy yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    {% if can_prepare %}
+      {% if active %}
+        <div class="card card-body shadow-sm">
+          <h2 class="h6">Version {{ active.version }} is in preparation</h2>
+          <p class="small text-muted mb-2">Continue reviewing it; regenerate it there to pick up new submissions or changes.</p>
+          <a class="btn btn-primary btn-sm" href="{% url 'matrix:roster_detail' active.pk %}">Open version {{ active.version }}</a>
+        </div>
+      {% elif not problems %}
+        <div class="card card-body shadow-sm">
+          <h2 class="h6">Generate a roster version</h2>
+          {% include "includes/form_errors.html" %}
+          <form method="post" novalidate>{% csrf_token %}
+            {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+            <button class="btn btn-primary" type="submit">Generate draft</button>
+          </form>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="card card-body shadow-sm small text-muted">Only HR assigned to this vacancy can prepare rosters. Approvers review versions sent for approval.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

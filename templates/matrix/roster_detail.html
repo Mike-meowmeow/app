@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Roster v{{ roster.version }} · {{ roster.vacancy.position_title }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'matrix:vacancy_rosters' roster.vacancy.pk %}">&larr; All roster versions</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2">
+  <div>
+    <h1 class="h4 mb-1">Roster version {{ roster.version }} {% include "matrix/_status.html" %}</h1>
+    <div class="small text-muted">{{ roster.vacancy.position_title }} · {{ roster.vacancy.reference }} · {{ roster.header_snapshot.department }}</div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if can_export_draft %}
+      <form method="post" action="{% url 'matrix:export_draft' roster.pk 'xlsx' %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm" type="submit">Draft Excel</button></form>
+      <form method="post" action="{% url 'matrix:export_draft' roster.pk 'pdf' %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm" type="submit">Draft PDF</button></form>
+    {% endif %}
+    {% if can_new_version %}
+      <form method="post" action="{% url 'matrix:new_version' roster.pk %}">{% csrf_token %}<button class="btn btn-primary btn-sm" type="submit">Prepare new version</button></form>
+    {% endif %}
+  </div>
+</div>
+
+<dl class="row small mt-3 mb-2">
+  <dt class="col-sm-2">Cutoff</dt><dd class="col-sm-4">{{ roster.cutoff_at|date:"M j, Y g:i A" }}</dd>
+  <dt class="col-sm-2">Generated</dt><dd class="col-sm-4">{{ roster.generated_at|date:"M j, Y g:i A" }} · {{ rows|length }} applicant{{ rows|length|pluralize }}</dd>
+  <dt class="col-sm-2">Prepared by</dt><dd class="col-sm-4">{{ roster.prepared_by.get_full_name|default:roster.prepared_by.username }}</dd>
+  <dt class="col-sm-2">Template</dt><dd class="col-sm-4">{{ roster.template.name }} v{{ roster.template.version }} · {{ roster.header_snapshot.paper_name }}, landscape</dd>
+  {% if roster.approved_by %}<dt class="col-sm-2">Approved by</dt><dd class="col-sm-4">{{ roster.approved_by.get_full_name|default:roster.approved_by.username }}, {{ roster.approved_at|date:"M j, Y g:i A" }}</dd>{% endif %}
+  {% if roster.released_by %}<dt class="col-sm-2">Released by</dt><dd class="col-sm-4">{{ roster.released_by.get_full_name|default:roster.released_by.username }}, {{ roster.released_at|date:"M j, Y g:i A" }}</dd>{% endif %}
+</dl>
+
+{% if outdated %}
+  <div class="alert alert-warning">
+    <strong>Application information changed after this version was generated</strong>{% if outdated_reason %} ({{ outdated_reason }}){% endif %}.
+    {% if roster.is_editable %}Regenerate it before sending it for approval.{% elif roster.status == 'approved' %}The approved content below is unchanged; prepare a new version for approval.{% elif roster.status == 'pending_approval' %}It cannot be approved; return it so HR can regenerate it.{% endif %}
+    {% if can_edit %}<form class="d-inline" method="post" action="{% url 'matrix:regenerate' roster.pk %}">{% csrf_token %}<button class="btn btn-sm btn-warning ms-2" type="submit">Regenerate now</button></form>{% endif %}
+  </div>
+{% endif %}
+
+{% if roster.status == 'returned' %}
+  {% for event in events reversed %}{% if event.to_status == 'returned' and forloop.first %}<div class="alert alert-danger"><strong>Returned by {{ event.actor.get_full_name|default:event.actor.username }}:</strong> {{ event.comments|linebreaksbr }}</div>{% endif %}{% endfor %}
+{% endif %}
+
+{% if can_edit %}
+<div class="card card-body shadow-sm mb-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div class="small">
+      {% if problems %}<strong>Before sending for approval:</strong><ul class="mb-0">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>{% else %}<span class="text-success">Ready to send for approval.</span>{% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'matrix:signatories' roster.pk %}">Signatories</a>
+      <form method="post" action="{% url 'matrix:regenerate' roster.pk %}">{% csrf_token %}<button class="btn btn-outline-secondary btn-sm" type="submit">Regenerate</button></form>
+      <form method="post" action="{% url 'matrix:submit_for_approval' roster.pk %}">{% csrf_token %}<button class="btn btn-success btn-sm" type="submit" {% if problems %}disabled{% endif %}>Send for approval</button></form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if can_approve and roster.status == 'pending_approval' %}
+<div class="card card-body shadow-sm mb-3 border-warning">
+  <h2 class="h6">Approval</h2>
+  {% if is_preparer and not self_approval_allowed %}
+    <p class="small text-muted mb-0">You prepared this version; another designated approver must approve it.</p>
+  {% else %}
+  <div class="row g-3">
+    <form class="col-md-6" method="post" action="{% url 'matrix:approve' roster.pk %}">{% csrf_token %}
+      {% with field=comments_form.comments %}{% include "includes/field.html" %}{% endwith %}
+      <button class="btn btn-success" type="submit">Approve version {{ roster.version }}</button>
+      <div class="form-text">Membership and application revisions are rechecked at approval.</div>
+    </form>
+    <form class="col-md-6" method="post" action="{% url 'matrix:return' roster.pk %}">{% csrf_token %}
+      {% with field=return_form.comments %}{% include "includes/field.html" %}{% endwith %}
+      <button class="btn btn-outline-danger" type="submit">Return for correction</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if can_release %}
+<div class="card card-body shadow-sm mb-3 border-success">
+  <form method="post" action="{% url 'matrix:release' roster.pk %}" class="d-flex flex-wrap align-items-center gap-3">{% csrf_token %}
+    <button class="btn btn-success" type="submit">Release official roster</button>
+    <span class="small text-muted">Generates the official Excel and PDF files from this approved version.</span>
+  </form>
+</div>
+{% endif %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-white d-flex flex-wrap justify-content-between gap-2 small">
+    <span><strong>Preview</strong> — exactly the values exported to Excel and PDF.</span>
+    <span><span class="badge text-bg-warning">Not verified</span> <span class="badge text-bg-danger">Missing</span>{% if unresolved %} · <strong>{{ unresolved }}</strong> row{{ unresolved|pluralize }} with unresolved flags{% endif %}</span>
+  </div>
+  <div class="table-responsive" style="max-height: 70vh;">
+  <table class="table table-sm table-bordered small mb-0 roster-preview">
+    <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
+      <tr>
+        {% for col, label in columns %}<th class="text-center align-middle" style="min-width: {% if col == 'A' %}3rem{% elif col in 'RS' %}16rem{% else %}8rem{% endif %};">{{ label }}<div class="fw-normal text-muted">{{ col }}</div></th>{% endfor %}
+        {% if can_edit %}<th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry, cells in rows %}
+      <tr>
+        {% for col, value, flag in cells %}
+          <td class="{% if flag == 'unverified' %}table-warning{% elif flag == 'missing' %}table-danger{% endif %}" style="white-space: pre-line;"{% if flag %} title="{% if flag == 'unverified' %}Not verified by HR{% elif flag == 'missing' %}Missing{% else %}Not applicable{% endif %}"{% endif %}>{% if col == 'B' %}<a href="{% url 'recruitment:application_review' entry.application.pk %}">{{ value }}</a>{% else %}{{ value }}{% endif %}{% if col == 'T' and entry.review_flags.documents %}<div class="text-danger small">{{ entry.review_flags.documents.count }} file{{ entry.review_flags.documents.count|pluralize }} not verified</div>{% endif %}{% if col == 'T' and entry.review_flags.acknowledged %}<div class="text-success small">Flags acknowledged by {{ entry.review_flags.acknowledged.name }}</div>{% endif %}</td>
+        {% endfor %}
+        {% if can_edit %}<td class="text-nowrap"><a class="btn btn-sm {% if entry.needs_acknowledgment %}btn-warning{% else %}btn-outline-secondary{% endif %}" href="{% url 'matrix:entry_edit' roster.pk entry.pk %}">{% if entry.needs_acknowledgment %}Review{% else %}Edit{% endif %}</a></td>{% endif %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="21" class="text-center text-muted py-4">No submitted applications for this vacancy as of the cutoff. The roster will print an explicit empty result.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="card-footer bg-white small text-muted">{{ legend }}</div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card shadow-sm"><div class="card-header bg-white"><strong>Files</strong></div>
+      <ul class="list-group list-group-flush small">
+        {% for export in exports %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>{% if export.is_draft %}<span class="badge text-bg-light border">Draft</span>{% else %}<span class="badge text-bg-success">Official</span>{% endif %}
+              {{ export.get_format_display }} · {{ export.generated_at|date:"M j, Y g:i A" }} · {{ export.generated_by.get_full_name|default:export.generated_by.username }}
+              <div class="text-muted font-monospace" style="font-size: .75em;">sha256 {{ export.sha256|truncatechars:20 }}</div></span>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'matrix:download' export.pk %}">Download</a>
+          </li>
+        {% empty %}
+          <li class="list-group-item text-muted">No files generated yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm"><div class="card-header bg-white"><strong>Signatories and history</strong></div>
+      <div class="card-body small">
+        <div class="row mb-2">
+          <div class="col-6"><div class="text-muted">Prepared by</div><strong>{{ roster.signatory_snapshot.prepared_by.name|default:"(not set)" }}</strong><div>{{ roster.signatory_snapshot.prepared_by.position }}</div></div>
+          <div class="col-6"><div class="text-muted">Noted by</div><strong>{{ roster.signatory_snapshot.noted_by.name|default:"(not set)" }}</strong><div>{{ roster.signatory_snapshot.noted_by.position }}</div></div>
+        </div>
+        <ul class="list-unstyled mb-0">
+          {% for event in events %}
+            <li class="border-top py-1">{{ event.occurred_at|date:"M j, Y g:i A" }} · {{ event.get_to_status_display }} · {{ event.actor.get_full_name|default:event.actor.username|default:"system" }}{% if event.comments %}<div class="text-muted">{{ event.comments|linebreaksbr }}</div>{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

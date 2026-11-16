@@ -5,3 +5,10 @@ python-dotenv==1.2.4
 asgiref==3.13.0
 sqlparse==0.6.1
 tzdata==2026.6
+
+# Stage 6: official roster export (Excel template filling and PDF rendering).
+openpyxl==3.1.5
+et-xmlfile==2.0.0
+reportlab==5.1.0
+pillow==13.0.0
+charset-normalizer==3.5.2

@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     # Project apps
     'core.apps.CoreConfig',
     'accounts.apps.AccountsConfig',
+    'audit.apps.AuditConfig',
 ]
 
 MIDDLEWARE = [
@@ -58,6 +59,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'audit.middleware.AuditContextMiddleware',
+    'accounts.middleware.PrivacyAcknowledgmentMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -72,6 +75,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.context_processors.workspaces',
             ],
         },
     },
@@ -107,8 +111,29 @@ DATABASES = {
     }
 }
 
-# Custom user model: set in Stage 2, before the first migrate.
-# AUTH_USER_MODEL = 'accounts.User'
+# Custom user model (must be in accounts/0001_initial.py).
+AUTH_USER_MODEL = 'accounts.User'
+
+
+# Authentication and sessions (FR-001, FR-003)
+
+AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrUsernameBackend']
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'core:dashboard'
+LOGOUT_REDIRECT_URL = 'accounts:login'
+
+# Inactivity timeout: the session expiry is renewed on every request.
+SESSION_IDLE_TIMEOUT_MINUTES = int(env('SESSION_IDLE_TIMEOUT_MINUTES', '30'))
+SESSION_COOKIE_AGE = SESSION_IDLE_TIMEOUT_MINUTES * 60
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_HTTPONLY = True
+
+PASSWORD_RESET_TIMEOUT = int(env('PASSWORD_RESET_TIMEOUT_MINUTES', '60')) * 60
+EMAIL_VERIFICATION_TIMEOUT = int(env('EMAIL_VERIFICATION_TIMEOUT_HOURS', '48')) * 3600
+
+# Version of the privacy notice applicants must acknowledge. The wording is a
+# draft until HR confirms it; changing the version requires re-acknowledgment.
+PRIVACY_NOTICE_VERSION = env('PRIVACY_NOTICE_VERSION', 'DRAFT-2026-11')
 
 
 # Password validation
@@ -146,6 +171,7 @@ EXPORT_STORAGE_ROOT = PRIVATE_STORAGE_ROOT / 'exports'
 # Email: console backend for local development.
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', 'EVSU Recruitment <no-reply@localhost>')
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

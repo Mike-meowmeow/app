@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<div class="row align-items-center g-4 py-4">
+  <div class="col-lg-7">
+    <h1 class="display-6 fw-semibold">EVSU-Ormoc Recruitment</h1>
+    <p class="lead">Apply for part-time instructor vacancies, submit your documents, and follow your
+      application online.</p>
+    <a class="btn btn-primary btn-lg me-2" href="{% url 'accounts:register' %}">Register as applicant</a>
+    <a class="btn btn-outline-secondary btn-lg" href="{% url 'accounts:login' %}">Sign in</a>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm workspace-card"><div class="card-body">
+      <h2 class="h6">HRMDO staff</h2>
+      <p class="small text-muted mb-0">Staff accounts are created by a System Administrator.
+        Sign in with your username or email.</p>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

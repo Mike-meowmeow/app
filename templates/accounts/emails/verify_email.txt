@@ -1,0 +1,12 @@
+{% autoescape off %}Hello {{ user.first_name|default:user.username }},
+
+Please confirm your email address to activate your applicant account:
+
+{{ link }}
+
+This link expires in {{ hours }} hours. If it expires, request a new one from the sign-in page.
+
+If you did not register, you can ignore this message.
+
+EVSU-Ormoc HRMDO Recruitment
+{% endautoescape %}

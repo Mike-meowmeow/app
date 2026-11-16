@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Manage {{ target.username }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'accounts:user_list' %}">&larr; All accounts</a>
+<h1 class="h4 mt-2">{{ target.full_name|default:target.username }} <span class="text-muted fs-6">{{ target.username }} · {{ target.email }}</span></h1>
+<div class="row g-3 mt-1">
+  <div class="col-lg-7">
+    <div class="card shadow-sm"><div class="card-body">
+      {% if is_self %}
+        <div class="alert alert-info mb-0">You cannot change your own roles or account status. Ask another System Administrator.</div>
+      {% else %}
+        {% include "includes/form_errors.html" %}
+        <form method="post" novalidate>{% csrf_token %}
+          {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+          <button class="btn btn-primary" type="submit">Save changes</button>
+        </form>
+      {% endif %}
+    </div></div>
+    <div class="card shadow-sm mt-3"><div class="card-body small">
+      <h2 class="h6">Role responsibilities</h2>
+      <dl class="mb-0">{% for role, text in descriptions.items %}<dt>{{ role }}</dt><dd class="text-muted">{{ text }}</dd>{% endfor %}</dl>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">Recent account history</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for e in events %}
+          <li class="mb-2"><span class="fw-semibold">{{ e.action }}</span>{% if e.changes.role %} · {{ e.changes.role }}{% endif %}
+            <div class="text-muted">{{ e.occurred_at|date:"M j, Y H:i" }} · {{ e.actor|default:"system" }}{% if e.reason %} · {{ e.reason }}{% endif %}</div></li>
+        {% empty %}<li class="text-muted">No events recorded.</li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Privacy notice{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4">Privacy notice <span class="text-muted fs-6">version {{ version }}</span></h1>
+    {% if needs_ack %}<p class="text-muted">Please review and acknowledge the current privacy notice to continue.</p>{% endif %}
+    <div class="border rounded bg-white p-3 mb-3">{% include "accounts/privacy_notice_text.html" %}</div>
+    {% if needs_ack %}
+      {% include "includes/form_errors.html" %}
+      <form method="post" novalidate>{% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+        <button class="btn btn-primary" type="submit">Acknowledge and continue</button>
+      </form>
+    {% else %}
+      <p class="mb-0 text-success">You have acknowledged this version.</p>
+    {% endif %}
+  </div></div>
+</div></div>
+{% endblock %}

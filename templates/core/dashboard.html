@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="h4 mb-3">Welcome, {{ user.first_name|default:user.username }}</h1>
+{% if available %}
+  <p class="text-muted">Choose a workspace. You see only the workspaces for roles assigned to you.</p>
+  <div class="row g-3">
+    {% for url, label in available %}
+      <div class="col-sm-6 col-lg-4">
+        <a class="card shadow-sm workspace-card text-decoration-none h-100" href="{% url url %}">
+          <div class="card-body"><h2 class="h6 mb-0 text-body">{{ label }}</h2></div>
+        </a>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="alert alert-info">Your account has no roles yet. A System Administrator must assign
+    a role before you can use a workspace.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-8 col-lg-6">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4 mb-3">{{ title }}</h1>
+    {% if intro %}<p class="text-muted">{{ intro }}</p>{% endif %}
+    {% include "includes/form_errors.html" %}
+    <form method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+      <button class="btn btn-primary" type="submit">{{ submit_label|default:"Submit" }}</button>
+    </form>
+  </div></div>
+</div></div>
+{% endblock %}

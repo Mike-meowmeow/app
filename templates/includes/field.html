@@ -1,0 +1,21 @@
+{% if field.is_hidden %}{{ field }}{% elif field.widget_type == 'checkbox' %}
+<div class="form-check mb-3">
+  {{ field }}
+  <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+  {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+</div>
+{% else %}
+<div class="mb-3">
+  <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+  {% if field.widget_type == 'checkboxselectmultiple' %}
+    <div class="border rounded bg-white p-2">
+      {% for choice in field %}
+        <div class="form-check">{{ choice.tag }}<label class="form-check-label" for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label></div>
+      {% endfor %}
+    </div>
+  {% else %}{{ field }}{% endif %}
+  {% for error in field.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+  {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+</div>
+{% endif %}

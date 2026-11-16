@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4 mb-3">Sign in</h1>
+    {% include "includes/form_errors.html" %}
+    <form method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn btn-primary w-100" type="submit">Sign in</button>
+    </form>
+    <div class="d-flex justify-content-between mt-3 small">
+      <a href="{% url 'accounts:password_reset' %}">Forgot password?</a>
+      <a href="{% url 'accounts:register' %}">Register as applicant</a>
+    </div>
+  </div></div>
+</div></div>
+{% endblock %}

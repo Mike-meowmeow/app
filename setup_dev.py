@@ -13,14 +13,12 @@ What it does, skipping anything already done:
      or adds any keys missing from an existing .env. Existing values are never
      overwritten.
   4. Creates private storage directories.
-  5. Checks the MySQL connection and, if asked, provisions the dev/test
-     database and account using MySQL root credentials.
-  6. Runs Django system checks and applies migrations once the custom user
-     model is configured.
+  5. Runs Django system checks.
+  6. Runs setup_db.py: finds the MySQL database, creates it and its account
+     when missing (asks for the MySQL root password once), and applies
+     migrations once the custom user model is configured.
 
 Options:
-  --provision-db     Create/repair the database and account (asks for the MySQL
-                     root password, or reads MYSQL_ROOT_PASSWORD).
   --skip-db          Skip all database steps.
   --recreate-venv    Delete and rebuild .venv.
   --non-interactive  Never prompt (for CI/scripts).
@@ -32,7 +30,6 @@ virtual environment exists.
 from __future__ import annotations
 
 import argparse
-import getpass
 import os
 import re
 import secrets
@@ -326,147 +323,22 @@ def step_directories(args) -> None:
     ok(f'Created {", ".join(created)}' if created else 'Private storage directories exist')
 
 
-DB_CHECK = r'''
-import django
-django.setup()
-from django.db import connection
-try:
-    connection.ensure_connection()
-except Exception as exc:
-    cause = exc.__cause__ or exc
-    code = cause.args[0] if cause.args else ''
-    print(f'ERROR|{code}|{cause}')
-    raise SystemExit(1)
-print(f'OK|{connection.mysql_server_info}')
-'''
-
-PROVISION = r'''
-import os, MySQLdb
-e = os.environ
-try:
-    conn = MySQLdb.connect(host=e['SETUP_DB_HOST'], port=int(e['SETUP_DB_PORT']),
-                           user=e['SETUP_ROOT_USER'], passwd=e['SETUP_ROOT_PASSWORD'],
-                           charset='utf8mb4')
-except MySQLdb.OperationalError as exc:
-    print(f'ERROR|{exc.args[0]}|{exc}')
-    raise SystemExit(1)
-cur = conn.cursor()
-db, user, pw = e['SETUP_DB_NAME'], e['SETUP_DB_USER'], e['SETUP_DB_PASSWORD']
-cur.execute(f"CREATE DATABASE IF NOT EXISTS `{db}` "
-            "CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci")
-for host in ('localhost', '127.0.0.1'):
-    cur.execute("CREATE USER IF NOT EXISTS %s@%s IDENTIFIED BY %s", (user, host, pw))
-    cur.execute("ALTER USER %s@%s IDENTIFIED BY %s", (user, host, pw))
-    for name in (db, f'test_{db}'):
-        cur.execute(f"GRANT ALL PRIVILEGES ON `{name}`.* TO %s@%s", (user, host))
-conn.commit()
-print('OK')
-'''
-
-
-def provision_database(env_values: dict[str, str], interactive: bool) -> None:
-    for key in ('DB_NAME', 'DB_USER'):
-        if not IDENTIFIER.match(env_values.get(key, '')):
-            raise SetupError(f'{key} in .env must contain only letters, digits, and underscores.')
-    if is_placeholder(env_values.get('DB_PASSWORD', '')) or not env_values.get('DB_PASSWORD'):
-        raise SetupError('DB_PASSWORD in .env is empty or a placeholder.')
-
-    root_user = os.environ.get('MYSQL_ROOT_USER', 'root')
-    root_password = os.environ.get('MYSQL_ROOT_PASSWORD')
-    if root_password is None:
-        if not interactive:
-            raise SetupError('MySQL root password required for provisioning.',
-                             'Set MYSQL_ROOT_PASSWORD or run interactively.')
-        root_password = getpass.getpass(f'        MySQL password for {root_user!r}: ')
-
-    info(f'Provisioning {env_values["DB_NAME"]} and account {env_values["DB_USER"]!r}')
-    result = django_snippet(PROVISION, {
-        'SETUP_DB_HOST': env_values.get('DB_HOST', '127.0.0.1'),
-        'SETUP_DB_PORT': env_values.get('DB_PORT', '3306'),
-        'SETUP_ROOT_USER': root_user,
-        'SETUP_ROOT_PASSWORD': root_password,
-        'SETUP_DB_NAME': env_values['DB_NAME'],
-        'SETUP_DB_USER': env_values['DB_USER'],
-        'SETUP_DB_PASSWORD': env_values['DB_PASSWORD'],
-    })
-    if result.returncode != 0:
-        lines = (result.stdout.strip() or result.stderr.strip()).splitlines()
-        detail = lines[-1] if lines else 'unknown error'
-        if detail.startswith('ERROR|1045'):
-            raise SetupError(f'MySQL rejected the {root_user!r} credentials.',
-                             'Check the password (or set MYSQL_ROOT_USER) and re-run '
-                             'with --provision-db.')
-        raise SetupError(f'Provisioning failed: {detail}')
-    ok(f'Database {env_values["DB_NAME"]} (+ test_{env_values["DB_NAME"]}) and account ready')
-
-
-def check_connection() -> tuple[bool, str, str]:
-    result = django_snippet(DB_CHECK)
-    out = result.stdout.strip().splitlines()
-    if result.returncode == 0 and out and out[-1].startswith('OK|'):
-        return True, '', out[-1].split('|', 1)[1]
-    if out and out[-1].startswith('ERROR|'):
-        _, code, message = out[-1].split('|', 2)
-        return False, code, message
-    lines = result.stderr.strip().splitlines()
-    return False, '', lines[-1] if lines else 'unknown error'
-
-
-def step_database(args, interactive: bool) -> bool:
-    if args.skip_db:
-        skip('Database steps (--skip-db)')
-        return False
-    values = parse_env(ENV_FILE)
-    host, port = values.get('DB_HOST', '127.0.0.1'), values.get('DB_PORT', '3306')
-
-    if not port.isdigit() or not port_open(host, int(port)):
-        detected = detect_mysql_port(host, port)
-        hint = (f'MySQL appears to be listening on port {detected}; set DB_PORT={detected} '
-                'in .env and re-run.' if detected != port else
-                'Start the MySQL server (Windows: Services > MySQL80; Linux: '
-                'sudo systemctl start mysql; macOS: brew services start mysql) and check '
-                'DB_HOST/DB_PORT in .env.')
-        raise SetupError(f'No MySQL server reachable at {host}:{port}.', hint)
-    ok(f'MySQL server reachable at {host}:{port}')
-
-    if args.provision_db:
-        provision_database(values, interactive)
-
-    connected, code, message = check_connection()
-    if (not connected and code in {'1044', '1045', '1049'}
-            and not args.provision_db and interactive):
-        warn(f'Cannot use the application database yet: {message}')
-        if ask_yes_no('Create/repair the database and account now using MySQL root?',
-                      interactive):
-            provision_database(values, interactive)
-            connected, code, message = check_connection()
-
-    if not connected:
-        hint = ('Re-run with --provision-db to create the database and account.'
-                if code in {'1044', '1045', '1049'} else None)
-        raise SetupError(f'Django cannot connect to the database: {message}', hint)
-    ok(f'Django connected to {values.get("DB_NAME")} (MySQL {message})')
-    return True
-
-
-def step_django(args, db_ready: bool) -> None:
+def step_django(args) -> None:
     run_or_fail([venv_python(), 'manage.py', 'check'], 'Django system check failed.')
     ok('Django system check passed')
 
-    if not db_ready:
-        skip('Migrations (database not checked)')
+
+def step_database(args) -> None:
+    if args.skip_db:
+        skip('Database steps (--skip-db)')
         return
-    result = django_snippet('import django; django.setup(); '
-                            'from django.conf import settings; print(settings.AUTH_USER_MODEL)')
-    user_model = result.stdout.strip()
-    if result.returncode != 0 or user_model == 'auth.User':
-        skip('Migrations: AUTH_USER_MODEL is not configured yet. Define the custom '
-             'user (Development Guide, Stage 2) before the first migrate.')
-        return
-    run_or_fail([venv_python(), 'manage.py', 'migrate', '--noinput'],
-                'Applying migrations failed.',
-                'Read the error above; do not delete migrations or reset a shared database.')
-    ok('Migrations applied')
+    cmd = [venv_python(), ROOT / 'setup_db.py', '--embedded']
+    if args.non_interactive:
+        cmd.append('--non-interactive')
+    if run(cmd).returncode != 0:
+        raise SetupError('Database setup did not complete.',
+                         'Fix the issue reported above, then re-run this script '
+                         '(or just setup_db.py).')
 
 
 # --------------------------------------------------------------------------
@@ -477,14 +349,10 @@ def main() -> int:
     # Keep our messages in order with subprocess output, even when piped.
     sys.stdout.reconfigure(line_buffering=True)
     parser = argparse.ArgumentParser(description='Set up the local development environment.')
-    parser.add_argument('--provision-db', action='store_true',
-                        help='create/repair the dev database and account using MySQL root')
     parser.add_argument('--skip-db', action='store_true', help='skip database steps')
     parser.add_argument('--recreate-venv', action='store_true', help='rebuild .venv')
     parser.add_argument('--non-interactive', action='store_true', help='never prompt')
     args = parser.parse_args()
-    interactive = not args.non_interactive and sys.stdin.isatty()
-    state: dict = {}
 
     steps = [
         ('Checking required tools', lambda: step_tools(args)),
@@ -492,8 +360,8 @@ def main() -> int:
         ('Installing dependencies', lambda: step_dependencies(args)),
         ('Configuring .env', lambda: step_env_file(args)),
         ('Creating private directories', lambda: step_directories(args)),
-        ('Checking database', lambda: state.update(db=step_database(args, interactive))),
-        ('Running Django checks', lambda: step_django(args, state.get('db', False))),
+        ('Running Django checks', lambda: step_django(args)),
+        ('Setting up database', lambda: step_database(args)),
     ]
 
     print(_paint('EVSU recruitment system: development setup', '1'))

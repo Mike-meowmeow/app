@@ -7,30 +7,32 @@ from accounts.access import role_required
 # What each workspace will hold, and the stage that delivers it. Shown as
 # placeholders so the layout is testable before the features exist.
 WORKSPACE_PLAN = {
+    # (label, stage, URL name or None while planned)
     'applicant': ('Applicant workspace', roles.APPLICANT, [
-        ('My profile and qualifications', 'Stage 4'),
-        ('Open vacancies', 'Stage 4'),
-        ('My applications and documents', 'Stage 5'),
-        ('Released updates and decisions', 'Stage 7'),
+        ('My profile and qualifications', 'Stage 4', 'applicants:profile'),
+        ('Open vacancies', 'Stage 4', 'recruitment:public_list'),
+        ('My applications and documents', 'Stage 5', None),
+        ('Released updates and decisions', 'Stage 7', None),
     ]),
     'hr': ('HR workspace', roles.HR, [
-        ('Vacancies and requirements', 'Stage 4'),
-        ('Document verification queue', 'Stage 5'),
-        ('Manual fact review and corrections', 'Stage 5'),
-        ('Official roster preparation', 'Stage 6'),
+        ('Vacancies and requirements', 'Stage 4', 'recruitment:vacancy_list'),
+        ('Document verification queue', 'Stage 5', None),
+        ('Manual fact review and corrections', 'Stage 5', None),
+        ('Official roster preparation', 'Stage 6', None),
     ]),
     'approver': ('Approver workspace', roles.APPROVER, [
-        ('Rosters awaiting approval', 'Stage 6'),
-        ('Decision release oversight', 'Stage 7'),
-        ('Recruitment reports', 'Stage 8'),
+        ('All vacancies (oversight)', 'Stage 4', 'recruitment:vacancy_list'),
+        ('Rosters awaiting approval', 'Stage 6', None),
+        ('Decision release oversight', 'Stage 7', None),
+        ('Recruitment reports', 'Stage 8', None),
     ]),
     'department': ('Department Head workspace', roles.DEPARTMENT_HEAD, [
-        ('Assigned vacancies', 'Stage 4'),
-        ('Qualification review and assessments', 'Stage 7'),
+        ('Assigned vacancies', 'Stage 4', 'recruitment:vacancy_list'),
+        ('Qualification review and assessments', 'Stage 7', None),
     ]),
     'psb': ('PSB workspace', roles.PSB_MEMBER, [
-        ('Assigned candidates', 'Stage 7'),
-        ('Interviews and evaluations', 'Stage 7'),
+        ('Assigned candidates', 'Stage 7', None),
+        ('Interviews and evaluations', 'Stage 7', None),
     ]),
 }
 

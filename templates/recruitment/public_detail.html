@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ vacancy.position_title }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:public_list' %}">&larr; Open vacancies</a>
+<div class="row g-3 mt-1">
+  <div class="col-lg-8">
+    <div class="card shadow-sm"><div class="card-body">
+      <h1 class="h4 mb-1">{{ vacancy.position_title }}</h1>
+      <div class="text-muted small mb-3">{{ vacancy.reference }} · {{ vacancy.department.name }} · {{ vacancy.recruitment_type }} · {{ vacancy.positions_available }} position{{ vacancy.positions_available|pluralize }}</div>
+      <div style="white-space: pre-line">{{ vacancy.description }}</div>
+      {% if req %}
+        <hr>
+        <h2 class="h5">Requirements</h2>
+        {% if req.version > 1 %}
+          <div class="alert alert-warning small">These requirements were updated on {{ req.published_at|date:"M j, Y g:i A" }} (version {{ req.version }}).</div>
+        {% endif %}
+        {% include "recruitment/_requirements.html" with req=req editable=False %}
+      {% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm workspace-card"><div class="card-body">
+      <h2 class="h6">Application period</h2>
+      <p class="small mb-1">Opens: {{ vacancy.opens_at|date:"M j, Y g:i A" }}</p>
+      <p class="small mb-2">Deadline: <strong>{{ vacancy.deadline_at|date:"M j, Y g:i A" }}</strong> (Asia/Manila time)</p>
+      {% if vacancy.is_accepting_applications %}
+        <span class="badge text-bg-success mb-2">Accepting applications</span>
+        <p class="small text-muted mb-0">Online application submission is coming soon (Stage 5). Complete your
+          {% if 'Applicant' in user_roles %}<a href="{% url 'applicants:profile' %}">profile</a>{% elif not user.is_authenticated %}profile after you <a href="{% url 'accounts:register' %}">register</a>{% else %}applicant profile{% endif %} to be ready.</p>
+      {% elif vacancy.application_window == 'upcoming' %}
+        <span class="badge text-bg-info">Not open yet</span>
+      {% else %}
+        <span class="badge text-bg-secondary">Application period has ended</span>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

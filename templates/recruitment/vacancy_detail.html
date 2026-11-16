@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}{{ vacancy.position_title }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:vacancy_list' %}">&larr; Vacancies</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ vacancy.position_title }} {% include "recruitment/_status_badge.html" with v=vacancy %}</h1>
+    <div class="text-muted small">{{ vacancy.reference }} · {{ vacancy.department.name }} · {{ vacancy.recruitment_type }} · {{ vacancy.positions_available }} position{{ vacancy.positions_available|pluralize }}</div>
+  </div>
+  {% if can_manage and editable %}
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary" href="{% url 'recruitment:vacancy_edit' vacancy.pk %}">Edit details</a>
+      {% if vacancy.status == 'draft' %}
+        <form method="post" action="{% url 'recruitment:vacancy_delete' vacancy.pk %}" onsubmit="return confirm('Delete this draft vacancy?');">{% csrf_token %}
+          <button class="btn btn-outline-danger" type="submit">Delete draft</button></form>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-sm-4">Applications open</dt><dd class="col-sm-8">{{ vacancy.opens_at|date:"M j, Y g:i A"|default:"Not set" }}</dd>
+        <dt class="col-sm-4">Deadline (Asia/Manila)</dt><dd class="col-sm-8">{{ vacancy.deadline_at|date:"M j, Y g:i A"|default:"Not set" }}</dd>
+        <dt class="col-sm-4">Posted</dt><dd class="col-sm-8">{{ vacancy.posted_at|date:"M j, Y g:i A"|default:"—" }}</dd>
+        {% if vacancy.status == 'published' %}<dt class="col-sm-4">Accepting applications</dt><dd class="col-sm-8">{% if vacancy.is_accepting_applications %}Yes{% else %}No ({{ vacancy.application_window }}){% endif %}</dd>{% endif %}
+      </dl>
+      <hr>
+      <div style="white-space: pre-line">{{ vacancy.description|default:"No description yet." }}</div>
+    </div></div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      {% if draft %}
+        <div class="d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0">Requirements · draft version {{ draft.version }}</h2>
+          {% if current %}<a class="small" href="{% url 'recruitment:version_detail' vacancy.pk current.version %}">Compare with published v{{ current.version }}</a>{% endif %}
+        </div>
+        {% if current %}<div class="alert alert-info small mt-2 mb-2">Applicants still see published version {{ current.version }} until you publish this draft.</div>{% endif %}
+        {% include "recruitment/_requirements.html" with req=draft editable=can_manage %}
+        {% if can_manage %}
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:requirement_add' vacancy.pk 'document' %}">+ Document</a>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:requirement_add' vacancy.pk 'standard' %}">+ Qualification standard</a>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:requirement_add' vacancy.pk 'competency' %}">+ Subject / competency</a>
+            {% if current %}
+              <form method="post" action="{% url 'recruitment:requirements_discard' vacancy.pk %}">{% csrf_token %}
+                <button class="btn btn-sm btn-outline-secondary" type="submit">Discard draft</button></form>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% elif current %}
+        <div class="d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0">Requirements · published version {{ current.version }}</h2>
+          {% if can_manage and vacancy.status == 'published' %}
+            <form method="post" action="{% url 'recruitment:requirements_start' vacancy.pk %}">{% csrf_token %}
+              <button class="btn btn-sm btn-outline-primary" type="submit">Change requirements</button></form>
+          {% endif %}
+        </div>
+        <p class="small text-muted mt-1">Published {{ current.published_at|date:"M j, Y g:i A" }} by {{ current.published_by.full_name|default:current.published_by.username }}. Published versions cannot be edited; changes create a new version.</p>
+        {% include "recruitment/_requirements.html" with req=current editable=False %}
+      {% endif %}
+    </div></div>
+
+    {% if can_manage and draft and editable %}
+      <div class="card shadow-sm mb-3 border-{% if problems %}warning{% else %}success{% endif %}"><div class="card-body">
+        <h2 class="h5">{% if vacancy.status == 'draft' %}Publish vacancy{% else %}Publish requirement changes{% endif %}</h2>
+        {% if problems %}
+          <p class="mb-1">Complete these before publishing:</p>
+          <ul class="mb-0">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+        {% else %}
+          <form method="post" action="{% url 'recruitment:vacancy_publish' vacancy.pk %}">{% csrf_token %}
+            {% if vacancy.status == 'published' %}
+              <label class="form-label" for="publish-reason">Reason for the change <span class="text-danger">*</span></label>
+              <textarea class="form-control mb-2" id="publish-reason" name="reason" rows="2" required></textarea>
+            {% endif %}
+            <button class="btn btn-success" type="submit">{% if vacancy.status == 'draft' %}Publish vacancy{% else %}Publish version {{ draft.version }}{% endif %}</button>
+          </form>
+        {% endif %}
+      </div></div>
+    {% endif %}
+
+    {% if can_manage and vacancy.status == 'published' or can_manage and vacancy.status == 'closed' %}
+      <div class="card shadow-sm mb-3"><div class="card-body">
+        <h2 class="h6">Close or cancel</h2>
+        <form method="post" class="mb-0">{% csrf_token %}
+          <label class="form-label small" for="state-reason">Reason <span class="text-danger">*</span></label>
+          <textarea class="form-control mb-2" id="state-reason" name="reason" rows="2" required></textarea>
+          {% if vacancy.status == 'published' %}<button class="btn btn-warning" formaction="{% url 'recruitment:vacancy_close' vacancy.pk %}" type="submit">Close applications</button>{% endif %}
+          <button class="btn btn-outline-danger" formaction="{% url 'recruitment:vacancy_cancel' vacancy.pk %}" type="submit" onclick="return confirm('Cancel this vacancy?');">Cancel vacancy</button>
+        </form>
+      </div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Assigned staff</h2>
+      <ul class="list-unstyled small mb-2">
+        {% for a in assignments %}
+          <li class="mb-2 {% if a.ended_at %}text-muted{% endif %}">
+            <span class="fw-semibold">{{ a.user.full_name|default:a.user.username }}</span> · {{ a.get_assignment_role_display }}
+            {% if a.ended_at %}<span class="badge text-bg-light border">ended {{ a.ended_at|date:"M j, Y" }}</span>
+            {% elif can_assign %}
+              <form method="post" action="{% url 'recruitment:assignment_end' vacancy.pk a.pk %}" class="d-inline">{% csrf_token %}
+                <button class="btn btn-link btn-sm p-0 ms-1 text-danger" type="submit">end</button></form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% if can_assign %}
+        <form method="post" action="{% url 'recruitment:assignment_add' vacancy.pk %}">{% csrf_token %}
+          <div class="mb-2">{{ assignment_form.user }}</div>
+          <div class="mb-2">{{ assignment_form.assignment_role }}</div>
+          <button class="btn btn-sm btn-outline-primary" type="submit">Assign</button>
+        </form>
+      {% endif %}
+    </div></div>
+
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">Published versions</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for v in versions %}
+          <li><a href="{% url 'recruitment:version_detail' vacancy.pk v.version %}">Version {{ v.version }}</a> · {{ v.published_at|date:"M j, Y g:i A" }}</li>
+        {% empty %}<li class="text-muted">Not published yet.</li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

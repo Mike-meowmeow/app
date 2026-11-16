@@ -28,6 +28,33 @@ def entity_label(obj):
     return obj._meta.label
 
 
+def _json_safe(value):
+    if value is None or isinstance(value, (bool, int, float, str, list, dict)):
+        return value
+    if hasattr(value, 'isoformat'):
+        return value.isoformat()
+    return str(value)  # Decimal, UUID
+
+
+SKIPPED_FIELDS = {'id', 'created_at', 'updated_at', 'password'}
+
+
+def snapshot(instance, fields=None):
+    """JSON-safe field values of a model instance (FKs as their ids)."""
+    return {
+        f.name: _json_safe(f.value_from_object(instance))
+        for f in instance._meta.concrete_fields
+        if f.name not in SKIPPED_FIELDS and (fields is None or f.name in fields)
+    }
+
+
+def diff(before, after):
+    """{field: {'old': ..., 'new': ...}} for fields whose values changed."""
+    before = before or {}
+    return {k: {'old': before.get(k), 'new': v} for k, v in after.items()
+            if before.get(k) != v}
+
+
 def record(action, *, entity=None, entity_type='', entity_id='', changes=None,
            reason=None, actor=_FROM_CONTEXT, ip_address=_FROM_CONTEXT):
     """Store one audit event. Actor, IP, and reason default to the current

@@ -30,7 +30,7 @@ ROLE_DESCRIPTIONS = {
 # Seeding only adds missing permissions, so administrators can extend groups.
 ROLE_PERMISSIONS = {
     APPLICANT: [],
-    HR: ['core.view_department', 'core.view_recruitmenttype'],
+    HR: ['core.view_department', 'core.view_recruitmenttype', 'documents.view_documenttype'],
     APPROVER: ['core.view_department', 'core.view_recruitmenttype', 'audit.view_auditlog'],
     DEPARTMENT_HEAD: ['core.view_department'],
     PSB_MEMBER: [],
@@ -39,8 +39,14 @@ ROLE_PERMISSIONS = {
         'core.view_department', 'core.add_department', 'core.change_department',
         'core.view_recruitmenttype', 'core.add_recruitmenttype',
         'core.change_recruitmenttype', 'audit.view_auditlog',
+        'documents.view_documenttype', 'documents.add_documenttype',
+        'documents.change_documenttype',
     ],
 }
+
+# Roles whose holders may use the Django admin (for reference data). Kept in
+# sync with is_staff whenever roles change.
+ADMIN_SITE_ROLES = (SYSTEM_ADMIN,)
 
 # (role, URL name, label) for role workspaces, in navigation order.
 WORKSPACES = (

@@ -1,7 +1,8 @@
 """Idempotent seed of roles and baseline reference data.
 
 Safe to run repeatedly: it only creates what is missing and only adds
-permissions, never removing ones an administrator granted later.
+permissions, never removing ones an administrator granted later or changing
+reference records an administrator edited.
 """
 
 from django.contrib.auth.models import Group, Permission
@@ -11,10 +12,26 @@ from django.db import transaction
 from accounts.roles import ROLE_PERMISSIONS
 from audit import services as audit
 from audit.context import audit_reason
-from core.models import RecruitmentType
+from core.models import Department, RecruitmentType
+from documents.models import DocumentType
 
 # Confirmed capstone scope. Other recruitment types need HR confirmation.
 RECRUITMENT_TYPES = [('PTI', 'Part-Time Instructor')]
+
+# Common part-time instructor application documents. Development defaults:
+# the official checklist still needs HR confirmation; HR can deactivate or add.
+DOCUMENT_TYPES = [
+    ('LETTER', 'Application letter'),
+    ('PDS', 'Personal Data Sheet (CSC Form 212)'),
+    ('RESUME', 'Resume / Curriculum Vitae'),
+    ('TOR', 'Transcript of Records'),
+    ('DIPLOMA', 'Diploma'),
+    ('PRC', 'PRC license / eligibility certificate'),
+    ('TRAINING', 'Training certificates'),
+    ('EMPLOYMENT', 'Certificate of employment / service record'),
+]
+
+SAMPLE_DEPARTMENT = ('DEV', 'Sample Department (development only)')
 
 
 def resolve_permission(dotted):
@@ -26,36 +43,47 @@ def resolve_permission(dotted):
 
 
 class Command(BaseCommand):
-    help = 'Create default roles (groups), their permissions, and baseline reference data.'
+    help = 'Create default roles, permissions, and baseline reference data.'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--sample-department', action='store_true',
+                            help='also create a clearly labeled development department')
 
     @transaction.atomic
-    def handle(self, *args, **options):
-        created_anything = False
+    def handle(self, *args, sample_department=False, **options):
+        self.changed = False
         with audit_reason('Reference data seed'):
-            for role, permission_names in ROLE_PERMISSIONS.items():
-                group, created = Group.objects.get_or_create(name=role)
-                wanted = {resolve_permission(p) for p in permission_names}
-                missing = wanted - set(group.permissions.all())
-                if missing:
-                    group.permissions.add(*missing)
-                if created or missing:
-                    created_anything = True
-                    audit.record('role.configured', entity=group, actor=None, changes={
-                        'created': created,
-                        'permissions_added': sorted(f'{p.content_type.app_label}.{p.codename}'
-                                                    for p in missing)})
-                    self.stdout.write(f'  role {role}: '
-                                      f'{"created" if created else "updated"}'
-                                      f'{f", +{len(missing)} permissions" if missing else ""}')
-
+            self.seed_roles()
             for code, name in RECRUITMENT_TYPES:
-                rtype, created = RecruitmentType.objects.get_or_create(
-                    code=code, defaults={'name': name})
-                if created:
-                    created_anything = True
-                    audit.record('reference.created', entity=rtype, actor=None,
-                                 changes={'code': code, 'name': name})
-                    self.stdout.write(f'  recruitment type {code}: created')
-
+                self.ensure(RecruitmentType, code, name)
+            for code, name in DOCUMENT_TYPES:
+                self.ensure(DocumentType, code, name)
+            if sample_department:
+                self.ensure(Department, *SAMPLE_DEPARTMENT)
         self.stdout.write(self.style.SUCCESS(
-            'Reference data seeded.' if created_anything else 'Reference data already up to date.'))
+            'Reference data seeded.' if self.changed else 'Reference data already up to date.'))
+
+    def seed_roles(self):
+        for role, permission_names in ROLE_PERMISSIONS.items():
+            group, created = Group.objects.get_or_create(name=role)
+            wanted = {resolve_permission(p) for p in permission_names}
+            missing = wanted - set(group.permissions.all())
+            if missing:
+                group.permissions.add(*missing)
+            if created or missing:
+                self.changed = True
+                audit.record('role.configured', entity=group, actor=None, changes={
+                    'created': created,
+                    'permissions_added': sorted(f'{p.content_type.app_label}.{p.codename}'
+                                                for p in missing)})
+                self.stdout.write(f'  role {role}: {"created" if created else "updated"}'
+                                  f'{f", +{len(missing)} permissions" if missing else ""}')
+
+    def ensure(self, model, code, name):
+        obj, created = model.objects.get_or_create(code=code, defaults={'name': name})
+        if created:
+            self.changed = True
+            audit.record('reference.created', entity=obj, actor=None,
+                         changes={'code': code, 'name': name})
+            self.stdout.write(f'  {model._meta.verbose_name} {code}: created')
+        return obj

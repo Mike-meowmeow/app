@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h4 mb-0">My applicant profile</h1>
+  <a class="btn btn-outline-primary" href="{% url 'recruitment:public_list' %}">Browse open vacancies ({{ open_vacancy_count }})</a>
+</div>
+
+{% if missing %}
+  <div class="alert alert-warning">
+    <div class="fw-semibold">Your profile is missing information needed to apply:</div>
+    <ul class="mb-0">{% for item in missing %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+{% else %}
+  <div class="alert alert-success">Your profile has the basic information needed to apply.</div>
+{% endif %}
+<p class="small text-muted">Changes here update your current profile only. Applications you have
+  already submitted keep the information you submitted.</p>
+
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center">
+    <h2 class="h5 mb-0">Personal information</h2>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'applicants:edit_personal' %}">Edit</a>
+  </div>
+  <dl class="row small mt-3 mb-0">
+    <dt class="col-sm-3">Name</dt><dd class="col-sm-9">{{ user.last_name|default:"—" }}, {{ user.first_name|default:"—" }} {{ user.middle_name|default:"" }}</dd>
+    <dt class="col-sm-3">Email</dt><dd class="col-sm-9">{{ user.email }}</dd>
+    <dt class="col-sm-3">Contact number</dt><dd class="col-sm-9">{{ profile.contact_no|default:"—" }}</dd>
+    <dt class="col-sm-3">Birthdate</dt><dd class="col-sm-9">{{ profile.birthdate|date:"M j, Y"|default:"—" }}</dd>
+    <dt class="col-sm-3">Sex</dt><dd class="col-sm-9">{{ profile.get_sex_display|default:"—" }}</dd>
+    <dt class="col-sm-3">Civil status</dt><dd class="col-sm-9">{{ profile.get_civil_status_display|default:"—" }}</dd>
+    <dt class="col-sm-3">Address</dt><dd class="col-sm-9">{{ profile.address|default:"—" }}</dd>
+  </dl>
+</div></div>
+
+{% for kind, label, records in sections %}
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="h5 mb-0">{{ label }}</h2>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'applicants:add_record' kind %}">Add</a>
+  </div>
+  <ul class="list-group list-group-flush">
+    {% for r in records %}
+      <li class="list-group-item px-0 d-flex justify-content-between align-items-start gap-2">
+        <div class="small">
+          {% if kind == 'education' %}
+            <div class="fw-semibold">{{ r.get_degree_level_display }} · {{ r.program }}</div>
+            <div>{{ r.institution }}</div>
+            <div class="text-muted">{{ r.get_completion_status_display }}{% if r.completed_on %}, {{ r.completed_on|date:"M Y" }}{% endif %}</div>
+          {% elif kind == 'experience' %}
+            <div class="fw-semibold">{{ r.position }}</div>
+            <div>{{ r.organization }}</div>
+            <div class="text-muted">{{ r.start_date|date:"M Y" }} – {{ r.end_date|date:"M Y"|default:"present" }}</div>
+            {% if r.duties %}<div class="text-muted">{{ r.duties|truncatechars:160 }}</div>{% endif %}
+          {% elif kind == 'training' %}
+            <div class="fw-semibold">{{ r.title }}</div>
+            <div class="text-muted">{{ r.provider|default:"" }}{% if r.hours is not None %} · {{ r.hours|floatformat:"-2" }} hours{% endif %}{% if r.start_date %} · {{ r.start_date|date:"M j, Y" }}{% if r.end_date and r.end_date != r.start_date %} – {{ r.end_date|date:"M j, Y" }}{% endif %}{% endif %}</div>
+          {% elif kind == 'eligibility' %}
+            <div class="fw-semibold">{{ r.eligibility_type }}</div>
+            <div class="text-muted">{% if r.rating is not None %}Rating {{ r.rating }}{% endif %}{% if r.date_obtained %} · {{ r.date_obtained|date:"M j, Y" }}{% endif %}</div>
+          {% else %}
+            <div class="fw-semibold">{{ r.profession }}</div>
+            <div>License no. {{ r.license_number }}{% if r.issuing_body %} · {{ r.issuing_body }}{% endif %}</div>
+            <div class="text-muted">{% if r.issued_on %}Issued {{ r.issued_on|date:"M j, Y" }}{% endif %}{% if r.expires_on %} · Expires {{ r.expires_on|date:"M j, Y" }}{% endif %}</div>
+          {% endif %}
+        </div>
+        <div class="d-flex gap-1 flex-shrink-0">
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'applicants:edit_record' kind r.pk %}">Edit</a>
+          <form method="post" action="{% url 'applicants:delete_record' kind r.pk %}" onsubmit="return confirm('Remove this record?');">{% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+        </div>
+      </li>
+    {% empty %}<li class="list-group-item px-0 text-muted small">None added.</li>{% endfor %}
+  </ul>
+</div></div>
+{% endfor %}
+{% endblock %}

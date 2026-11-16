@@ -158,7 +158,18 @@ def set_roles(target, role_names, *, reason=''):
             target.groups.remove(*(current - wanted))
         if wanted - current:
             target.groups.add(*(wanted - current))
-    roles.clear_role_cache(target)
+        roles.clear_role_cache(target)
+        _sync_admin_site_access(target)
+
+
+def _sync_admin_site_access(user):
+    """Only System Administrators (and superusers) may open the Django admin."""
+    should_be_staff = user.is_superuser or roles.has_role(user, *roles.ADMIN_SITE_ROLES)
+    if user.is_staff != should_be_staff:
+        user.is_staff = should_be_staff
+        user.save(update_fields=['is_staff'])
+        audit.record('account.admin_site_access', entity=user,
+                     changes={'is_staff': {'old': not should_be_staff, 'new': should_be_staff}})
 
 
 @transaction.atomic

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4">{{ title }}</h1>
+    {% if intro %}<p class="text-muted">{{ intro }}</p>{% endif %}
+    <p class="small text-muted">Fields marked <span class="text-danger">*</span> are required.</p>
+    {% include "includes/form_errors.html" %}
+    <form method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+      <button class="btn btn-primary" type="submit">{{ submit_label|default:"Save" }}</button>
+      {% if cancel_url %}
+        <a class="btn btn-link" href="{% if cancel_arg %}{% url cancel_url cancel_arg %}{% else %}{% url cancel_url %}{% endif %}">Cancel</a>
+      {% endif %}
+    </form>
+  </div></div>
+</div></div>
+{% endblock %}

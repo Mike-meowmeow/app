@@ -7,5 +7,7 @@ admin.site.site_title = 'EVSU Recruitment admin'
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
+    path('profile/', include('applicants.urls')),
+    path('recruitment/', include('recruitment.urls')),
     path('', include('core.urls')),
 ]

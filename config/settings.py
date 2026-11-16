@@ -49,6 +49,9 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'accounts.apps.AccountsConfig',
     'audit.apps.AuditConfig',
+    'documents.apps.DocumentsConfig',
+    'recruitment.apps.RecruitmentConfig',
+    'applicants.apps.ApplicantsConfig',
 ]
 
 MIDDLEWARE = [

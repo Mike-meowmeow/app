@@ -34,8 +34,10 @@ from __future__ import annotations
 import argparse
 import getpass
 import os
+import shutil
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,6 +48,9 @@ import setup_dev as ui  # noqa: E402  (stdlib-only helpers shared with setup_dev
 from setup_dev import SetupError  # noqa: E402
 
 ACCOUNT_HOSTS = ('localhost', '127.0.0.1')
+DISPLAY_TIME_ZONE = 'Asia/Manila'  # must match TIME_ZONE in config/settings.py
+TZ_TABLES = ('time_zone', 'time_zone_name', 'time_zone_transition',
+             'time_zone_transition_type')
 MIN_MYSQL = (8, 0, 11)  # Django 5.2 minimum
 CHARSET, COLLATION = 'utf8mb4', 'utf8mb4_0900_ai_ci'
 
@@ -135,10 +140,11 @@ class Status:
     charset: str = ''
     collation: str = ''
     test_grant: bool = False
+    timezones_loaded: bool = False
 
     @property
     def ready(self) -> bool:
-        return self.can_connect and self.test_grant
+        return self.can_connect and self.test_grant and self.timezones_loaded
 
 
 def app_status(cfg) -> Status:
@@ -165,6 +171,11 @@ def app_status(cfg) -> Status:
         test_db = f'`test_{cfg["DB_NAME"]}`'
         status.test_grant = any(
             test_db in g or ('ON *.*' in g and 'ALL PRIVILEGES' in g) for g in grants)
+        # Django converts UTC to the display zone in SQL for date filters,
+        # truncation, and reports; MySQL returns NULL without zone tables.
+        cur.execute("SELECT CONVERT_TZ('2026-01-01 00:00:00', 'UTC', %s)",
+                    (DISPLAY_TIME_ZONE,))
+        status.timezones_loaded = cur.fetchone()[0] is not None
     finally:
         conn.close()
     return status
@@ -180,6 +191,9 @@ def describe_problem(cfg, status: Status) -> str:
         return f'Account {user!r} has no access to database {db}.'
     if status.can_connect and not status.test_grant:
         return f'Account {user!r} cannot create the test database test_{db}.'
+    if status.can_connect and not status.timezones_loaded:
+        return ('MySQL time zone tables are not loaded (needed for date filters '
+                'and reports).')
     return f'Cannot connect as {user!r}: {status.error}'
 
 
@@ -187,6 +201,7 @@ def report_ready(cfg, status: Status) -> None:
     ui.ok(f'Database {cfg["DB_NAME"]} found; {cfg["DB_USER"]!r} can connect '
           f'(MySQL {status.version})')
     ui.ok(f'Test database access: test_{cfg["DB_NAME"]}')
+    ui.ok(f'MySQL time zone support ({DISPLAY_TIME_ZONE})')
     if status.charset != CHARSET:
         ui.warn(f'Database character set is {status.charset}, expected {CHARSET}. '
                 'Convert it before creating tables.')
@@ -261,8 +276,58 @@ def provision(cfg, status: Status, args, interactive: bool) -> None:
                 cur.execute(f'GRANT ALL PRIVILEGES ON `{name}`.* TO %s@%s', (user, host))
         ui.ok(f'Granted {user!r} access to {db} and test_{db}')
         conn.commit()
+
+        if not status.timezones_loaded:
+            load_timezones(cur)
+            conn.commit()
     finally:
         conn.close()
+
+
+def find_tzinfo_tool() -> str:
+    tool = shutil.which('mysql_tzinfo_to_sql')
+    if not tool and ui.IS_WINDOWS:
+        found = sorted(Path(os.environ.get('ProgramFiles', r'C:\Program Files'))
+                       .glob('MySQL/MySQL Server */bin/mysql_tzinfo_to_sql.exe'))
+        tool = str(found[-1]) if found else None
+    if not tool:
+        raise SetupError('mysql_tzinfo_to_sql was not found; cannot load MySQL time zones.',
+                         'It ships with MySQL Server (Linux: mysql-server package). See '
+                         'https://dev.mysql.com/doc/refman/8.4/en/time-zone-support.html')
+    return tool
+
+
+def load_timezones(cur) -> None:
+    """Fill MySQL's time zone tables from the tzdata package (same data on every
+    platform). Zones are converted one file at a time because the directory
+    mode of mysql_tzinfo_to_sql does not work on Windows."""
+    import tzdata
+
+    tool = find_tzinfo_tool()
+    package = Path(tzdata.__file__).parent
+    names = [n.strip() for n in (package / 'zones').read_text(encoding='utf-8').splitlines()
+             if n.strip()]
+    ui.info(f'Loading {len(names)} time zones into MySQL (one-time, may take a minute)')
+
+    def convert(name):
+        result = subprocess.run([tool, str(package / 'zoneinfo' / name), name],
+                                capture_output=True, text=True)
+        return result.stdout if result.returncode == 0 else ''
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        chunks = list(pool.map(convert, names))
+    statements = [s.strip() for chunk in chunks for s in chunk.split(';\n')
+                  if s.strip() and s.strip().upper() not in ('START TRANSACTION', 'COMMIT')]
+    if not any(c for c in chunks):
+        raise SetupError('mysql_tzinfo_to_sql produced no time zone data.')
+
+    cur.execute('USE mysql')
+    for table in TZ_TABLES:
+        cur.execute(f'TRUNCATE TABLE {table}')
+    for statement in statements:
+        cur.execute(statement.rstrip(';'))
+    cur.execute('SELECT COUNT(*) FROM time_zone_name')
+    ui.ok(f'Loaded {cur.fetchone()[0]} MySQL time zones')
 
 
 # --------------------------------------------------------------------------

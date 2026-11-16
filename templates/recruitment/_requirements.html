@@ -1,0 +1,48 @@
+{% comment %}
+  Renders one requirement version. Context: req, editable (bool), vacancy.
+{% endcomment %}
+<h3 class="h6 mt-2">Required documents</h3>
+<ul class="list-group mb-3">
+  {% for d in req.document_requirements.all %}
+    <li class="list-group-item d-flex justify-content-between align-items-start">
+      <div>
+        <span class="fw-semibold">{{ d.document_type.name }}</span>
+        {% if d.is_required %}<span class="badge text-bg-danger ms-1">required</span>{% else %}<span class="badge text-bg-secondary ms-1">optional</span>{% endif %}
+        {% if d.max_files > 1 %}<span class="text-muted small ms-1">up to {{ d.max_files }} files</span>{% endif %}
+        {% if d.instructions %}<div class="small text-muted">{{ d.instructions }}</div>{% endif %}
+      </div>
+      {% if editable %}
+        <form method="post" action="{% url 'recruitment:requirement_remove' vacancy.pk 'document' d.pk %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+      {% endif %}
+    </li>
+  {% empty %}<li class="list-group-item text-muted">None yet.</li>{% endfor %}
+</ul>
+
+<h3 class="h6">Qualification standards</h3>
+<ul class="list-group mb-3">
+  {% for s in req.qualification_standards.all %}
+    <li class="list-group-item d-flex justify-content-between align-items-start">
+      <div>
+        <span class="badge text-bg-light border me-1">{{ s.get_criterion_type_display }}</span>{{ s.description }}
+      </div>
+      {% if editable %}
+        <form method="post" action="{% url 'recruitment:requirement_remove' vacancy.pk 'standard' s.pk %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+      {% endif %}
+    </li>
+  {% empty %}<li class="list-group-item text-muted">None yet.</li>{% endfor %}
+</ul>
+
+<h3 class="h6">Relevant subjects and competencies</h3>
+<ul class="list-group mb-1">
+  {% for c in req.competencies.all %}
+    <li class="list-group-item d-flex justify-content-between align-items-start">
+      <div><span class="fw-semibold">{{ c.name }}</span>{% if c.description %}<div class="small text-muted">{{ c.description }}</div>{% endif %}</div>
+      {% if editable %}
+        <form method="post" action="{% url 'recruitment:requirement_remove' vacancy.pk 'competency' c.pk %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+      {% endif %}
+    </li>
+  {% empty %}<li class="list-group-item text-muted">None listed.</li>{% endfor %}
+</ul>

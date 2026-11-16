@@ -22,6 +22,7 @@
     <div class="collapse navbar-collapse" id="mainNav">
       {% if user.is_authenticated %}
         <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="{% url 'recruitment:public_list' %}">Vacancies</a></li>
           {% for url, label in user_workspaces %}
             <li class="nav-item"><a class="nav-link" href="{% url url %}">{{ label }}</a></li>
           {% endfor %}
@@ -44,7 +45,10 @@
           </li>
         </ul>
       {% else %}
-        <ul class="navbar-nav ms-auto">
+        <ul class="navbar-nav me-auto">
+          <li class="nav-item"><a class="nav-link" href="{% url 'recruitment:public_list' %}">Vacancies</a></li>
+        </ul>
+        <ul class="navbar-nav">
           <li class="nav-item"><a class="nav-link" href="{% url 'accounts:login' %}">Sign in</a></li>
           <li class="nav-item"><a class="nav-link" href="{% url 'accounts:register' %}">Register</a></li>
         </ul>

@@ -7,15 +7,16 @@
     <h1 class="h4 mb-1">{{ vacancy.position_title }} {% include "recruitment/_status_badge.html" with v=vacancy %}</h1>
     <div class="text-muted small">{{ vacancy.reference }} · {{ vacancy.department.name }} · {{ vacancy.recruitment_type }} · {{ vacancy.positions_available }} position{{ vacancy.positions_available|pluralize }}</div>
   </div>
-  {% if can_manage and editable %}
-    <div class="d-flex gap-2">
+  <div class="d-flex gap-2">
+    {% if vacancy.status != 'draft' %}<a class="btn btn-primary" href="{% url 'recruitment:vacancy_applications' vacancy.pk %}">Applications ({{ submitted_count }})</a>{% endif %}
+    {% if can_manage and editable %}
       <a class="btn btn-outline-primary" href="{% url 'recruitment:vacancy_edit' vacancy.pk %}">Edit details</a>
       {% if vacancy.status == 'draft' %}
         <form method="post" action="{% url 'recruitment:vacancy_delete' vacancy.pk %}" onsubmit="return confirm('Delete this draft vacancy?');">{% csrf_token %}
           <button class="btn btn-outline-danger" type="submit">Delete draft</button></form>
       {% endif %}
-    </div>
-  {% endif %}
+    {% endif %}
+  </div>
 </div>
 
 <div class="row g-3">

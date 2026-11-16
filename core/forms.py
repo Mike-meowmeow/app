@@ -8,7 +8,8 @@ class BootstrapFormMixin:
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             widget = field.widget
-            if isinstance(widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple)):
+            if isinstance(widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple,
+                                   forms.RadioSelect)):
                 css = 'form-check-input'
             elif isinstance(widget, forms.Select):
                 css = 'form-select'

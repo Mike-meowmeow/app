@@ -3,7 +3,7 @@ from django.db import models
 from django.db.models import F, Q
 from django.utils import timezone
 
-from core.models import BaseModel
+from core.models import AppendOnlyModel, BaseModel
 
 
 class VacancyStatus(models.TextChoices):
@@ -233,3 +233,232 @@ class VacancyAssignment(BaseModel):
     @property
     def is_active(self):
         return self.ended_at is None
+
+
+# ==========================================================================
+# Applications (Stage 5, Batch C)
+# ==========================================================================
+
+class ApplicationStatus(models.TextChoices):
+    DRAFT = 'draft', 'Draft'
+    SUBMITTED = 'submitted', 'Submitted'
+    UNDER_REVIEW = 'under_review', 'Under Review'
+    CORRECTION_REQUESTED = 'correction_requested', 'Correction Requested'
+    SHORTLISTED = 'shortlisted', 'Shortlisted'
+    FOR_INTERVIEW = 'for_interview', 'For Interview'
+    RECOMMENDED = 'recommended', 'Recommended'
+    HIRED = 'hired', 'Hired'
+    NOT_SELECTED = 'not_selected', 'Not Selected'
+    WITHDRAWN = 'withdrawn', 'Withdrawn'
+    CLOSED_WITHOUT_SELECTION = 'closed_without_selection', 'Closed Without Selection'
+
+
+class Application(BaseModel):
+    """One application per applicant and vacancy. `revision` increases on every
+    roster-visible change. Submitted applications are never hard-deleted."""
+
+    applicant = models.ForeignKey('applicants.Applicant', on_delete=models.PROTECT,
+                                  related_name='applications')
+    vacancy = models.ForeignKey(Vacancy, on_delete=models.PROTECT, related_name='applications')
+    status = models.CharField(max_length=30, choices=ApplicationStatus.choices,
+                              default=ApplicationStatus.DRAFT)
+    submitted_at = models.DateTimeField(null=True, blank=True,
+                                        help_text='First successful submission.')
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    revision = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'applications'
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['vacancy', 'status', 'submitted_at'],
+                                name='application_vacancy_status_idx')]
+        constraints = [
+            models.UniqueConstraint(fields=['applicant', 'vacancy'],
+                                    name='application_unique_per_vacancy'),
+        ]
+
+    def __str__(self):
+        return f'{self.reference} - {self.applicant}'
+
+    @property
+    def reference(self):
+        return f'APP-{self.pk.hex[:8].upper()}' if self.pk else 'APP-NEW'
+
+    def open_correction_request(self):
+        return self.correction_requests.filter(status=CorrectionStatus.OPEN).first()
+
+    def latest_snapshot(self):
+        return self.snapshots.order_by('-version').first()
+
+
+class SnapshotType(models.TextChoices):
+    SUBMISSION = 'submission', 'Submission'
+    CORRECTION = 'correction', 'Correction'
+    REVIEWED = 'reviewed', 'Reviewed'
+    ANALYSIS_INPUT = 'analysis_input', 'Analysis Input'
+
+
+class ApplicationSnapshot(AppendOnlyModel):
+    """Exact submitted information (schema-versioned JSON). Never changes."""
+
+    application = models.ForeignKey(Application, on_delete=models.PROTECT,
+                                    related_name='snapshots')
+    requirement_version = models.ForeignKey(VacancyRequirementVersion, on_delete=models.PROTECT,
+                                            related_name='+')
+    version = models.PositiveIntegerField()
+    snapshot_type = models.CharField(max_length=20, choices=SnapshotType.choices)
+    data = models.JSONField()
+    captured_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                    null=True, blank=True, related_name='+')
+    captured_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'application_snapshots'
+        ordering = ['application', 'version']
+        constraints = [
+            models.UniqueConstraint(fields=['application', 'version'],
+                                    name='application_snapshot_unique'),
+            models.CheckConstraint(condition=Q(version__gt=0),
+                                   name='application_snapshot_version_positive'),
+        ]
+
+
+class FactType(models.TextChoices):
+    IDENTITY = 'identity', 'Identity and contact'
+    EDUCATION = 'education', 'Education'
+    EXPERIENCE = 'experience', 'Work experience'
+    TRAINING = 'training', 'Training'
+    ELIGIBILITY = 'eligibility', 'Eligibility'
+    LICENSE = 'license', 'Professional license'
+    QUALIFICATION_ASSESSMENT = 'qualification_assessment', 'Qualification assessment'
+
+
+class FactReviewStatus(models.TextChoices):
+    PENDING = 'pending', 'Pending review'
+    ACCEPTED = 'accepted', 'Accepted'
+    REJECTED = 'rejected', 'Rejected'
+    SUPERSEDED = 'superseded', 'Superseded'
+
+
+class RelevanceStatus(models.TextChoices):
+    NOT_ASSESSED = 'not_assessed', 'Not assessed'
+    RELEVANT = 'relevant', 'Relevant'
+    NOT_RELEVANT = 'not_relevant', 'Not relevant'
+    NOT_APPLICABLE = 'not_applicable', 'Not applicable'
+
+
+class ApplicationFact(BaseModel):
+    """A typed item of application information under human review. Changing a
+    value creates a new fact that supersedes the old one; the old one is kept.
+
+    Manual qualification outcomes (Meets / Does Not Meet / Needs Review / Not
+    Required) are stored as qualification_assessment facts, because the ERD
+    qualification_results table belongs to the Stage 10 AI screening."""
+
+    application = models.ForeignKey(Application, on_delete=models.PROTECT, related_name='facts')
+    fact_type = models.CharField(max_length=30, choices=FactType.choices)
+    value = models.JSONField()
+    review_status = models.CharField(max_length=20, choices=FactReviewStatus.choices,
+                                     default=FactReviewStatus.PENDING)
+    relevance_status = models.CharField(max_length=20, choices=RelevanceStatus.choices,
+                                        default=RelevanceStatus.NOT_APPLICABLE)
+    source_snapshot = models.ForeignKey(ApplicationSnapshot, on_delete=models.PROTECT,
+                                        null=True, blank=True, related_name='facts')
+    supersedes = models.ForeignKey('self', on_delete=models.PROTECT, null=True, blank=True,
+                                   related_name='superseded_by')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                    null=True, blank=True, related_name='+')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_reason = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'application_facts'
+        ordering = ['fact_type', 'created_at']
+        indexes = [models.Index(fields=['application', 'fact_type', 'review_status'],
+                                name='fact_application_type_idx')]
+
+    def __str__(self):
+        return f'{self.get_fact_type_display()} ({self.get_review_status_display()})'
+
+    @property
+    def is_current(self):
+        return self.review_status != FactReviewStatus.SUPERSEDED
+
+
+class CorrectionStatus(models.TextChoices):
+    OPEN = 'open', 'Open'
+    SUBMITTED = 'submitted', 'Corrections submitted'
+    CANCELED = 'canceled', 'Canceled'
+
+
+class CorrectionRequest(BaseModel):
+    application = models.ForeignKey(Application, on_delete=models.PROTECT,
+                                    related_name='correction_requests')
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                     related_name='+')
+    requested_changes = models.JSONField()
+    deadline_at = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=CorrectionStatus.choices,
+                              default=CorrectionStatus.OPEN)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                    null=True, blank=True, related_name='+')
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    exception_reason = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'correction_requests'
+        ordering = ['-created_at']
+
+    def window_open(self, now=None):
+        return self.status == CorrectionStatus.OPEN and (now or timezone.now()) < self.deadline_at
+
+    @property
+    def message(self):
+        return self.requested_changes.get('message', '')
+
+    @property
+    def document_type_codes(self):
+        return self.requested_changes.get('document_types', [])
+
+
+class WorkflowVisibility(models.TextChoices):
+    APPLICANT = 'applicant', 'Visible to applicant'
+    INTERNAL = 'internal', 'Internal'
+
+
+class WorkflowLog(AppendOnlyModel):
+    application = models.ForeignKey(Application, on_delete=models.PROTECT,
+                                    related_name='workflow_logs')
+    from_status = models.CharField(max_length=30, blank=True)
+    to_status = models.CharField(max_length=30, choices=ApplicationStatus.choices)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              null=True, blank=True, related_name='+')
+    reason = models.TextField(blank=True)
+    visibility = models.CharField(max_length=20, choices=WorkflowVisibility.choices,
+                                  default=WorkflowVisibility.APPLICANT)
+    occurred_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'workflow_logs'
+        ordering = ['occurred_at']
+
+
+class ApplicationCorrection(AppendOnlyModel):
+    """Field-level change history with reason (FR-004, FR-025)."""
+
+    application = models.ForeignKey(Application, on_delete=models.PROTECT,
+                                    related_name='corrections')
+    target_entity = models.CharField(max_length=100)
+    target_id = models.CharField(max_length=64)
+    field_name = models.CharField(max_length=100)
+    old_value = models.JSONField(null=True, blank=True)
+    new_value = models.JSONField(null=True, blank=True)
+    reason = models.TextField()
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                              related_name='+')
+    corrected_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'application_corrections'
+        ordering = ['corrected_at']

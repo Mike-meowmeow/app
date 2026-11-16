@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Verify {{ version.file_name }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:application_review' application.pk %}">&larr; {{ application.reference }}</a>
+<div class="row g-3 mt-1">
+  <div class="col-lg-7">
+    <div class="card shadow-sm"><div class="card-body">
+      <h1 class="h5">{{ version.document.document_type.name }} <span class="text-muted fs-6">v{{ version.version }}</span></h1>
+      <p class="small mb-2">{{ version.file_name }} · {{ version.file_size_bytes|filesizeformat }} · uploaded {{ version.uploaded_at|date:"M j, Y g:i A" }}
+        · <a href="{% url 'documents:download' version.pk %}?inline=1" target="_blank" rel="noopener">Open</a>
+        · <a href="{% url 'documents:download' version.pk %}">Download</a></p>
+      <p class="small text-muted mb-3">Technical check: {{ version.get_validation_status_display }} · Malware scan: {{ version.get_malware_status_display }} · SHA-256 {{ version.sha256|truncatechars:20 }}</p>
+      {% include "includes/form_errors.html" %}
+      <form method="post" novalidate>{% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+        <button class="btn btn-primary" type="submit">Record verification</button>
+      </form>
+      <p class="small text-muted mt-3 mb-0">Verification records a human review outcome. It does not claim automatic proof of authenticity.</p>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">Verification history (this version)</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for h in history %}
+          <li class="mb-2"><span class="fw-semibold">{{ h.get_status_display }}</span> · {{ h.reviewed_at|date:"M j, Y g:i A" }} · {{ h.reviewed_by.full_name|default:h.reviewed_by.username }}{% if h.notes %}<div class="text-muted">{{ h.notes }}</div>{% endif %}</li>
+        {% empty %}<li class="text-muted">Not reviewed yet.</li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

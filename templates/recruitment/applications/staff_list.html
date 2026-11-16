@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Applications · {{ vacancy.position_title }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:vacancy_detail' vacancy.pk %}">&larr; {{ vacancy.position_title }}</a>
+<h1 class="h4 mt-2">Applications</h1>
+<p class="small text-muted">{{ vacancy.reference }} · Submitted applications only (drafts stay private to applicants). Filters here never change who appears on the official roster.</p>
+<form method="get" class="card card-body shadow-sm mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-6"><label class="form-label small" for="id_q">Search</label>{{ form.q }}</div>
+    <div class="col-md-4"><label class="form-label small" for="id_status">Status</label>{{ form.status }}</div>
+    <div class="col-md-2 d-grid"><button class="btn btn-outline-secondary" type="submit">Filter</button></div>
+  </div>
+  {% if query %}<div class="mt-2"><a class="small" href="{% url 'recruitment:vacancy_applications' vacancy.pk %}">Clear filters</a></div>{% endif %}
+</form>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Reference</th><th>Applicant</th><th>Status</th><th>Submitted</th><th>Revision</th></tr></thead>
+  <tbody>
+    {% for app in page %}
+      <tr>
+        <td><a href="{% url 'recruitment:application_review' app.pk %}">{{ app.reference }}</a></td>
+        <td>{{ app.applicant.user.last_name }}, {{ app.applicant.user.first_name }}<div class="small text-muted">{{ app.applicant.user.email }}</div></td>
+        <td>{% include "recruitment/applications/_status.html" %}</td>
+        <td>{{ app.submitted_at|date:"M j, Y g:i A" }}</td>
+        <td>{{ app.revision }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-4">No submitted applications match.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="d-flex justify-content-between align-items-center mt-2 small text-muted">
+  <span>{{ page.paginator.count }} result{{ page.paginator.count|pluralize }}</span>
+  {% if page.paginator.num_pages > 1 %}
+  <ul class="pagination pagination-sm mb-0">
+    {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?{{ query }}&page={{ page.previous_page_number }}">Previous</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+    {% if page.has_next %}<li class="page-item"><a class="page-link" href="?{{ query }}&page={{ page.next_page_number }}">Next</a></li>{% endif %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

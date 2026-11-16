@@ -81,6 +81,7 @@ def vacancy_detail(request, pk):
         'editable': vacancy.status in (VacancyStatus.DRAFT, VacancyStatus.PUBLISHED),
         'reason_form': ReasonForm(),
         'assignment_form': AssignmentForm(),
+        'submitted_count': vacancy.applications.filter(submitted_at__isnull=False).count(),
     }
     return render(request, 'recruitment/vacancy_detail.html', context)
 
@@ -290,5 +291,9 @@ def public_list(request):
 def public_detail(request, pk):
     vacancy = get_object_or_404(Vacancy.objects.select_related('department', 'recruitment_type'),
                                 pk=pk, status=VacancyStatus.PUBLISHED)
+    existing = None
+    if roles.has_role(request.user, roles.APPLICANT):
+        existing = vacancy.applications.filter(applicant__user=request.user).first()
     return render(request, 'recruitment/public_detail.html', {
-        'vacancy': vacancy, 'req': vacancy.current_requirements()})
+        'vacancy': vacancy, 'req': vacancy.current_requirements(), 'existing': existing,
+        'is_applicant': roles.has_role(request.user, roles.APPLICANT)})

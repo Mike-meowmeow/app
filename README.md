@@ -140,6 +140,11 @@ After pulling changes, run `py setup_db.py` (or the full setup if `requirements.
 | `EMAIL_VERIFICATION_TIMEOUT_HOURS` | Verification link lifetime | `48` |
 | `PRIVACY_NOTICE_VERSION` | Changing it makes applicants acknowledge the notice again | `DRAFT-2026-11` |
 | `DEFAULT_FROM_EMAIL` | Sender address on system emails | `EVSU Recruitment <no-reply@localhost>` |
+| `CORRECTION_WINDOW_DAYS` | Default deadline HR is offered for correction requests | `5` |
+| `MALWARE_SCAN_COMMAND` | Optional scanner (e.g. `clamscan --no-summary`); exit 0 clean, 1 infected | empty = "not scanned" |
+
+Uploaded documents are stored privately under `private/documents/` (git-ignored) and are only
+served through permission-checked download links. Back this folder up together with the database.
 
 Restart the server after editing `.env`.
 
@@ -180,8 +185,9 @@ app/
   core/           Shared base models, departments, recruitment types, workspaces
   accounts/       Custom user, roles (Django groups), sign-in, registration, role admin
   audit/          Protected audit trail and audit service
-  documents/      Document types (file uploads arrive in Stage 5)
-  recruitment/    Vacancies, requirement versions, staff assignments
+  documents/      Document types, private versioned uploads, verification, downloads
+  recruitment/    Vacancies, requirement versions, staff assignments, applications,
+                  snapshots, facts, corrections, workflow
   applicants/     Applicant profiles and qualification records
   templates/      Django templates (Bootstrap 5, served locally from static/vendor)
   setup.ps1 / setup.sh / setup_dev.py   Machine setup
@@ -199,10 +205,11 @@ records are view-only there.
 | Stage | Status |
 | --- | --- |
 | 1 Environment and skeleton | Done |
-| 2 Models and migrations | Batches A–B applied; later batches arrive with their modules |
+| 2 Models and migrations | Batches A–C applied; later batches arrive with their modules |
 | 3 Accounts, roles, access | Done |
 | 4 Vacancies and applicant profiles | Done |
-| 5–11 Applications, roster, committees, notifications, staging, AI, release | Not started |
+| 5 Applications, documents, manual review | Done |
+| 6–11 Roster, committees, notifications, staging, AI, release | Not started |
 
 Pending institutional inputs (HR): official privacy notice wording, document checklist,
 qualification reference values, approval authorities, and roster conventions. Seeded document

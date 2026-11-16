@@ -170,6 +170,13 @@ PRIVATE_STORAGE_ROOT = BASE_DIR / 'private'
 DOCUMENT_STORAGE_ROOT = PRIVATE_STORAGE_ROOT / 'documents'
 EXPORT_STORAGE_ROOT = PRIVATE_STORAGE_ROOT / 'exports'
 
+# Optional malware scanner command; the file path is appended. Exit code
+# 0 = clean, 1 = infected. Empty = files are recorded as "not scanned".
+MALWARE_SCAN_COMMAND = env('MALWARE_SCAN_COMMAND', '')
+
+# Default correction window offered to HR when requesting corrections.
+CORRECTION_WINDOW_DAYS = int(env('CORRECTION_WINDOW_DAYS', '5'))
+
 
 # Email: console backend for local development.
 

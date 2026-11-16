@@ -1,0 +1,13 @@
+{% comment %}Renders snapshot data shaped by application_views._snapshot_view. Context: sv{% endcomment %}
+<h3 class="h6">Personal information</h3>
+<dl class="row small mb-3">
+  {% for label, value in sv.identity %}<dt class="col-sm-4">{{ label }}</dt><dd class="col-sm-8">{{ value }}</dd>{% endfor %}
+</dl>
+{% for title, items in sv.sections %}
+  <h3 class="h6">{{ title }}</h3>
+  {% if items %}
+    <ul class="small mb-3">
+      {% for item in items %}<li>{% for label, value in item %}{% if not forloop.first %} · {% endif %}<span class="text-muted">{{ label }}:</span> {{ value }}{% endfor %}</li>{% endfor %}
+    </ul>
+  {% else %}<p class="small text-muted mb-3">None.</p>{% endif %}
+{% endfor %}

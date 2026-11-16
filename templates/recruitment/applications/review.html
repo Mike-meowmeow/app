@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Review {{ application.reference }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:vacancy_applications' application.vacancy.pk %}">&larr; Applications · {{ application.vacancy.position_title }}</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ application.applicant.user.last_name }}, {{ application.applicant.user.first_name }} {% include "recruitment/applications/_status.html" with app=application %}</h1>
+    <div class="small text-muted">{{ application.reference }} · submitted {{ application.submitted_at|date:"M j, Y g:i A" }} · revision {{ application.revision }}{% if not can_review %} · <span class="badge text-bg-light border">view only</span>{% endif %}</div>
+  </div>
+  {% if can_review %}
+    <div class="d-flex flex-wrap gap-2">
+      {% if can_start_review %}
+        <form method="post" action="{% url 'recruitment:application_start_review' application.pk %}">{% csrf_token %}
+          <button class="btn btn-primary btn-sm" type="submit">Start review</button></form>
+      {% endif %}
+      {% if can_request_correction %}<a class="btn btn-outline-warning btn-sm" href="{% url 'recruitment:request_correction' application.pk %}">Request correction</a>{% endif %}
+      <a class="btn btn-outline-secondary btn-sm" href="{% url 'recruitment:fact_add' application.pk %}">Add fact manually</a>
+    </div>
+  {% endif %}
+</div>
+
+{% if can_review and can_reopen %}
+  <form method="post" action="{% url 'recruitment:application_reopen' application.pk %}" class="alert alert-secondary d-flex flex-wrap gap-2 align-items-center">{% csrf_token %}
+    <span class="small">This application is {{ application.get_status_display|lower }}. Reopening requires a reason.</span>
+    <input class="form-control form-control-sm w-auto flex-grow-1" name="reason" placeholder="Reason for reopening" required aria-label="Reason for reopening">
+    <button class="btn btn-sm btn-outline-dark" type="submit">Reopen for review</button>
+  </form>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    {# Documents #}
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h5">Documents</h2>
+      {% for requirement, docs in checklist %}
+        <div class="mb-2">
+          <span class="fw-semibold small">{{ requirement.document_type.name }}</span>
+          {% if requirement.is_required %}<span class="badge text-bg-danger">required</span>{% endif %}
+          {% if not docs %}<span class="small text-danger ms-1">missing</span>{% endif %}
+        </div>
+      {% endfor %}
+      <table class="table table-sm align-middle small mb-0">
+        <thead><tr><th>Document</th><th>Version</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for v in versions %}
+            <tr {% if v.document.current_version.pk != v.pk %}class="text-muted"{% endif %}>
+              <td>{{ v.document.document_type.name }}<div><a href="{% url 'documents:download' v.pk %}?inline=1" target="_blank" rel="noopener">{{ v.file_name }}</a></div></td>
+              <td>v{{ v.version }}{% if v.document.current_version.pk != v.pk %} (earlier){% endif %}{% if v.correction_request_id %}<div><span class="badge text-bg-light border">correction</span></div>{% endif %}</td>
+              <td>{% include "recruitment/applications/_verification.html" %}</td>
+              <td class="text-end">{% if can_review and v.document.current_version.pk == v.pk and v.is_usable %}<a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Verify</a>{% endif %}</td>
+            </tr>
+          {% empty %}<tr><td colspan="4" class="text-muted">No documents.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+
+    {# Facts #}
+    <div class="card shadow-sm mb-3" id="facts"><div class="card-body">
+      <h2 class="h5">Application facts</h2>
+      <p class="small text-muted">Information from the submitted snapshot and HR entries. Accept, reject (with reason), or correct each item; corrections keep the original. {% if superseded_count %}{{ superseded_count }} earlier version{{ superseded_count|pluralize }} kept in history.{% endif %}</p>
+      {% for fact, items in facts %}
+        <div class="border rounded p-2 mb-2 bg-white">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div class="small">
+              <span class="badge text-bg-light border">{{ fact.get_fact_type_display }}</span>
+              {% if fact.review_status == 'accepted' %}<span class="badge text-bg-success">Accepted</span>{% elif fact.review_status == 'rejected' %}<span class="badge text-bg-danger">Rejected</span>{% else %}<span class="badge text-bg-secondary">Pending review</span>{% endif %}
+              {% if fact.value.manual %}<span class="badge text-bg-info">HR entry</span>{% endif %}
+              {% if fact.supersedes_id %}<span class="badge text-bg-light border">corrected</span>{% endif %}
+              {% if fact.relevance_status != 'not_applicable' %}<span class="badge text-bg-light border">{{ fact.get_relevance_status_display }}</span>{% endif %}
+              <div class="mt-1">{% for label, value in items %}{% if not forloop.first %} · {% endif %}<span class="text-muted">{{ label }}:</span> {{ value }}{% endfor %}</div>
+              {% if fact.review_reason %}<div class="text-muted fst-italic">{{ fact.review_reason|linebreaksbr }}</div>{% endif %}
+              <div class="mt-1">Evidence:
+                {% for e in fact.evidence.all %}<a href="{% url 'documents:download' e.document_version.pk %}?inline=1" target="_blank" rel="noopener">{{ e.document_version.document.document_type.name }} v{{ e.document_version.version }}</a>{% if e.source_location.note %} ({{ e.source_location.note }}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">none linked</span>{% endfor %}
+              </div>
+            </div>
+            {% if can_review %}<a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="{% url 'recruitment:fact_correct' application.pk fact.pk %}">Correct</a>{% endif %}
+          </div>
+          {% if can_review %}
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
+                <input type="hidden" name="decision" value="accepted">
+                <button class="btn btn-sm btn-outline-success" type="submit">Accept</button>
+              </form>
+              <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
+                <input type="hidden" name="decision" value="rejected">
+                <input class="form-control form-control-sm" name="reason" placeholder="Reason to reject" aria-label="Reason to reject">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
+              </form>
+              {% if fact.fact_type == 'experience' or fact.fact_type == 'training' %}
+                <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
+                  <button class="btn btn-sm btn-outline-primary" name="relevance" value="relevant" type="submit">Relevant</button>
+                  <button class="btn btn-sm btn-outline-secondary" name="relevance" value="not_relevant" type="submit">Not relevant</button>
+                </form>
+              {% endif %}
+              {% if versions %}
+                <form method="post" action="{% url 'recruitment:fact_evidence' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
+                  <select class="form-select form-select-sm" name="version" aria-label="Evidence document">
+                    {% for v in versions %}{% if v.document.current_version.pk == v.pk %}<option value="{{ v.pk }}">{{ v.document.document_type.name }} v{{ v.version }}</option>{% endif %}{% endfor %}
+                  </select>
+                  <input class="form-control form-control-sm" name="location" placeholder="Page / location" aria-label="Page or location">
+                  <button class="btn btn-sm btn-outline-primary" type="submit">Link</button>
+                </form>
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      {% empty %}<p class="small text-muted">No facts.</p>{% endfor %}
+    </div></div>
+
+    {# Qualifications #}
+    <div class="card shadow-sm mb-3" id="qualifications"><div class="card-body">
+      <h2 class="h5">Qualification review</h2>
+      <p class="small text-muted">Human-entered outcome per published standard (requirement version {{ snapshot.requirement_version.version }}). Outcomes never change shortlisting or roster inclusion by themselves.</p>
+      <ul class="list-group">
+        {% for standard, outcome in standards %}
+          <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
+            <div class="small">
+              <span class="badge text-bg-light border">{{ standard.get_criterion_type_display }}</span> {{ standard.description }}
+              <div class="mt-1">
+                {% if outcome %}
+                  {% with o=outcome.value.outcome %}<span class="badge {% if o == 'meets' %}text-bg-success{% elif o == 'does_not_meet' %}text-bg-danger{% elif o == 'needs_review' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{% for key, label in outcome_labels.items %}{% if key == o %}{{ label }}{% endif %}{% endfor %}</span>{% endwith %}
+                  <span class="text-muted">by {{ outcome.reviewed_by.full_name|default:outcome.reviewed_by.username }}, {{ outcome.reviewed_at|date:"M j, Y" }} · {{ outcome.value.supporting_fact_ids|length }} supporting fact{{ outcome.value.supporting_fact_ids|length|pluralize }}</span>
+                  {% if outcome.value.reason %}<div class="text-muted">{{ outcome.value.reason }}</div>{% endif %}
+                {% else %}<span class="badge text-bg-secondary">Not assessed</span>{% endif %}
+              </div>
+            </div>
+            {% if can_review %}<a class="btn btn-sm btn-outline-primary flex-shrink-0" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}">Record outcome</a>{% endif %}
+          </li>
+        {% empty %}<li class="list-group-item small text-muted">No qualification standards.</li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+
+  <div class="col-lg-5">
+    {% if corrections_requested %}
+      <div class="card shadow-sm mb-3"><div class="card-body">
+        <h2 class="h6">Correction requests</h2>
+        {% for cr in corrections_requested %}
+          <div class="small border-bottom pb-2 mb-2">
+            <span class="fw-semibold">{{ cr.get_status_display }}</span> · requested {{ cr.created_at|date:"M j, Y" }} by {{ cr.requested_by.full_name|default:cr.requested_by.username }}
+            <div style="white-space: pre-line">{{ cr.message }}</div>
+            <div class="text-muted">Deadline {{ cr.deadline_at|date:"M j, Y g:i A" }}{% if cr.exception_reason %} · exception: {{ cr.exception_reason }}{% endif %}{% if cr.submitted_at %} · corrections submitted {{ cr.submitted_at|date:"M j, Y g:i A" }}{% endif %}</div>
+            {% if can_review and cr.status == 'open' %}<a class="small" href="{% url 'recruitment:correction_exception' application.pk cr.pk %}">Grant late exception / extend</a>{% endif %}
+          </div>
+        {% endfor %}
+      </div></div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6 mb-1">Submitted information</h2>
+      {% if snapshot %}<p class="small text-muted">Snapshot v{{ snapshot.version }} ({{ snapshot.get_snapshot_type_display|lower }}), {{ snapshot.captured_at|date:"M j, Y g:i A" }}</p>
+        {% include "recruitment/applications/_snapshot.html" with sv=snapshot_view %}{% endif %}
+    </div></div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Status history</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for log in history %}
+          <li class="mb-1"><span class="fw-semibold">{{ log.get_to_status_display }}</span>{% if log.visibility == 'internal' %} <span class="badge text-bg-light border">internal</span>{% endif %} · {{ log.occurred_at|date:"M j, Y g:i A" }} · {{ log.actor.full_name|default:log.actor.username|default:"system" }}{% if log.reason %}<div class="text-muted">{{ log.reason }}</div>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div></div>
+
+    {% if field_corrections %}
+      <div class="card shadow-sm"><div class="card-body">
+        <h2 class="h6">Field corrections</h2>
+        <ul class="list-unstyled small mb-0">
+          {% for c in field_corrections %}
+            <li class="mb-2"><span class="fw-semibold">{{ c.field_name }}</span>: {{ c.old_value|default:"—" }} → {{ c.new_value|default:"—" }}
+              <div class="text-muted">{{ c.corrected_at|date:"M j, Y g:i A" }} · {{ c.actor.full_name|default:c.actor.username }} · {{ c.reason }}</div></li>
+          {% endfor %}
+        </ul>
+      </div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

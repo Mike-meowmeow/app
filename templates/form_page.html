@@ -6,7 +6,7 @@
     {% if intro %}<p class="text-muted">{{ intro }}</p>{% endif %}
     <p class="small text-muted">Fields marked <span class="text-danger">*</span> are required.</p>
     {% include "includes/form_errors.html" %}
-    <form method="post" novalidate>{% csrf_token %}
+    <form method="{{ method|default:'post' }}" novalidate>{% if method != 'get' %}{% csrf_token %}{% endif %}
       {% for field in form %}{% include "includes/field.html" %}{% endfor %}
       <button class="btn btn-primary" type="submit">{{ submit_label|default:"Save" }}</button>
       {% if cancel_url %}

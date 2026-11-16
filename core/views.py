@@ -11,13 +11,13 @@ WORKSPACE_PLAN = {
     'applicant': ('Applicant workspace', roles.APPLICANT, [
         ('My profile and qualifications', 'Stage 4', 'applicants:profile'),
         ('Open vacancies', 'Stage 4', 'recruitment:public_list'),
-        ('My applications and documents', 'Stage 5', None),
+        ('My applications and documents', 'Stage 5', 'recruitment:my_applications'),
         ('Released updates and decisions', 'Stage 7', None),
     ]),
     'hr': ('HR workspace', roles.HR, [
         ('Vacancies and requirements', 'Stage 4', 'recruitment:vacancy_list'),
-        ('Document verification queue', 'Stage 5', None),
-        ('Manual fact review and corrections', 'Stage 5', None),
+        ('Document verification queue', 'Stage 5', 'recruitment:verification_queue'),
+        ('Applications: fact review and corrections', 'Stage 5', 'recruitment:vacancy_list'),
         ('Official roster preparation', 'Stage 6', None),
     ]),
     'approver': ('Approver workspace', roles.APPROVER, [

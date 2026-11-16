@@ -33,3 +33,22 @@ class VacancyRequirementVersionAdmin(ReadOnlyAdmin):
 class VacancyAssignmentAdmin(ReadOnlyAdmin):
     list_display = ('vacancy', 'user', 'assignment_role', 'ended_at')
     list_filter = ('assignment_role',)
+
+
+from .models import Application, ApplicationSnapshot, WorkflowLog  # noqa: E402
+
+
+@admin.register(Application)
+class ApplicationAdmin(ReadOnlyAdmin):
+    list_display = ('__str__', 'vacancy', 'status', 'submitted_at', 'revision')
+    list_filter = ('status',)
+
+
+@admin.register(ApplicationSnapshot)
+class ApplicationSnapshotAdmin(ReadOnlyAdmin):
+    list_display = ('application', 'version', 'snapshot_type', 'captured_at')
+
+
+@admin.register(WorkflowLog)
+class WorkflowLogAdmin(ReadOnlyAdmin):
+    list_display = ('application', 'from_status', 'to_status', 'actor', 'occurred_at')

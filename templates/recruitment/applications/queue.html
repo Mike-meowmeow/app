@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Verification queue{% endblock %}
+{% block content %}
+<h1 class="h4">Document verification queue</h1>
+<p class="small text-muted">Latest file versions awaiting human verification, for vacancies you are assigned to. Oldest first.</p>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Uploaded</th><th>Applicant</th><th>Vacancy</th><th>Document</th><th></th></tr></thead>
+  <tbody>
+    {% for v in versions %}
+      {% with app=v.document.application %}
+      <tr>
+        <td>{{ v.uploaded_at|date:"M j, Y g:i A" }}</td>
+        <td><a href="{% url 'recruitment:application_review' app.pk %}">{{ app.applicant.user.last_name }}, {{ app.applicant.user.first_name }}</a><div class="small text-muted">{{ app.reference }}</div></td>
+        <td>{{ app.vacancy.position_title }}</td>
+        <td>{{ v.document.document_type.name }}<div class="small text-muted">{{ v.file_name }} · v{{ v.version }}</div></td>
+        <td class="text-end"><a class="btn btn-sm btn-primary" href="{% url 'recruitment:verify_document' app.pk v.pk %}?next={{ request.path|urlencode }}">Verify</a></td>
+      </tr>
+      {% endwith %}
+    {% empty %}
+      <tr><td colspan="5" class="text-center text-muted py-4">Nothing is waiting for verification.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

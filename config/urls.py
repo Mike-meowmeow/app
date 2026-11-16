@@ -9,5 +9,6 @@ urlpatterns = [
     path('accounts/', include('accounts.urls')),
     path('profile/', include('applicants.urls')),
     path('recruitment/', include('recruitment.urls')),
+    path('files/', include('documents.urls')),
     path('', include('core.urls')),
 ]

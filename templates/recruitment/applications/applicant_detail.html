@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Application {{ application.reference }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:my_applications' %}">&larr; My applications</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ application.vacancy.position_title }} {% include "recruitment/applications/_status.html" with app=application %}</h1>
+    <div class="small text-muted">Application {{ application.reference }} · {{ application.vacancy.department.name }} ·
+      Deadline {{ application.vacancy.deadline_at|date:"M j, Y g:i A" }} (Asia/Manila)
+      {% if application.submitted_at %} · Submitted {{ application.submitted_at|date:"M j, Y g:i A" }}{% endif %}</div>
+  </div>
+  {% if can_withdraw %}<a class="btn btn-outline-danger btn-sm" href="{% url 'recruitment:withdraw' application.pk %}">Withdraw application</a>{% endif %}
+</div>
+
+{% if correction %}
+  <div class="alert alert-warning">
+    <div class="fw-semibold">HR requested corrections</div>
+    <div style="white-space: pre-line">{{ correction.message }}</div>
+    {% if correction.document_type_codes %}<div class="small mt-1">Documents to replace: {{ correction.document_type_codes|join:", " }}</div>{% endif %}
+    <div class="small mt-1">
+      {% if correction.window_open %}Submit your corrections before <strong>{{ correction.deadline_at|date:"M j, Y g:i A" }}</strong> (Asia/Manila).
+      {% else %}The correction window closed on {{ correction.deadline_at|date:"M j, Y g:i A" }}. Contact HR if you need an exception.{% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% if problems %}
+  <div class="alert alert-info">
+    <div class="fw-semibold">{% if is_draft %}Before you can submit:{% else %}Before you can submit corrections:{% endif %}</div>
+    <ul class="mb-0">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h5">Documents</h2>
+      {% for requirement, docs in checklist %}
+        <div class="border rounded p-2 mb-2 bg-white">
+          <div class="d-flex justify-content-between">
+            <div>
+              <span class="fw-semibold">{{ requirement.document_type.name }}</span>
+              {% if requirement.is_required %}<span class="badge text-bg-danger">required</span>{% else %}<span class="badge text-bg-secondary">optional</span>{% endif %}
+              {% if requirement.document_type.code in correction_types %}<span class="badge text-bg-warning">replacement requested</span>{% endif %}
+            </div>
+            <span class="small text-muted">{{ requirement.document_type.allowed_extensions|join:", " }} · max {{ requirement.document_type.max_size_mb }} MB · up to {{ requirement.max_files }} file{{ requirement.max_files|pluralize }}</span>
+          </div>
+          {% if requirement.instructions %}<div class="small text-muted">{{ requirement.instructions }}</div>{% endif %}
+          {% for doc in docs %}
+            {% with v=doc.current_version %}
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 small mt-2 pt-2 border-top">
+              <div>
+                <a href="{% url 'documents:download' v.pk %}">{{ v.file_name }}</a>
+                <span class="text-muted">· v{{ v.version }} · {{ v.file_size_bytes|filesizeformat }} · {{ v.uploaded_at|date:"M j, g:i A" }}</span>
+                {% include "recruitment/applications/_verification.html" %}
+              </div>
+              {% if can_upload %}
+                <div class="d-flex gap-1">
+                  <form method="post" enctype="multipart/form-data" action="{% url 'recruitment:upload_document' application.pk %}" class="d-flex gap-1">{% csrf_token %}
+                    <input type="hidden" name="replaces" value="{{ doc.pk }}">
+                    <input class="form-control form-control-sm" type="file" name="file" required aria-label="Replacement file">
+                    <button class="btn btn-sm btn-outline-primary" type="submit">Replace</button>
+                  </form>
+                  {% if is_draft %}
+                    <form method="post" action="{% url 'recruitment:remove_document' application.pk doc.pk %}" onsubmit="return confirm('Remove this document?');">{% csrf_token %}
+                      <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </div>
+            {% endwith %}
+          {% empty %}
+            <div class="small text-muted mt-1">Not uploaded yet.</div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+
+      {% if can_upload %}
+        <form method="post" enctype="multipart/form-data" action="{% url 'recruitment:upload_document' application.pk %}" class="row g-2 align-items-end mt-2">{% csrf_token %}
+          <div class="col-md-5"><label class="form-label small" for="id_document_type">Document category</label>{{ upload_form.document_type }}</div>
+          <div class="col-md-5"><label class="form-label small" for="id_file">File</label>{{ upload_form.file }}</div>
+          <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit">Upload</button></div>
+        </form>
+        <p class="small text-muted mt-2 mb-0">Files are checked for type and size and stored privately. Uploading a replacement keeps the earlier version on record.</p>
+      {% endif %}
+    </div></div>
+
+    {% if is_draft %}
+      <div class="card shadow-sm mb-3 border-primary"><div class="card-body">
+        <h2 class="h5">Submit application</h2>
+        <p class="small text-muted">Submitting records exactly the information and documents shown here. Later profile changes will not alter this submission.</p>
+        <form method="post" action="{% url 'recruitment:submit_application' application.pk %}">{% csrf_token %}
+          {% with field=submit_form.confirm %}{% include "includes/field.html" %}{% endwith %}
+          <button class="btn btn-primary" type="submit" {% if problems %}disabled{% endif %}>Submit application</button>
+        </form>
+      </div></div>
+    {% elif correction and correction.window_open %}
+      <div class="card shadow-sm mb-3 border-warning"><div class="card-body">
+        <h2 class="h5">Submit corrections</h2>
+        <p class="small text-muted">Update your <a href="{% url 'applicants:profile' %}">profile</a> and replace the requested documents, then submit. Your current profile will be recorded as a corrected version of this application.</p>
+        <form method="post" action="{% url 'recruitment:resubmit_corrections' application.pk %}">{% csrf_token %}
+          <button class="btn btn-warning" type="submit" {% if problems %}disabled{% endif %}>Submit corrections</button>
+        </form>
+      </div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 mb-0">{% if application.submitted_at %}Submitted information{% else %}Preview{% endif %}</h2>
+        {% if is_draft or correction %}<a class="small" href="{% url 'applicants:profile' %}">Edit profile</a>{% endif %}
+      </div>
+      {% if preview %}{% include "recruitment/applications/_snapshot.html" with sv=preview %}{% endif %}
+    </div></div>
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">History</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for log in history %}
+          <li class="mb-1"><span class="fw-semibold">{{ log.get_to_status_display }}</span> · {{ log.occurred_at|date:"M j, Y g:i A" }}{% if log.reason %}<div class="text-muted">{{ log.reason }}</div>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

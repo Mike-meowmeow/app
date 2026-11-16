@@ -23,10 +23,21 @@
       <h2 class="h6">Application period</h2>
       <p class="small mb-1">Opens: {{ vacancy.opens_at|date:"M j, Y g:i A" }}</p>
       <p class="small mb-2">Deadline: <strong>{{ vacancy.deadline_at|date:"M j, Y g:i A" }}</strong> (Asia/Manila time)</p>
-      {% if vacancy.is_accepting_applications %}
+      {% if existing %}
+        <p class="small mb-2">You have an application for this vacancy ({{ existing.get_status_display }}).</p>
+        <a class="btn btn-primary w-100" href="{% url 'recruitment:my_application' existing.pk %}">View my application</a>
+      {% elif vacancy.is_accepting_applications %}
         <span class="badge text-bg-success mb-2">Accepting applications</span>
-        <p class="small text-muted mb-0">Online application submission is coming soon (Stage 5). Complete your
-          {% if 'Applicant' in user_roles %}<a href="{% url 'applicants:profile' %}">profile</a>{% elif not user.is_authenticated %}profile after you <a href="{% url 'accounts:register' %}">register</a>{% else %}applicant profile{% endif %} to be ready.</p>
+        {% if is_applicant %}
+          <form method="post" action="{% url 'recruitment:apply' vacancy.pk %}" class="mt-2">{% csrf_token %}
+            <button class="btn btn-primary w-100" type="submit">Apply</button>
+          </form>
+          <p class="small text-muted mt-2 mb-0">Starts a draft. You can upload documents and review before submitting.</p>
+        {% elif not user.is_authenticated %}
+          <p class="small mt-2 mb-0"><a href="{% url 'accounts:register' %}">Register</a> or <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">sign in</a> as an applicant to apply.</p>
+        {% else %}
+          <p class="small text-muted mt-2 mb-0">Only applicant accounts can apply.</p>
+        {% endif %}
       {% elif vacancy.application_window == 'upcoming' %}
         <span class="badge text-bg-info">Not open yet</span>
       {% else %}

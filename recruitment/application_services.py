@@ -29,15 +29,18 @@ from .models import (Application, ApplicationCorrection, ApplicationFact, Applic
 
 S = ApplicationStatus
 
-# Allowed status changes (FR-013). Stage 7 adds its decision services on top
-# of the same table; AI never calls transition().
+# Allowed status changes (FR-013). Stage 7 decision services
+# (decision_services.py) record decisions through the same table; AI never
+# calls transition().
 TRANSITIONS = {
     S.DRAFT: {S.SUBMITTED},
     S.SUBMITTED: {S.UNDER_REVIEW, S.CORRECTION_REQUESTED, S.WITHDRAWN},
     S.UNDER_REVIEW: {S.CORRECTION_REQUESTED, S.SHORTLISTED, S.NOT_SELECTED, S.WITHDRAWN,
                      S.CLOSED_WITHOUT_SELECTION},
     S.CORRECTION_REQUESTED: {S.UNDER_REVIEW, S.WITHDRAWN},
-    S.SHORTLISTED: {S.FOR_INTERVIEW, S.NOT_SELECTED, S.WITHDRAWN, S.CLOSED_WITHOUT_SELECTION},
+    # Recommended directly after a document-only committee review.
+    S.SHORTLISTED: {S.FOR_INTERVIEW, S.RECOMMENDED, S.NOT_SELECTED, S.WITHDRAWN,
+                    S.CLOSED_WITHOUT_SELECTION},
     S.FOR_INTERVIEW: {S.RECOMMENDED, S.NOT_SELECTED, S.WITHDRAWN, S.CLOSED_WITHOUT_SELECTION},
     S.RECOMMENDED: {S.HIRED, S.NOT_SELECTED, S.WITHDRAWN, S.CLOSED_WITHOUT_SELECTION},
     S.WITHDRAWN: {S.UNDER_REVIEW},  # authorized reopening only

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Candidate {{ application.reference }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'committee:my_candidates' %}">&larr; Assigned candidates</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ application.applicant.user.last_name }}, {{ application.applicant.user.first_name }}</h1>
+    <div class="small text-muted">{{ application.reference }} · {{ application.vacancy.position_title }} · you sit as {{ member.get_member_role_display|lower }} of {{ member.committee.name }}</div>
+  </div>
+  {% if can_start %}<a class="btn btn-primary btn-sm" href="{% url 'committee:evaluation_new' application.pk %}">New evaluation</a>{% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h5">Your evaluations</h2>
+      {% for e in evaluations %}
+        <div class="small border-bottom pb-2 mb-2">
+          <a href="{% url 'committee:evaluation_edit' e.pk %}">Version {{ e.version }}</a> ·
+          {% if e.interview %}interview {{ e.interview.starts_at|date:"M j, Y" }}{% else %}documents only{% endif %}
+          <span class="badge {% if e.status == 'draft' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ e.get_status_display }}</span>
+          {% if e.is_submitted and not e.is_current %}<span class="badge text-bg-light border">superseded</span>{% endif %}
+        </div>
+      {% empty %}<p class="small text-muted mb-0">None yet. Evaluations are narrative; no score is required.</p>{% endfor %}
+    </div></div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h5">Your interviews with this applicant</h2>
+      {% for i in interviews %}
+        <div class="small mb-1">{{ i.starts_at|date:"M j, Y g:i A" }} · {{ i.get_mode_display }}: {% if i.mode == 'online' %}{{ i.meeting_link }}{% else %}{{ i.location }}{% endif %} <span class="badge text-bg-light border">{{ i.get_status_display }}</span>{% if i.attendance_status != 'pending' %} <span class="badge text-bg-light border">{{ i.get_attendance_status_display }}</span>{% endif %}</div>
+      {% empty %}<p class="small text-muted mb-0">You are not on an interview panel for this applicant.</p>{% endfor %}
+    </div></div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h5">HR qualification review</h2>
+      {% for o in outcomes %}
+        <div class="small mb-1"><span class="fw-semibold">{{ o.value.requirement }}</span>: {{ o.value.outcome|cut:"_" }}{% if o.value.reason %} <span class="text-muted">- {{ o.value.reason }}</span>{% endif %}</div>
+      {% empty %}<p class="small text-muted mb-0">No outcomes recorded by HR.</p>{% endfor %}
+    </div></div>
+
+    <div class="card shadow-sm border-warning"><div class="card-body">
+      <h2 class="h6">Declare a conflict of interest</h2>
+      <p class="small text-muted">You will lose access to this applicant and cannot assess them unless an authorized officer clears the conflict.</p>
+      <form method="post" action="{% url 'committee:conflict_declare' application.pk %}">{% csrf_token %}
+        {% with field=conflict_form.declaration %}{% include "includes/field.html" %}{% endwith %}
+        <button class="btn btn-outline-warning btn-sm" type="submit" onclick="return confirm('Declare a conflict of interest for this applicant?');">Declare conflict</button>
+      </form>
+    </div></div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Documents</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for doc in documents %}{% with v=doc.current_version %}{% if v %}
+          <li><a href="{% url 'documents:download' v.pk %}?inline=1" target="_blank" rel="noopener">{{ doc.document_type.name }}</a> <span class="text-muted">v{{ v.version }} · {{ v.get_verification_status_display }}</span></li>
+        {% endif %}{% endwith %}{% empty %}<li class="text-muted">None.</li>{% endfor %}
+      </ul>
+    </div></div>
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">Submitted information</h2>
+      {% if snapshot %}{% include "recruitment/applications/_snapshot.html" with sv=snapshot_view %}{% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

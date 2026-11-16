@@ -140,3 +140,75 @@ class ApplicationFilterForm(forms.Form):
         self.fields['q'].widget.attrs.update({'class': 'form-control',
                                               'placeholder': 'Name, email, program, or APP-'})
         self.fields['status'].widget.attrs['class'] = 'form-select'
+
+
+# --------------------------------------------------------------------------
+# Decisions (Stage 7)
+# --------------------------------------------------------------------------
+
+class DecisionForm(BootstrapFormMixin, forms.Form):
+    outcome = forms.ChoiceField(widget=forms.RadioSelect)
+    reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), label='Justification',
+                             help_text='Internal record of why the decision was made.')
+    decision_at = forms.DateTimeField(widget=DATETIME_WIDGET, input_formats=['%Y-%m-%dT%H:%M'],
+                                      label='Decision date', initial=timezone.localtime)
+    committee = forms.ModelChoiceField(queryset=None, required=False)
+    references = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 2}),
+                                 label='Supporting references',
+                                 help_text='One per line (minutes, memo numbers, documents).')
+    appointment_reference = forms.CharField(max_length=100, required=False,
+                                            label='Appointment reference',
+                                            help_text='e.g. appointment or contract number.')
+    appointment_at = forms.DateTimeField(widget=DATETIME_WIDGET, required=False,
+                                         input_formats=['%Y-%m-%dT%H:%M'],
+                                         label='Appointment date')
+
+    def __init__(self, *args, decision_type, outcomes, committees, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['outcome'].choices = [(o.value, o.label) for o in outcomes]
+        self.fields['committee'].queryset = committees
+        if decision_type == 'committee_recommendation':
+            self.fields['committee'].required = True
+            self.fields['committee'].empty_label = None
+        else:
+            self.fields['committee'].help_text = 'Optional.'
+        if decision_type != 'appointment':
+            del self.fields['appointment_reference']
+            del self.fields['appointment_at']
+        else:
+            self.fields['appointment_reference'].required = True
+            self.fields['appointment_at'].required = True
+
+
+class CorrectDecisionForm(BootstrapFormMixin, forms.Form):
+    correction_reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 2}),
+                                        label='Reason for the correction')
+    reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), label='Justification')
+    decision_at = forms.DateTimeField(widget=DATETIME_WIDGET, input_formats=['%Y-%m-%dT%H:%M'],
+                                      label='Decision date')
+    references = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 2}),
+                                 label='Supporting references', help_text='One per line.')
+    appointment_reference = forms.CharField(max_length=100, required=False,
+                                            label='Appointment reference')
+    appointment_at = forms.DateTimeField(widget=DATETIME_WIDGET, required=False,
+                                         input_formats=['%Y-%m-%dT%H:%M'],
+                                         label='Appointment date')
+
+    def __init__(self, *args, decision, **kwargs):
+        kwargs.setdefault('initial', {
+            'reason': decision.reason, 'decision_at': timezone.localtime(decision.decision_at),
+            'references': '\n'.join(decision.supporting_references.get('references', [])),
+            'appointment_reference': decision.appointment_reference,
+            'appointment_at': decision.appointment_at and timezone.localtime(
+                decision.appointment_at)})
+        super().__init__(*args, **kwargs)
+        if decision.decision_type != 'appointment':
+            del self.fields['appointment_reference']
+            del self.fields['appointment_at']
+
+
+class ReleaseForm(BootstrapFormMixin, forms.Form):
+    note = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}),
+                           label='Message to the applicant',
+                           help_text='Shown to the applicant with the decision. Do not include '
+                                     'internal evaluation notes.')

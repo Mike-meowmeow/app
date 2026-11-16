@@ -15,6 +15,7 @@ from documents.storage import FileRejected
 
 from . import application_selectors as access
 from . import application_services as services
+from . import decision_services as decisions
 from . import fact_schema, selectors
 from .application_forms import (ApplicationFilterForm, CorrectionReasonForm,
                                 CorrectionRequestForm, ExceptionForm, ManualFactForm,
@@ -81,8 +82,11 @@ def apply(request, vacancy_pk):
 
 @role_required(roles.APPLICANT)
 def my_applications(request):
+    applications = list(access.own_applications(request.user))
+    for app in applications:
+        app.public = decisions.PublicStatus(decisions.applicant_status(app))
     return render(request, 'recruitment/applications/my_list.html', {
-        'applications': access.own_applications(request.user)})
+        'applications': applications})
 
 
 @role_required(roles.APPLICANT)
@@ -110,6 +114,10 @@ def my_application(request, pk):
         'history': application.workflow_logs.filter(visibility=WorkflowVisibility.APPLICANT),
         'can_withdraw': application.status in services.WITHDRAWABLE,
         'correction_types': set(correction.document_type_codes) if correction else set(),
+        # Stage 7: only released information reaches the applicant.
+        'public_status': decisions.PublicStatus(decisions.applicant_status(application)),
+        'released_decisions': decisions.released_decisions(application),
+        'interviews': application.interviews.all(),
     })
 
 

@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'recruitment.apps.RecruitmentConfig',
     'applicants.apps.ApplicantsConfig',
     'matrix.apps.MatrixConfig',
+    'committee.apps.CommitteeConfig',
 ]
 
 MIDDLEWARE = [
@@ -183,6 +184,25 @@ CORRECTION_WINDOW_DAYS = int(env('CORRECTION_WINDOW_DAYS', '5'))
 ROSTER_ALLOW_SELF_APPROVAL = env_bool('ROSTER_ALLOW_SELF_APPROVAL', False)
 # Recruitment type codes allowed to use the PART-TIME roster form.
 ROSTER_PART_TIME_TYPES = ('PTI',)
+
+# Committees and decisions (Stage 7). Development defaults until HR confirms
+# shortlisting, final-decision, release, and conflict-resolution authority
+# (FR-026). 'HR Personnel' additionally needs an active HR assignment on the
+# vacancy; the other roles act on every vacancy they can see.
+DECISION_RECORDING_ROLES = {
+    'shortlisting': ('HR Personnel',),
+    'committee_recommendation': ('HR Personnel',),
+    'final_outcome': ('HR Head / Approver',),
+    'appointment': ('HR Head / Approver',),
+}
+DECISION_RELEASE_ROLES = {
+    'shortlisting': ('HR Personnel', 'HR Head / Approver'),
+    'final_outcome': ('HR Head / Approver',),
+    'appointment': ('HR Head / Approver',),
+}
+CONFLICT_RESOLUTION_ROLES = ('HR Head / Approver',)
+# Roles a user must hold to be added to a committee.
+COMMITTEE_MEMBER_ROLES = ('PSB Member', 'Department Head')
 
 
 # Email: console backend for local development.

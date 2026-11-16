@@ -30,8 +30,13 @@ def is_owner(user, application):
 def can_view(user, application):
     if is_owner(user, application):
         return True
-    return application.status != ApplicationStatus.DRAFT and \
-        selectors.can_view(user, application.vacancy)
+    if application.status == ApplicationStatus.DRAFT:
+        return False
+    if selectors.can_view(user, application.vacancy):
+        return True
+    # Committee members: shortlisted candidates of their vacancy, unless conflicted.
+    from committee import selectors as committee_selectors
+    return committee_selectors.can_view_candidate(user, application)
 
 
 def can_review(user, application):

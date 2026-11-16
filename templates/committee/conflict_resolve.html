@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Resolve conflict{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4">Resolve conflict of interest</h1>
+    <dl class="row small">
+      <dt class="col-sm-3">Member</dt><dd class="col-sm-9">{{ conflict.committee_member.user.full_name|default:conflict.committee_member.user.username }}</dd>
+      <dt class="col-sm-3">Applicant</dt><dd class="col-sm-9">{{ conflict.application.applicant.user.full_name }} ({{ conflict.application.reference }})</dd>
+      <dt class="col-sm-3">Declared</dt><dd class="col-sm-9">{{ conflict.declared_at|date:"M j, Y g:i A" }}</dd>
+      <dt class="col-sm-3">Declaration</dt><dd class="col-sm-9" style="white-space: pre-line">{{ conflict.declaration }}</dd>
+    </dl>
+    <p class="small text-muted">Apply the institution's recusal policy. A recused member stays blocked for this applicant; a cleared member may take part again.</p>
+    {% include "includes/form_errors.html" %}
+    <form method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+      <button class="btn btn-primary" type="submit">Save resolution</button>
+      <a class="btn btn-link" href="{% url 'committee:vacancy_committees' vacancy.pk %}">Cancel</a>
+    </form>
+  </div></div>
+</div></div>
+{% endblock %}

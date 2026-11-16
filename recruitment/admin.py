@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Vacancy, VacancyAssignment, VacancyRequirementVersion
+from .models import RecruitmentDecision, Vacancy, VacancyAssignment, VacancyRequirementVersion
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -52,3 +52,10 @@ class ApplicationSnapshotAdmin(ReadOnlyAdmin):
 @admin.register(WorkflowLog)
 class WorkflowLogAdmin(ReadOnlyAdmin):
     list_display = ('application', 'from_status', 'to_status', 'actor', 'occurred_at')
+
+
+@admin.register(RecruitmentDecision)
+class RecruitmentDecisionAdmin(ReadOnlyAdmin):
+    list_display = ('application', 'decision_type', 'outcome', 'decided_by', 'decision_at',
+                    'released_at')
+    list_filter = ('decision_type', 'outcome')

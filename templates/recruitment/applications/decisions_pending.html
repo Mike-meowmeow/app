@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Decisions awaiting release{% endblock %}
+{% block content %}
+<h1 class="h4">Decisions awaiting release</h1>
+<p class="text-muted small">Recorded decisions the applicant cannot see yet. Release sends the outcome to the applicant's page (notifications arrive in Stage 8). Committee recommendations stay internal.</p>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0 small">
+  <thead class="table-light"><tr><th>Applicant</th><th>Vacancy</th><th>Decision</th><th>Recorded</th><th></th></tr></thead>
+  <tbody>
+    {% for d in decisions %}
+      <tr>
+        <td><a href="{% url 'recruitment:application_selection' d.application.pk %}">{{ d.application.applicant.user.last_name }}, {{ d.application.applicant.user.first_name }}</a><div class="text-muted">{{ d.application.reference }}</div></td>
+        <td>{{ d.application.vacancy.position_title }}</td>
+        <td>{{ d.get_decision_type_display }}: <span class="fw-semibold">{{ d.get_outcome_display }}</span></td>
+        <td>{{ d.decision_at|date:"M j, Y" }} · {{ d.decided_by.full_name|default:d.decided_by.username }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-success" href="{% url 'recruitment:decision_release' d.application.pk d.pk %}">Release</a></td>
+      </tr>
+    {% empty %}<tr><td colspan="5" class="text-center text-muted py-4">Nothing awaiting release.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

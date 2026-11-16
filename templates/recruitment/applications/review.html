@@ -7,6 +7,9 @@
     <h1 class="h4 mb-1">{{ application.applicant.user.last_name }}, {{ application.applicant.user.first_name }} {% include "recruitment/applications/_status.html" with app=application %}</h1>
     <div class="small text-muted">{{ application.reference }} · submitted {{ application.submitted_at|date:"M j, Y g:i A" }} · revision {{ application.revision }}{% if not can_review %} · <span class="badge text-bg-light border">view only</span>{% endif %}</div>
   </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'recruitment:application_selection' application.pk %}">Selection &amp; decisions</a>
+  </div>
   {% if can_review %}
     <div class="d-flex flex-wrap gap-2">
       {% if can_start_review %}

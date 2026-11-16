@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Selection · {{ application.reference }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:application_review' application.pk %}">&larr; Application review</a>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Selection: {{ application.applicant.user.last_name }}, {{ application.applicant.user.first_name }} {% include "recruitment/applications/_status.html" with app=application %}</h1>
+    <div class="small text-muted">{{ application.reference }} · {{ application.vacancy.position_title }} · applicant currently sees: {% include "recruitment/applications/_status.html" with app=applicant_status %}</div>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'committee:vacancy_committees' application.vacancy.pk %}">Committees</a>
+</div>
+<p class="small text-muted">Decisions are human records. Recording one is internal; the applicant sees shortlisting, final outcome, and appointment only after release. Hired requires a recorded appointment. Roster order and AI output never decide anything.</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    {# Decisions #}
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h2 class="h5 mb-0">Decisions</h2>
+        <div class="d-flex flex-wrap gap-1">
+          {% for type, outcomes in recordable %}
+            <a class="btn btn-sm btn-primary" href="{% url 'recruitment:decision_new' application.pk type.value %}">Record {{ type.label|lower }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      {% for d, current, releasable, correctable in decisions %}
+        <div class="border rounded p-2 mb-2 {% if not current %}bg-light text-muted{% else %}bg-white{% endif %}">
+          <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div class="small">
+              <span class="badge text-bg-light border">{{ d.get_decision_type_display }}</span>
+              <span class="fw-semibold">{{ d.get_outcome_display }}</span>
+              {% if not current %}<span class="badge text-bg-secondary">superseded</span>{% endif %}
+              {% if d.supersedes_id %}<span class="badge text-bg-light border">replaces earlier record</span>{% endif %}
+              {% if d.is_released %}<span class="badge text-bg-success">released {{ d.released_at|date:"M j, Y" }}</span>{% elif d.decision_type != 'committee_recommendation' %}<span class="badge text-bg-warning">not released</span>{% else %}<span class="badge text-bg-light border">internal</span>{% endif %}
+              <div class="mt-1">{{ d.decision_at|date:"M j, Y g:i A" }} · {{ d.decided_by.full_name|default:d.decided_by.username }}{% if d.committee %} · {{ d.committee.name }}{% endif %}</div>
+              <div class="text-muted" style="white-space: pre-line">{{ d.reason }}</div>
+              {% if d.appointment_reference %}<div>Appointment {{ d.appointment_reference }}, {{ d.appointment_at|date:"M j, Y" }}</div>{% endif %}
+              {% if d.supporting_references.references %}<div>References: {{ d.supporting_references.references|join:"; " }}</div>{% endif %}
+              {% if d.supporting_references.evaluation_ids %}<div>{{ d.supporting_references.evaluation_ids|length }} submitted evaluation{{ d.supporting_references.evaluation_ids|length|pluralize }} on record at the time</div>{% endif %}
+              {% if d.supporting_references.correction_reason %}<div>Correction: {{ d.supporting_references.correction_reason }}</div>{% endif %}
+              {% if d.release_note %}<div>Message to applicant: {{ d.release_note }}</div>{% endif %}
+            </div>
+            <div class="d-flex flex-column gap-1">
+              {% if releasable %}<a class="btn btn-sm btn-success" href="{% url 'recruitment:decision_release' application.pk d.pk %}">Release</a>{% endif %}
+              {% if correctable %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'recruitment:decision_correct' application.pk d.pk %}">Correct record</a>{% endif %}
+            </div>
+          </div>
+        </div>
+      {% empty %}<p class="small text-muted mb-0">No decisions recorded.</p>{% endfor %}
+    </div></div>
+
+    {# Interviews #}
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h5 mb-0">Interviews</h2>
+        {% if can_manage and not scheduling_problems %}<a class="btn btn-sm btn-primary" href="{% url 'committee:interview_new' application.pk %}">Schedule interview</a>{% endif %}
+      </div>
+      {% if can_manage and scheduling_problems %}<div class="small text-muted mb-2">{% for p in scheduling_problems %}{{ p }} {% endfor %}</div>{% endif %}
+      {% for i in interviews %}
+        <div class="border rounded p-2 mb-2 bg-white small">
+          <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div>
+              <span class="fw-semibold">{{ i.starts_at|date:"M j, Y g:i A" }} – {{ i.ends_at|date:"g:i A" }}</span>
+              <span class="badge text-bg-light border">{{ i.get_status_display }}</span>
+              {% if i.attendance_status != 'pending' %}<span class="badge text-bg-light border">{{ i.get_attendance_status_display }}</span>{% endif %}
+              <div>{{ i.get_mode_display }}: {% if i.mode == 'online' %}{{ i.meeting_link }}{% else %}{{ i.location }}{% endif %}</div>
+              <div>Panel:
+                {% for seat in i.panel.all %}
+                  <span class="{% if seat.committee_member_id in i.conflicted %}text-danger fw-semibold{% endif %}">{{ seat.committee_member.user.full_name|default:seat.committee_member.user.username }}{% if seat.committee_member_id in i.conflicted %} (conflict - replace){% endif %}</span>
+                  {% if can_manage and i.status == 'scheduled' %}
+                    <form method="post" action="{% url 'committee:panel_remove' i.pk seat.committee_member_id %}" class="d-inline-flex gap-1">{% csrf_token %}
+                      <input class="form-control form-control-sm py-0" name="reason" placeholder="Reason" required aria-label="Reason for removal" style="width: 9rem">
+                      <button class="btn btn-sm btn-link p-0" type="submit">remove</button></form>
+                  {% endif %}{% if not forloop.last %}, {% endif %}
+                {% empty %}<span class="text-muted">none</span>{% endfor %}
+              </div>
+            </div>
+            {% if can_manage and i.status == 'scheduled' %}
+              <div class="d-flex flex-column gap-1">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'committee:interview_reschedule' i.pk %}">Reschedule</a>
+                <a class="btn btn-sm btn-outline-success" href="{% url 'committee:interview_attendance' i.pk %}">Record attendance</a>
+              </div>
+            {% endif %}
+          </div>
+          {% if can_manage and i.status == 'scheduled' %}
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              {% if i.addable %}
+                <form method="post" action="{% url 'committee:panel_add' i.pk %}" class="d-flex gap-1">{% csrf_token %}
+                  <select class="form-select form-select-sm" name="member" aria-label="Add panel member">{% for m in i.addable %}<option value="{{ m.pk }}">{{ m.user.full_name|default:m.user.username }}</option>{% endfor %}</select>
+                  <button class="btn btn-sm btn-outline-secondary" type="submit">Add to panel</button></form>
+              {% endif %}
+              <form method="post" action="{% url 'committee:interview_cancel' i.pk %}" class="d-flex gap-1">{% csrf_token %}
+                <input class="form-control form-control-sm" name="reason" placeholder="Reason to cancel" required aria-label="Reason to cancel">
+                <button class="btn btn-sm btn-outline-danger" type="submit">Cancel interview</button></form>
+            </div>
+          {% endif %}
+          {% with events=i.events.all %}{% if events %}
+            <details class="mt-2"><summary class="text-muted">Schedule history ({{ events|length }})</summary>
+              <ul class="list-unstyled mb-0 mt-1">
+                {% for e in events %}
+                  <li class="mb-1"><span class="fw-semibold">{{ e.get_event_type_display }}</span> · {{ e.occurred_at|date:"M j, Y g:i A" }} · {{ e.actor.full_name|default:e.actor.username }}
+                    {% if e.event_type == 'rescheduled' %}<div class="text-muted">was {{ e.old_schedule.starts_at|slice:":16" }} ({{ e.old_schedule.mode }}) → {{ e.new_schedule.starts_at|slice:":16" }}</div>{% endif %}
+                    {% if e.reason %}<div class="text-muted">{{ e.reason }}</div>{% endif %}</li>
+                {% endfor %}
+              </ul></details>
+          {% endif %}{% endwith %}
+        </div>
+      {% empty %}<p class="small text-muted mb-0">No interviews.</p>{% endfor %}
+    </div></div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Evaluations</h2>
+      <p class="small text-muted">Submitted narrative assessments. Amendments keep earlier versions.</p>
+      {% for e in evaluations %}
+        <div class="small border-bottom pb-2 mb-2 {% if not e.is_current %}text-muted{% endif %}">
+          <span class="fw-semibold">{{ e.committee_member.user.full_name|default:e.committee_member.user.username }}</span>
+          · v{{ e.version }} · {% if e.interview %}interview {{ e.interview.starts_at|date:"M j" }}{% else %}documents only{% endif %}
+          {% if e.status == 'draft' %}<span class="badge text-bg-secondary">your draft</span>{% elif not e.is_current %}<span class="badge text-bg-secondary">superseded</span>{% endif %}
+          {% if e.submitted_at %}<span class="text-muted">· submitted {{ e.submitted_at|date:"M j, Y g:i A" }}</span>{% endif %}
+          <div style="white-space: pre-line">{{ e.findings }}</div>
+          {% if e.recommendation %}<div><span class="text-muted">Recommendation:</span> {{ e.recommendation }}</div>{% endif %}
+          {% if e.amendment_reason %}<div class="text-muted">Amendment reason: {{ e.amendment_reason }}</div>{% endif %}
+        </div>
+      {% empty %}<p class="small text-muted mb-0">No submitted evaluations.</p>{% endfor %}
+    </div></div>
+
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">Conflicts of interest</h2>
+      {% for c in conflicts %}
+        <div class="small border-bottom pb-2 mb-2">
+          <span class="fw-semibold">{{ c.committee_member.user.full_name|default:c.committee_member.user.username }}</span>
+          <span class="badge {% if c.status == 'open' %}text-bg-warning{% elif c.status == 'recused' %}text-bg-dark{% else %}text-bg-success{% endif %}">{{ c.get_status_display }}</span>
+          · {{ c.declared_at|date:"M j, Y" }}
+          <div>{{ c.declaration }}</div>
+          {% if c.resolution %}<div class="text-muted">{{ c.resolution }} ({{ c.resolved_by.full_name|default:c.resolved_by.username }}, {{ c.resolved_at|date:"M j, Y" }})</div>{% endif %}
+          {% if can_resolve and c.status == 'open' %}<a href="{% url 'committee:conflict_resolve' c.pk %}">Resolve</a>{% endif %}
+        </div>
+      {% empty %}<p class="small text-muted mb-0">None declared.</p>{% endfor %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@
 <a class="small" href="{% url 'recruitment:my_applications' %}">&larr; My applications</a>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
   <div>
-    <h1 class="h4 mb-1">{{ application.vacancy.position_title }} {% include "recruitment/applications/_status.html" with app=application %}</h1>
+    <h1 class="h4 mb-1">{{ application.vacancy.position_title }} {% include "recruitment/applications/_status.html" with app=public_status %}</h1>
     <div class="small text-muted">Application {{ application.reference }} · {{ application.vacancy.department.name }} ·
       Deadline {{ application.vacancy.deadline_at|date:"M j, Y g:i A" }} (Asia/Manila)
       {% if application.submitted_at %} · Submitted {{ application.submitted_at|date:"M j, Y g:i A" }}{% endif %}</div>
@@ -106,6 +106,33 @@
   </div>
 
   <div class="col-lg-5">
+    {% if released_decisions %}
+      <div class="card shadow-sm mb-3 border-primary"><div class="card-body">
+        <h2 class="h6">Decisions</h2>
+        {% for d in released_decisions %}
+          <div class="small border-bottom pb-2 mb-2">
+            <span class="fw-semibold">{{ d.get_decision_type_display }}: {{ d.get_outcome_display }}</span>
+            <span class="text-muted">· released {{ d.released_at|date:"M j, Y" }}</span>
+            {% if d.decision_type == 'appointment' %}<div>Appointment {{ d.appointment_reference }}, effective {{ d.appointment_at|date:"M j, Y" }}</div>{% endif %}
+            {% if d.release_note %}<div style="white-space: pre-line">{{ d.release_note }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div></div>
+    {% endif %}
+    {% if interviews %}
+      <div class="card shadow-sm mb-3"><div class="card-body">
+        <h2 class="h6">Interview invitations</h2>
+        {% for i in interviews %}
+          <div class="small border-bottom pb-2 mb-2">
+            <span class="fw-semibold {% if i.status == 'canceled' %}text-decoration-line-through{% endif %}">{{ i.starts_at|date:"l, M j, Y g:i A" }} – {{ i.ends_at|date:"g:i A" }}</span> ({{ i.timezone }})
+            <span class="badge {% if i.status == 'canceled' %}text-bg-dark{% elif i.status == 'completed' %}text-bg-secondary{% else %}text-bg-info{% endif %}">{{ i.get_status_display }}</span>
+            {% if i.status == 'scheduled' %}
+              <div>{{ i.get_mode_display }}{% if i.mode == 'in_person' %}: {{ i.location }}{% else %}: <a href="{{ i.meeting_link }}" target="_blank" rel="noopener noreferrer">{{ i.meeting_link }}</a>{% endif %}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div></div>
+    {% endif %}
     <div class="card shadow-sm mb-3"><div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h2 class="h5 mb-0">{% if application.submitted_at %}Submitted information{% else %}Preview{% endif %}</h2>

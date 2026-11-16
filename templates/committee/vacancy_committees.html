@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Committees · {{ vacancy.position_title }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'recruitment:vacancy_detail' vacancy.pk %}">&larr; {{ vacancy.position_title }}</a>
+<h1 class="h4 mt-2">Committees &amp; interviews</h1>
+<p class="small text-muted">{{ vacancy.reference }} · {{ vacancy.department.name }}. Committee members see only this vacancy's shortlisted applicants, and lose access to an applicant when they declare a conflict of interest.</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    {% for c in committees %}
+      <div class="card shadow-sm mb-3 {% if not c.committee.is_active %}opacity-75{% endif %}"><div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <h2 class="h5 mb-0">{{ c.committee.name }} {% if not c.committee.is_active %}<span class="badge text-bg-secondary">inactive</span>{% endif %}</h2>
+          {% if can_manage %}
+            <form method="post" action="{% url 'committee:committee_active' c.committee.pk %}" class="d-flex gap-1">{% csrf_token %}
+              <input type="hidden" name="active" value="{% if c.committee.is_active %}0{% else %}1{% endif %}">
+              <input class="form-control form-control-sm" name="reason" placeholder="Reason" required aria-label="Reason">
+              <button class="btn btn-sm btn-outline-secondary" type="submit">{% if c.committee.is_active %}Deactivate{% else %}Reactivate{% endif %}</button>
+            </form>
+          {% endif %}
+        </div>
+        <ul class="list-group list-group-flush mt-2">
+          {% for m in c.members %}
+            <li class="list-group-item px-0 d-flex flex-wrap justify-content-between align-items-center gap-2 small {% if not m.is_active %}text-muted{% endif %}">
+              <span><span class="fw-semibold">{{ m.user.full_name|default:m.user.username }}</span> · {{ m.get_member_role_display }}{% if not m.is_active %} · ended {{ m.ended_at|date:"M j, Y" }}{% endif %}</span>
+              {% if can_manage and m.is_active %}
+                <form method="post" action="{% url 'committee:member_end' m.pk %}" class="d-flex gap-1">{% csrf_token %}
+                  <input class="form-control form-control-sm" name="reason" placeholder="Reason" required aria-label="Reason to end membership">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">End</button></form>
+              {% endif %}
+            </li>
+          {% empty %}<li class="list-group-item px-0 small text-muted">No members yet.</li>{% endfor %}
+        </ul>
+        {% if can_manage and c.committee.is_active %}
+          <form method="post" action="{% url 'committee:member_add' c.committee.pk %}" class="row g-2 align-items-end mt-1">{% csrf_token %}
+            <div class="col-md-6"><label class="form-label small" for="{{ c.member_form.user.id_for_label }}">Member</label>{{ c.member_form.user }}</div>
+            <div class="col-md-3"><label class="form-label small" for="{{ c.member_form.member_role.id_for_label }}">Role</label>{{ c.member_form.member_role }}</div>
+            <div class="col-md-3 d-grid"><button class="btn btn-outline-primary" type="submit">Add member</button></div>
+          </form>
+          <p class="small text-muted mt-1 mb-0">Only users holding the PSB Member or Department Head role are listed.</p>
+        {% endif %}
+      </div></div>
+    {% empty %}
+      <div class="alert alert-light border">No committee yet.</div>
+    {% endfor %}
+
+    {% if can_manage %}
+      <div class="card shadow-sm mb-3"><div class="card-body">
+        <h2 class="h6">New committee</h2>
+        {% include "includes/form_errors.html" %}
+        <form method="post" novalidate>{% csrf_token %}
+          {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+          <button class="btn btn-primary" type="submit">Create committee</button>
+        </form>
+      </div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Conflicts of interest</h2>
+      {% for c in conflicts %}
+        <div class="small border-bottom pb-2 mb-2">
+          <span class="fw-semibold">{{ c.committee_member.user.full_name|default:c.committee_member.user.username }}</span> ↔
+          <a href="{% url 'recruitment:application_selection' c.application.pk %}">{{ c.application.applicant.user.last_name }}, {{ c.application.applicant.user.first_name }}</a>
+          <span class="badge {% if c.status == 'open' %}text-bg-warning{% elif c.status == 'recused' %}text-bg-dark{% else %}text-bg-success{% endif %}">{{ c.get_status_display }}</span>
+          <div>{{ c.declaration }}</div>
+          {% if c.resolution %}<div class="text-muted">{{ c.resolution }} ({{ c.resolved_by.full_name|default:c.resolved_by.username }})</div>{% endif %}
+          {% if can_resolve and c.status == 'open' %}<a href="{% url 'committee:conflict_resolve' c.pk %}">Resolve</a>{% endif %}
+        </div>
+      {% empty %}<p class="small text-muted mb-0">None declared.</p>{% endfor %}
+    </div></div>
+
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">Interviews</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for i in interviews %}
+          <li class="mb-2"><a href="{% url 'recruitment:application_selection' i.application.pk %}">{{ i.application.applicant.user.last_name }}, {{ i.application.applicant.user.first_name }}</a>
+            · {{ i.starts_at|date:"M j, Y g:i A" }} <span class="badge text-bg-light border">{{ i.get_status_display }}</span>
+            <div class="text-muted">Panel: {% for s in i.panel.all %}{{ s.committee_member.user.full_name|default:s.committee_member.user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div></li>
+        {% empty %}<li class="text-muted">No interviews scheduled. Schedule them from an applicant's Selection page.</li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

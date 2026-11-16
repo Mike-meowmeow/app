@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Evaluation v{{ evaluation.version }}{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'committee:candidate' evaluation.application.pk %}">&larr; {{ evaluation.application.applicant.user.last_name }}, {{ evaluation.application.applicant.user.first_name }}</a>
+<h1 class="h4 mt-2">Evaluation version {{ evaluation.version }}
+  <span class="badge {% if evaluation.status == 'draft' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ evaluation.get_status_display }}</span></h1>
+<p class="small text-muted">{% if evaluation.interview %}Interview on {{ evaluation.interview.starts_at|date:"M j, Y g:i A" }}{% else %}Assessment of the application documents{% endif %}.
+  {% if evaluation.amendment_reason %}Amends version {{ evaluation.supersedes.version }}: {{ evaluation.amendment_reason }}{% endif %}</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm"><div class="card-body">
+      {% if evaluation.status == 'draft' %}
+        {% include "includes/form_errors.html" %}
+        <form method="post" novalidate>{% csrf_token %}
+          {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+          <button class="btn btn-outline-primary" type="submit">Save draft</button>
+          <button class="btn btn-primary" type="submit" name="submit" value="1" onclick="return confirm('Submit this evaluation? Submitted evaluations can only be amended, with a reason.');">Submit</button>
+        </form>
+        <form method="post" action="{% url 'committee:evaluation_discard' evaluation.pk %}" class="mt-2" onsubmit="return confirm('Discard this draft?');">{% csrf_token %}
+          <button class="btn btn-sm btn-link text-danger p-0" type="submit">Discard draft</button></form>
+      {% else %}
+        <div class="small text-muted mb-2">Submitted {{ evaluation.submitted_at|date:"M j, Y g:i A" }}</div>
+        <h2 class="h6">Findings</h2><p style="white-space: pre-line">{{ evaluation.findings }}</p>
+        {% if evaluation.recommendation %}<h2 class="h6">Recommendation</h2><p style="white-space: pre-line">{{ evaluation.recommendation }}</p>{% endif %}
+        {% if can_amend %}<a class="btn btn-outline-secondary btn-sm" href="{% url 'committee:evaluation_amend' evaluation.pk %}">Amend</a>{% endif %}
+      {% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">Versions</h2>
+      <ul class="list-unstyled small mb-0">
+        {% for e in history %}
+          <li class="mb-1">{% if e.pk == evaluation.pk %}<span class="fw-semibold">v{{ e.version }}</span>{% else %}<a href="{% url 'committee:evaluation_edit' e.pk %}">v{{ e.version }}</a>{% endif %}
+            · {{ e.get_status_display }}{% if e.submitted_at %} {{ e.submitted_at|date:"M j, Y g:i A" }}{% endif %}{% if e.amendment_reason %}<div class="text-muted">{{ e.amendment_reason }}</div>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -202,9 +202,10 @@ app/
   audit/          Protected audit trail and audit service
   documents/      Document types, private versioned uploads, verification, downloads
   recruitment/    Vacancies, requirement versions, staff assignments, applications,
-                  snapshots, facts, corrections, workflow
+                  snapshots, facts, corrections, workflow, human decisions and release
   applicants/     Applicant profiles and qualification records
   matrix/         Official applicant roster: templates, versions, approval, Excel/PDF export
+  committee/      Committees, conflicts of interest, interviews, narrative evaluations
   templates/      Django templates (Bootstrap 5, served locally from static/vendor)
   setup.ps1 / setup.sh / setup_dev.py   Machine setup
   setup_db.py     Database provisioning, time zones, migrations, seeding
@@ -221,15 +222,17 @@ records are view-only there.
 | Stage | Status |
 | --- | --- |
 | 1 Environment and skeleton | Done |
-| 2 Models and migrations | Batches A–C applied; later batches arrive with their modules |
+| 2 Models and migrations | Batches A–E applied; later batches arrive with their modules |
 | 3 Accounts, roles, access | Done |
 | 4 Vacancies and applicant profiles | Done |
 | 5 Applications, documents, manual review | Done |
 | 6 Official roster, approval, Excel/PDF | Done |
-| 7–11 Committees, notifications, staging, AI, release | Not started |
+| 7 Committees, interviews, decisions | Done |
+| 8–11 Notifications, staging, AI, release | Not started |
 
 Pending institutional inputs (HR): official privacy notice wording, document checklist,
-qualification reference values, approval authorities (including self-approval of rosters), and
+qualification reference values, approval authorities (including self-approval of rosters,
+shortlisting, final decisions, decision release, and conflict resolution), and
 roster conventions (row order, missing-value labels, remark wording, signatories, treatment of
 unverified values at release). Seeded document types and the privacy notice are development
 placeholders until then.

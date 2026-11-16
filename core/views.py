@@ -12,7 +12,7 @@ WORKSPACE_PLAN = {
         ('My profile and qualifications', 'Stage 4', 'applicants:profile'),
         ('Open vacancies', 'Stage 4', 'recruitment:public_list'),
         ('My applications and documents', 'Stage 5', 'recruitment:my_applications'),
-        ('Released updates and decisions', 'Stage 7', None),
+        ('Released updates and decisions', 'Stage 7', 'recruitment:my_applications'),
     ]),
     'hr': ('HR workspace', roles.HR, [
         ('Vacancies and requirements', 'Stage 4', 'recruitment:vacancy_list'),
@@ -20,21 +20,25 @@ WORKSPACE_PLAN = {
         ('Applications: fact review and corrections', 'Stage 5', 'recruitment:vacancy_list'),
         ('Official roster preparation (open a vacancy, then Official roster)', 'Stage 6',
          'recruitment:vacancy_list'),
+        ('Committees, interviews, and decisions (open a vacancy, then Committees; '
+         'an application, then Selection)', 'Stage 7', 'recruitment:vacancy_list'),
+        ('Shortlisting decisions awaiting release', 'Stage 7', 'recruitment:decisions_pending'),
     ]),
     'approver': ('Approver workspace', roles.APPROVER, [
         ('All vacancies (oversight)', 'Stage 4', 'recruitment:vacancy_list'),
         ('Rosters awaiting approval', 'Stage 6', 'matrix:pending'),
         ('Official roster templates and signatories', 'Stage 6', 'matrix:templates'),
-        ('Decision release oversight', 'Stage 7', None),
+        ('Decisions awaiting release', 'Stage 7', 'recruitment:decisions_pending'),
         ('Recruitment reports', 'Stage 8', None),
     ]),
     'department': ('Department Head workspace', roles.DEPARTMENT_HEAD, [
         ('Assigned vacancies', 'Stage 4', 'recruitment:vacancy_list'),
-        ('Qualification review and assessments', 'Stage 7', None),
+        ('Committee candidates and assessments', 'Stage 7', 'committee:my_candidates'),
     ]),
     'psb': ('PSB workspace', roles.PSB_MEMBER, [
-        ('Assigned candidates', 'Stage 7', None),
-        ('Interviews and evaluations', 'Stage 7', None),
+        ('Assigned candidates', 'Stage 7', 'committee:my_candidates'),
+        ('Interviews, conflicts, and evaluations (open a candidate)', 'Stage 7',
+         'committee:my_candidates'),
     ]),
 }
 

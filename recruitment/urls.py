@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import application_views as apps
+from . import decision_views
 from . import views
 
 app_name = 'recruitment'
@@ -37,6 +38,17 @@ urlpatterns = [
     path(APP + 'facts/<uuid:fact_pk>/correct/', apps.fact_correct, name='fact_correct'),
     path(APP + 'qualifications/<uuid:standard_pk>/', apps.qualification_outcome,
          name='qualification_outcome'),
+    # Staff: selection and decisions (Stage 7)
+    path(APP + 'selection/', decision_views.application_selection,
+         name='application_selection'),
+    path(APP + 'decisions/<slug:decision_type>/new/', decision_views.decision_new,
+         name='decision_new'),
+    path(APP + 'decisions/<uuid:decision_pk>/correct/', decision_views.decision_correct,
+         name='decision_correct'),
+    path(APP + 'decisions/<uuid:decision_pk>/release/', decision_views.decision_release,
+         name='decision_release'),
+    path('manage/decisions/pending-release/', decision_views.decisions_pending,
+         name='decisions_pending'),
 
     # Public / applicants
     path('vacancies/', views.public_list, name='public_list'),

@@ -13,7 +13,7 @@
       <tr>
         <td><a href="{% url 'recruitment:my_application' app.pk %}">{{ app.reference }}</a></td>
         <td>{{ app.vacancy.position_title }}<div class="small text-muted">{{ app.vacancy.department.name }}</div></td>
-        <td>{% include "recruitment/applications/_status.html" %}</td>
+        <td>{% include "recruitment/applications/_status.html" with app=app.public %}</td>
         <td>{{ app.submitted_at|date:"M j, Y g:i A"|default:"—" }}</td>
         <td>{{ app.vacancy.deadline_at|date:"M j, Y g:i A" }}</td>
       </tr>

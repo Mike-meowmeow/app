@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Assigned candidates{% endblock %}
+{% block content %}
+<h1 class="h4">Assigned candidates</h1>
+<p class="small text-muted">Shortlisted applicants of the vacancies whose committees you sit on:
+  {% for m in memberships %}{{ m.committee.name }} ({{ m.get_member_role_display }}){% if not forloop.last %}; {% endif %}{% empty %}no active committee membership.{% endfor %}
+  If you have a conflict of interest with an applicant, open their page and declare it before assessing anyone.</p>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Applicant</th><th>Vacancy</th><th></th></tr></thead>
+  <tbody>
+    {% for app, blocked in rows %}
+      <tr>
+        <td>{% if blocked %}{{ app.applicant.user.last_name }}, {{ app.applicant.user.first_name }}{% else %}<a href="{% url 'committee:candidate' app.pk %}">{{ app.applicant.user.last_name }}, {{ app.applicant.user.first_name }}</a>{% endif %}<div class="small text-muted">{{ app.reference }}</div></td>
+        <td>{{ app.vacancy.position_title }}<div class="small text-muted">{{ app.vacancy.department.name }}</div></td>
+        <td>{% if blocked %}<span class="badge text-bg-dark">Conflict declared - no access</span>{% endif %}</td>
+      </tr>
+    {% empty %}<tr><td colspan="3" class="text-center text-muted py-4">No shortlisted applicants assigned to your committees yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

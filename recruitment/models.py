@@ -462,3 +462,98 @@ class ApplicationCorrection(AppendOnlyModel):
     class Meta:
         db_table = 'application_corrections'
         ordering = ['corrected_at']
+
+
+# ==========================================================================
+# Human recruitment decisions (Stage 7, Batch E)
+# ==========================================================================
+
+class DecisionType(models.TextChoices):
+    SHORTLISTING = 'shortlisting', 'Shortlisting'
+    COMMITTEE_RECOMMENDATION = 'committee_recommendation', 'Committee recommendation'
+    FINAL_OUTCOME = 'final_outcome', 'Final outcome'
+    APPOINTMENT = 'appointment', 'Appointment'
+
+
+class DecisionOutcome(models.TextChoices):
+    SHORTLISTED = 'shortlisted', 'Shortlisted'
+    NOT_SHORTLISTED = 'not_shortlisted', 'Not shortlisted'
+    RECOMMENDED = 'recommended', 'Recommended'
+    NOT_RECOMMENDED = 'not_recommended', 'Not recommended'
+    SELECTED = 'selected', 'Selected'
+    NOT_SELECTED = 'not_selected', 'Not selected'
+    CLOSED_WITHOUT_SELECTION = 'closed_without_selection', 'Closed without selection'
+    APPOINTED = 'appointed', 'Appointed'
+
+
+RELEASE_FIELDS = frozenset({'released_by', 'released_at', 'release_note', 'updated_at'})
+
+
+class RecruitmentDecision(BaseModel):
+    """A recorded human decision. Shortlisting, committee recommendation,
+    final outcome, and appointment are separate events. A correction is a new
+    record that supersedes the previous one; only the release fields of an
+    existing record may change. Internal recording and applicant-facing
+    release are separate actions."""
+
+    application = models.ForeignKey(Application, on_delete=models.PROTECT,
+                                    related_name='decisions')
+    committee = models.ForeignKey('committee.Committee', on_delete=models.PROTECT,
+                                  null=True, blank=True, related_name='decisions')
+    decision_type = models.CharField(max_length=30, choices=DecisionType.choices)
+    outcome = models.CharField(max_length=30, choices=DecisionOutcome.choices)
+    reason = models.TextField()
+    supporting_references = models.JSONField(default=dict, blank=True)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                   related_name='+')
+    decision_at = models.DateTimeField()
+    supersedes = models.OneToOneField('self', on_delete=models.PROTECT, null=True, blank=True,
+                                      related_name='superseded_by')
+    released_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                    null=True, blank=True, related_name='+')
+    released_at = models.DateTimeField(null=True, blank=True)
+    release_note = models.TextField(blank=True, help_text='Applicant-facing message.')
+    appointment_reference = models.CharField(max_length=100, blank=True)
+    appointment_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'recruitment_decisions'
+        ordering = ['decision_at', 'created_at']
+        indexes = [models.Index(fields=['application', 'decision_type'],
+                                name='decision_application_type_idx')]
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(decision_type='appointment')
+                | (Q(appointment_at__isnull=False) & ~Q(appointment_reference='')),
+                name='decision_appointment_has_reference'),
+            models.CheckConstraint(
+                condition=~Q(decision_type='committee_recommendation')
+                | Q(committee__isnull=False),
+                name='decision_recommendation_has_committee'),
+            models.CheckConstraint(
+                condition=(Q(released_at__isnull=True) & Q(released_by__isnull=True))
+                | (Q(released_at__isnull=False) & Q(released_by__isnull=False)),
+                name='decision_release_complete'),
+        ]
+
+    def __str__(self):
+        return f'{self.get_decision_type_display()}: {self.get_outcome_display()}'
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            fields = kwargs.get('update_fields')
+            if fields is None or not set(fields) <= RELEASE_FIELDS:
+                raise PermissionError('Recorded decisions cannot be edited; record a '
+                                      'correction instead.')
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise PermissionError('Recorded decisions cannot be deleted.')
+
+    @property
+    def is_current(self):
+        return not hasattr(self, 'superseded_by')
+
+    @property
+    def is_released(self):
+        return self.released_at is not None

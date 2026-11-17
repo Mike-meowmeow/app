@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Audit trail{% endblock %}
+{% block content %}
+<h1 class="h4">Audit trail</h1>
+<p class="small text-muted">Protected history of significant actions. Entries cannot be edited or deleted. Passwords and tokens are never recorded.</p>
+<form method="get" class="card card-body shadow-sm mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3"><label class="form-label small" for="{{ form.action.id_for_label }}">{{ form.action.label }}</label>{{ form.action }}</div>
+    <div class="col-md-2"><label class="form-label small" for="{{ form.actor.id_for_label }}">{{ form.actor.label }}</label>{{ form.actor }}</div>
+    <div class="col-md-2"><label class="form-label small" for="{{ form.entity_id.id_for_label }}">{{ form.entity_id.label }}</label>{{ form.entity_id }}</div>
+    <div class="col-md-2"><label class="form-label small" for="{{ form.start.id_for_label }}">{{ form.start.label }}</label>{{ form.start }}</div>
+    <div class="col-md-2"><label class="form-label small" for="{{ form.end.id_for_label }}">{{ form.end.label }}</label>{{ form.end }}</div>
+    <div class="col-md-1 d-grid"><button class="btn btn-primary" type="submit">Search</button></div>
+  </div>
+  <div class="mt-2 small d-flex gap-3">
+    <a href="{% url 'audit:list' %}">Clear</a>
+    <a href="?{{ query }}{% if query %}&amp;{% endif %}export=csv">Export these results (CSV, up to {{ export_limit }} rows)</a>
+  </div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-sm align-middle mb-0 small">
+  <thead class="table-light"><tr><th>When</th><th>Action</th><th>User</th><th>Record</th><th>Reason / changes</th><th>IP</th></tr></thead>
+  <tbody>
+    {% for log in page %}
+      <tr><td class="text-nowrap">{{ log.occurred_at|date:"M j, Y g:i:s A" }}</td><td><code>{{ log.action }}</code></td>
+        <td>{{ log.actor.username|default:"—" }}</td><td>{{ log.entity_type }}<div class="text-muted">{{ log.entity_id|truncatechars:14 }}</div></td>
+        <td>{% if log.reason %}<div>{{ log.reason|truncatechars:120 }}</div>{% endif %}<div class="text-muted">{{ log.changes|truncatechars:160 }}</div></td>
+        <td>{{ log.ip_address|default:"" }}</td></tr>
+    {% empty %}<tr><td colspan="6" class="text-center text-muted py-3">No matching entries.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="d-flex justify-content-between align-items-center mt-2 small text-muted">
+  <span>{{ page.paginator.count }} entr{{ page.paginator.count|pluralize:"y,ies" }}</span>
+  {% if page.paginator.num_pages > 1 %}
+  <ul class="pagination pagination-sm mb-0">
+    {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?{{ query }}&amp;page={{ page.previous_page_number }}">Previous</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+    {% if page.has_next %}<li class="page-item"><a class="page-link" href="?{{ query }}&amp;page={{ page.next_page_number }}">Next</a></li>{% endif %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

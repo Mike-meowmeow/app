@@ -1,0 +1,9 @@
+[Unit]
+Description=EVSU recruitment: nightly backup set (database + private files)
+
+[Service]
+Type=oneshot
+User=evsu
+WorkingDirectory=/srv/evsu-recruitment
+ExecStart=/srv/evsu-recruitment/.venv/bin/python manage.py backup_create
+ExecStartPost=/srv/evsu-recruitment/.venv/bin/python manage.py backup_verify

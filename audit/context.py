@@ -26,11 +26,25 @@ _current = ContextVar('audit_context', default=AuditContext())
 
 
 def client_ip(request):
+    """The client's address. X-Forwarded-For is trusted only when the direct
+    peer is a configured proxy (TRUSTED_PROXIES); then the right-most address
+    that is not itself a trusted proxy is the client (it cannot be spoofed by
+    adding entries on the left)."""
     if request is None:
         return None
-    # REMOTE_ADDR only. Behind Nginx, configure a trusted proxy header before
-    # reading X-Forwarded-For (Stage 9).
-    return request.META.get('REMOTE_ADDR') or None
+    from django.conf import settings
+    remote = request.META.get('REMOTE_ADDR') or None
+    trusted = set(getattr(settings, 'TRUSTED_PROXIES', ()))
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if remote in trusted and forwarded:
+        import ipaddress
+        for address in reversed([a.strip() for a in forwarded.split(',') if a.strip()]):
+            if address not in trusted:
+                try:
+                    return str(ipaddress.ip_address(address))
+                except ValueError:
+                    break  # malformed header: fall back to the proxy address
+    return remote
 
 
 def current():

@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from accounts import roles
 from audit import services as audit
+from notifications import events
 from recruitment import application_services as applications
 from recruitment.models import (Application, ApplicationStatus, DecisionOutcome, DecisionType,
                                 VacancyStatus, WorkflowVisibility)
@@ -106,6 +107,7 @@ def add_member(actor, committee, user, *, member_role=MemberRole.MEMBER):
     audit.record(action, entity=member, actor=actor,
                  changes={'committee': committee.name, 'user': user.username,
                           'member_role': member_role})
+    events.committee_member_added(member)
     return member
 
 
@@ -146,6 +148,7 @@ def declare_conflict(actor, member, application, *, declaration):
                                                 declaration=declaration)
     audit.record('conflict.declared', entity=conflict, actor=actor,
                  changes={'application': application.reference, 'member': member.user.username})
+    events.conflict_declared(conflict)
     return conflict
 
 
@@ -268,7 +271,8 @@ def schedule_interview(actor, application, *, panel, starts_at, ends_at, mode, l
     interview = Interview.objects.create(application=application, scheduled_by=actor, **data)
     for member in panel:
         InterviewPanelMember.objects.create(interview=interview, committee_member=member)
-    _event(interview, InterviewEventType.SCHEDULED, actor, new=interview.schedule())
+    events.interview_event(interview, _event(interview, InterviewEventType.SCHEDULED, actor,
+                                             new=interview.schedule()))
     if application.status == S.SHORTLISTED:
         applications.transition(application, S.FOR_INTERVIEW, actor=actor,
                                 reason='Invited to an interview',
@@ -302,8 +306,8 @@ def reschedule_interview(actor, interview, *, reason, starts_at, ends_at, mode, 
     if interview.schedule() == old:
         raise ValidationError('The schedule did not change.')
     interview.save(update_fields=list(data))
-    _event(interview, InterviewEventType.RESCHEDULED, actor, old=old, new=interview.schedule(),
-           reason=reason)
+    events.interview_event(interview, _event(interview, InterviewEventType.RESCHEDULED, actor,
+                                             old=old, new=interview.schedule(), reason=reason))
     audit.record('interview.rescheduled', entity=interview, actor=actor, reason=reason,
                  changes={'old': old, 'new': interview.schedule()})
     return interview
@@ -321,7 +325,8 @@ def cancel_interview(actor, interview, *, reason):
     interview.status = InterviewStatus.CANCELED
     interview.attendance_status = AttendanceStatus.NOT_APPLICABLE
     interview.save(update_fields=['status', 'attendance_status'])
-    _event(interview, InterviewEventType.CANCELED, actor, old=interview.schedule(), reason=reason)
+    events.interview_event(interview, _event(interview, InterviewEventType.CANCELED, actor,
+                                             old=interview.schedule(), reason=reason))
     audit.record('interview.canceled', entity=interview, actor=actor, reason=reason)
     return interview
 
@@ -355,10 +360,11 @@ def add_panel_member(actor, interview, member):
     if interview.panel.filter(committee_member=member).exists():
         raise ValidationError(f'{_name(member.user)} is already on the panel.')
     InterviewPanelMember.objects.create(interview=interview, committee_member=member)
-    _event(interview, InterviewEventType.PANEL_ADDED, actor,
-           new={'member': str(member.pk), 'user': member.user.username})
+    added = _event(interview, InterviewEventType.PANEL_ADDED, actor,
+                   new={'member': str(member.pk), 'user': member.user.username})
     audit.record('interview.panel_added', entity=interview, actor=actor,
                  changes={'member': member.user.username})
+    events.panel_member_added(interview, member, added)
 
 
 @transaction.atomic

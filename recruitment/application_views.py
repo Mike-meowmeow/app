@@ -17,7 +17,7 @@ from . import application_selectors as access
 from . import application_services as services
 from . import decision_services as decisions
 from . import fact_schema, selectors
-from .application_forms import (ApplicationFilterForm, CorrectionReasonForm,
+from .application_forms import (ApplicationFilterForm, ApplicationSearchForm, CorrectionReasonForm,
                                 CorrectionRequestForm, ExceptionForm, ManualFactForm,
                                 OutcomeForm, ReasonForm, ReplaceForm, SubmitForm, UploadForm,
                                 VerificationForm, WithdrawForm)
@@ -238,6 +238,21 @@ def vacancy_applications(request, pk):
     query.pop('page', None)
     return render(request, 'recruitment/applications/staff_list.html', {
         'vacancy': vacancy, 'form': form, 'page': page, 'query': query.urlencode()})
+
+
+@role_required(*STAFF_ROLES)
+def application_search(request):
+    """Permission-aware search across every vacancy the user may see (FR-015)."""
+    vacancies = selectors.visible_vacancies(request.user)
+    form = ApplicationSearchForm(request.GET or None, vacancies=vacancies)
+    filters = form.cleaned_data if form.is_valid() else {}
+    apps = access.search(access.visible_applications(request.user).select_related(
+        'vacancy__department'), **{k: v for k, v in filters.items() if v not in (None, '')})
+    page = Paginator(apps.order_by('-submitted_at'), 25).get_page(request.GET.get('page'))
+    query = request.GET.copy()
+    query.pop('page', None)
+    return render(request, 'recruitment/applications/search.html', {
+        'form': form, 'page': page, 'query': query.urlencode()})
 
 
 @role_required(roles.HR)

@@ -1,8 +1,10 @@
 """
-Django settings for the EVSU recruitment system (local development baseline).
+Django settings for the EVSU recruitment system.
 
-Values come from app/.env, loaded explicitly with python-dotenv.
-Split into base/local/test/production modules before deployment.
+One environment-driven module: values come from app/.env (python-dotenv).
+Development uses DJANGO_DEBUG=True; production sets DJANGO_DEBUG=False, which
+turns on the HTTPS/cookie hardening below unless a key overrides it. See
+.env.production.example and deploy/DEPLOY.md.
 """
 
 import os
@@ -54,6 +56,9 @@ INSTALLED_APPS = [
     'applicants.apps.ApplicantsConfig',
     'matrix.apps.MatrixConfig',
     'committee.apps.CommitteeConfig',
+    'notifications.apps.NotificationsConfig',
+    'analytics.apps.AnalyticsConfig',
+    'operations.apps.OperationsConfig',
 ]
 
 MIDDLEWARE = [
@@ -81,6 +86,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'accounts.context_processors.workspaces',
+                'notifications.context_processors.unread',
             ],
         },
     },
@@ -163,14 +169,15 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = Path(env('STATIC_ROOT') or BASE_DIR / 'staticfiles')
 
 
 # Private file locations (never served as public static/media).
 
-PRIVATE_STORAGE_ROOT = BASE_DIR / 'private'
+PRIVATE_STORAGE_ROOT = Path(env('PRIVATE_STORAGE_ROOT') or BASE_DIR / 'private')
 DOCUMENT_STORAGE_ROOT = PRIVATE_STORAGE_ROOT / 'documents'
 EXPORT_STORAGE_ROOT = PRIVATE_STORAGE_ROOT / 'exports'
+REPORT_STORAGE_ROOT = PRIVATE_STORAGE_ROOT / 'reports'
 
 # Optional malware scanner command; the file path is appended. Exit code
 # 0 = clean, 1 = infected. Empty = files are recorded as "not scanned".
@@ -205,10 +212,93 @@ CONFLICT_RESOLUTION_ROLES = ('HR Head / Approver',)
 COMMITTEE_MEMBER_ROLES = ('PSB Member', 'Department Head')
 
 
-# Email: console backend for local development.
+# Email: console backend for local development; set EMAIL_BACKEND to
+# django.core.mail.backends.smtp.EmailBackend plus the EMAIL_* keys for SMTP.
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = env('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = env('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(env('EMAIL_PORT', '25'))
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', False)
+EMAIL_TIMEOUT = int(env('EMAIL_TIMEOUT', '20'))
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', 'EVSU Recruitment <no-reply@localhost>')
+
+# Notifications (Stage 8): email copies of in-app notifications.
+NOTIFICATION_EMAIL_ENABLED = env_bool('NOTIFICATION_EMAIL_ENABLED', True)
+NOTIFICATION_MAX_ATTEMPTS = int(env('NOTIFICATION_MAX_ATTEMPTS', '3'))
+# Base address used for links in emails.
+SITE_URL = env('SITE_URL', 'http://127.0.0.1:8000')
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# Production hardening (Stage 9). Secure defaults whenever DEBUG is False;
+# each key can be overridden in .env. Behind Nginx, the proxy terminates HTTPS
+# and sends X-Forwarded-Proto, so SECURE_PROXY_SSL_HEADER is trusted only when
+# BEHIND_PROXY is on.
+
+SECURE_DEFAULTS = not DEBUG
+SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', SECURE_DEFAULTS)
+CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', SECURE_DEFAULTS)
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', SECURE_DEFAULTS)
+SECURE_HSTS_SECONDS = int(env('SECURE_HSTS_SECONDS', '31536000' if SECURE_DEFAULTS else '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', SECURE_DEFAULTS)
+SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', False)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') \
+    if env_bool('BEHIND_PROXY', SECURE_DEFAULTS) else None
+CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', '')
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_HTTPONLY = False  # Django's default; forms read the token from the page.
+# HSTS preload is a long-term commitment for the whole domain; the institution
+# decides it, so check --deploy's preload reminder is silenced deliberately.
+SILENCED_SYSTEM_CHECKS = ['security.W021']
+
+# Client IP for audit and login throttling: X-Forwarded-For is used only when
+# the direct peer is one of these proxy addresses (e.g. 127.0.0.1 for Nginx).
+TRUSTED_PROXIES = env_list('TRUSTED_PROXIES', '')
+
+# Login throttling (FR-001): failed sign-ins per identifier or per IP address
+# within the window lock further attempts until the window passes.
+LOGIN_MAX_FAILURES = int(env('LOGIN_MAX_FAILURES') or 5)
+LOGIN_LOCKOUT_MINUTES = int(env('LOGIN_LOCKOUT_MINUTES') or 15)
+# Higher per-address limit: many users may share one campus network address.
+LOGIN_MAX_FAILURES_PER_IP = int(env('LOGIN_MAX_FAILURES_PER_IP') or 20)
+
+# Private downloads: 'django' streams files from the app; 'nginx' returns an
+# X-Accel-Redirect to an internal-only location after the permission check.
+PRIVATE_FILE_DELIVERY = env('PRIVATE_FILE_DELIVERY') or 'django'
+PRIVATE_FILE_INTERNAL_PREFIX = env('PRIVATE_FILE_INTERNAL_PREFIX', '/protected/')
+
+# Backups (FR-020): consistent sets of database + private files.
+BACKUP_ROOT = Path(env('BACKUP_ROOT') or BASE_DIR / 'backups')
+MYSQL_BIN_DIR = env('MYSQL_BIN_DIR', '')
+BACKUP_MAX_AGE_HOURS = int(env('BACKUP_MAX_AGE_HOURS') or 26)
+# Isolated database used by restore checks; never the live database.
+RESTORE_CHECK_DATABASE = env('RESTORE_CHECK_DATABASE') or f"{DATABASES['default']['NAME']}_restore"
+
+# Logging: warnings and errors to the console and logs/app.log.
+LOG_DIR = Path(env('LOG_DIR') or BASE_DIR / 'logs')
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'plain': {'format': '{asctime} {levelname} {name}: {message}',
+                             'style': '{'}},
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'},
+        'file': {'class': 'logging.handlers.RotatingFileHandler',
+                 'filename': str(LOG_DIR / 'app.log'), 'maxBytes': 5 * 1024 * 1024,
+                 'backupCount': 5, 'formatter': 'plain', 'encoding': 'utf-8',
+                 'delay': True},
+    },
+    'root': {'handlers': ['console', 'file'], 'level': env('LOG_LEVEL', 'WARNING')},
+    # 403/404 responses are normal access-control outcomes (already audited where
+    # relevant); log server errors only. django.security warnings still appear.
+    'loggers': {'django.request': {'level': 'ERROR'}},
+}

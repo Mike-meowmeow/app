@@ -129,6 +129,11 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
 | Assign / revoke a role | `manage.py assign_role <user> "<Role>"` (add `--revoke` to remove) |
 | Seed roles and reference data | `manage.py seed_reference_data` |
 | Register a roster template | `manage.py register_roster_template <file.xlsx> --approve-as <user>` |
+| Send owed notification emails (retry) | `manage.py send_notifications` |
+| Create a backup set (database + private files) | `manage.py backup_create` |
+| Check stored backups are intact | `manage.py backup_verify` |
+| Restore the latest backup into an isolated database and verify it | `manage.py restore_check --requested-by <admin>` |
+| List (or `--delete`) unreferenced private files | `manage.py sweep_orphan_files` |
 
 On macOS/Linux use `python3 setup_db.py` instead of `py setup_db.py`.
 Tests need the MySQL test database permission that setup grants; they take about a minute.
@@ -156,10 +161,17 @@ After pulling changes, run `py setup_db.py` (or the full setup if `requirements.
 | `CORRECTION_WINDOW_DAYS` | Default deadline HR is offered for correction requests | `5` |
 | `MALWARE_SCAN_COMMAND` | Optional scanner (e.g. `clamscan --no-summary`); exit 0 clean, 1 infected | empty = "not scanned" |
 | `ROSTER_ALLOW_SELF_APPROVAL` | Whether the HR preparer may also approve their own roster | `False` |
+| `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` | Email delivery; the console backend prints emails in the server terminal | console backend |
+| `NOTIFICATION_EMAIL_ENABLED`, `NOTIFICATION_MAX_ATTEMPTS` | Email copies of in-app notifications and how many attempts are made | `True`, `3` |
+| `SITE_URL` | Base address used in email links | `http://127.0.0.1:8000` |
+| `BACKUP_ROOT`, `MYSQL_BIN_DIR`, `BACKUP_MAX_AGE_HOURS` | Where backup sets go, where `mysqldump`/`mysql` are (if not found automatically), and when the last backup counts as overdue | `backups/`, auto, `26` |
+| `LOGIN_MAX_FAILURES`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_MINUTES` | Sign-in throttling per account identifier and per address | `5`, `20`, `15` |
+| `TRUSTED_PROXIES`, `PRIVATE_FILE_DELIVERY` | Proxy addresses whose X-Forwarded-For is trusted; `nginx` to deliver private files through X-Accel-Redirect | empty, `django` |
 
-Uploaded documents (`private/documents/`), roster templates (`private/templates/`), and generated
-roster files (`private/exports/`) are git-ignored and only served through permission-checked
-download links. Back up the whole `private/` folder together with the database.
+Uploaded documents (`private/documents/`), roster templates (`private/templates/`), generated
+roster files (`private/exports/`), and generated reports (`private/reports/`) are git-ignored and
+only served through permission-checked download links. Back up the whole `private/` folder
+together with the database.
 
 Restart the server after editing `.env`.
 
@@ -175,6 +187,20 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
 
 ---
 
+## 5a. Backups and deployment
+
+- **Backups:** `manage.py backup_create` writes one consistent set (database dump, then documents,
+  roster files, reports, and templates) to `backups/`, which is git-ignored. Check old sets with
+  `backup_verify`. Run `restore_check --requested-by <admin>` regularly; it restores into the
+  isolated `<DB_NAME>_restore` database, never the live one. System Administrators see the results
+  under the account menu, **Backups and restore checks**. The recovery procedure is in
+  `deploy/RECOVERY.md`.
+- **Linux server:** follow `deploy/DEPLOY.md` (Nginx, Gunicorn, systemd timers for backups and
+  email retries). Production settings are in `.env.production.example`. With `DJANGO_DEBUG=False`,
+  HTTPS, secure cookies, and HSTS turn on, and `manage.py check --deploy` must pass.
+- **Audit trail:** HR Head / Approver and System Administrator can search and export it from the
+  account menu, **Audit trail**.
+
 ## 6. Troubleshooting
 
 | Problem | Fix |
@@ -189,6 +215,8 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
 | `.venv is broken` after upgrading Python | Run setup with `--recreate-venv`. |
 | Signed in but see "Access denied" / no workspaces | Your account has no role yet — use `manage.py assign_role` (section 3). |
 | Can't find the verification email | Look in the terminal running `runserver` (section 3). |
+| `restore_check` says it cannot use `..._restore`, or `setup_db.py --check` reports the restore-check database | Run `py setup_db.py` once and enter the MySQL root password; it grants the app account the isolated restore-check database. |
+| "Too many failed sign-in attempts" | Wait `LOGIN_LOCKOUT_MINUTES` (15) or reset the password. |
 
 ---
 
@@ -206,6 +234,10 @@ app/
   applicants/     Applicant profiles and qualification records
   matrix/         Official applicant roster: templates, versions, approval, Excel/PDF export
   committee/      Committees, conflicts of interest, interviews, narrative evaluations
+  notifications/  In-app notifications and email delivery attempts (retry with send_notifications)
+  analytics/      Recruitment metrics, snapshots, Excel/PDF reports
+  operations/     Backup sets, restore checks, monitoring; orphan-file sweep
+  deploy/         Linux server files: Nginx, Gunicorn, systemd units, DEPLOY.md, RECOVERY.md
   templates/      Django templates (Bootstrap 5, served locally from static/vendor)
   setup.ps1 / setup.sh / setup_dev.py   Machine setup
   setup_db.py     Database provisioning, time zones, migrations, seeding
@@ -222,13 +254,15 @@ records are view-only there.
 | Stage | Status |
 | --- | --- |
 | 1 Environment and skeleton | Done |
-| 2 Models and migrations | Batches A–E applied; later batches arrive with their modules |
+| 2 Models and migrations | All non-AI batches (A–F) applied; AI tables arrive in Stage 10 |
 | 3 Accounts, roles, access | Done |
 | 4 Vacancies and applicant profiles | Done |
 | 5 Applications, documents, manual review | Done |
 | 6 Official roster, approval, Excel/PDF | Done |
 | 7 Committees, interviews, decisions | Done |
-| 8–11 Notifications, staging, AI, release | Not started |
+| 8 Notifications, search, analytics | Done |
+| 9 Stabilization: backup/restore, production settings, deployment files | Code done; Linux staging and HR walkthrough pending |
+| 10–11 AI features, final release | Not started |
 
 Pending institutional inputs (HR): official privacy notice wording, document checklist,
 qualification reference values, approval authorities (including self-approval of rosters,

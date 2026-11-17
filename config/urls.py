@@ -12,5 +12,9 @@ urlpatterns = [
     path('files/', include('documents.urls')),
     path('rosters/', include('matrix.urls')),
     path('committee/', include('committee.urls')),
+    path('notifications/', include('notifications.urls')),
+    path('analytics/', include('analytics.urls')),
+    path('audit/', include('audit.urls')),
+    path('operations/', include('operations.urls')),
     path('', include('core.urls')),
 ]

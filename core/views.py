@@ -23,17 +23,22 @@ WORKSPACE_PLAN = {
         ('Committees, interviews, and decisions (open a vacancy, then Committees; '
          'an application, then Selection)', 'Stage 7', 'recruitment:vacancy_list'),
         ('Shortlisting decisions awaiting release', 'Stage 7', 'recruitment:decisions_pending'),
+        ('Search applications across your vacancies', 'Stage 8', 'recruitment:application_search'),
+        ('Recruitment analytics and reports', 'Stage 8', 'analytics:dashboard'),
     ]),
     'approver': ('Approver workspace', roles.APPROVER, [
         ('All vacancies (oversight)', 'Stage 4', 'recruitment:vacancy_list'),
         ('Rosters awaiting approval', 'Stage 6', 'matrix:pending'),
         ('Official roster templates and signatories', 'Stage 6', 'matrix:templates'),
         ('Decisions awaiting release', 'Stage 7', 'recruitment:decisions_pending'),
-        ('Recruitment reports', 'Stage 8', None),
+        ('Recruitment analytics and reports', 'Stage 8', 'analytics:dashboard'),
+        ('Search applications', 'Stage 8', 'recruitment:application_search'),
+        ('Audit trail search and export', 'Stage 9', 'audit:list'),
     ]),
     'department': ('Department Head workspace', roles.DEPARTMENT_HEAD, [
         ('Assigned vacancies', 'Stage 4', 'recruitment:vacancy_list'),
         ('Committee candidates and assessments', 'Stage 7', 'committee:my_candidates'),
+        ('Recruitment analytics for assigned vacancies', 'Stage 8', 'analytics:dashboard'),
     ]),
     'psb': ('PSB workspace', roles.PSB_MEMBER, [
         ('Assigned candidates', 'Stage 7', 'committee:my_candidates'),

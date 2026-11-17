@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Operations{% endblock %}
+{% block content %}
+<h1 class="h4">Backup and restore monitoring</h1>
+<p class="small text-muted">A backup set holds the database, uploaded documents, roster files, reports, and templates together. Backups and restore checks run from the server with <code>manage.py backup_create</code> and <code>manage.py restore_check --requested-by &lt;username&gt;</code>; the recovery procedure is in <code>deploy/RECOVERY.md</code>.</p>
+
+{% if stale %}
+  <div class="alert alert-danger">{% if last_good %}The last successful backup finished {{ last_good.completed_at|timesince }} ago, more than {{ max_age_hours }} hours.{% else %}No successful backup has been recorded.{% endif %} Run a backup and check the scheduler.</div>
+{% else %}
+  <div class="alert alert-success">Last successful backup: {{ last_good.backup_set_id }}, {{ last_good.completed_at|date:"M j, Y g:i A" }}.
+    {% if last_restore %}Last passed restore check: {{ last_restore.completed_at|date:"M j, Y g:i A" }} ({{ last_restore.backup_run.backup_set_id }}).{% else %}No restore check has passed yet.{% endif %}</div>
+{% endif %}
+
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <h2 class="h6">Backups</h2>
+  <div class="table-responsive"><table class="table table-sm align-middle small mb-0">
+    <thead class="table-light"><tr><th>Set</th><th>Status</th><th>Started</th><th>Finished</th><th>Contents</th><th>Error</th></tr></thead>
+    <tbody>
+      {% for b in backups %}
+        <tr><td class="text-nowrap">{{ b.backup_set_id }}</td>
+          <td><span class="badge {% if b.status == 'completed' %}text-bg-success{% elif b.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ b.get_status_display }}</span></td>
+          <td>{{ b.started_at|date:"M j, Y g:i A" }}</td><td>{{ b.completed_at|date:"g:i A"|default:"—" }}</td>
+          <td>{% if b.database_reference %}<div>{{ b.database_reference }}</div><div>{{ b.documents_reference }}</div><div>{{ b.exports_reference }}</div>{% endif %}</td>
+          <td class="text-danger">{{ b.error_message|truncatechars:160 }}</td></tr>
+      {% empty %}<tr><td colspan="6" class="text-muted text-center py-3">No backups yet.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+
+<div class="card shadow-sm"><div class="card-body">
+  <h2 class="h6">Restore checks</h2>
+  {% for r in restores %}
+    <div class="border-bottom pb-2 mb-2 small">
+      <span class="badge {% if r.status == 'completed' %}text-bg-success{% elif r.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{% if r.status == 'completed' %}Passed{% else %}{{ r.get_status_display }}{% endif %}</span>
+      <span class="fw-semibold">{{ r.backup_run.backup_set_id }}</span> into <code>{{ r.target_database }}</code> · {{ r.started_at|date:"M j, Y g:i A" }} · {{ r.requested_by.username }}
+      {% if r.error_message %}<div class="text-danger">{{ r.error_message|truncatechars:300 }}</div>{% endif %}
+      <ul class="list-unstyled mb-0 mt-1">
+        {% for c in r.verification_result.checks %}<li>{% if c.ok %}<span class="text-success">✓</span>{% else %}<span class="text-danger">✗</span>{% endif %} {{ c.name }} <span class="text-muted">{{ c.detail }}</span></li>{% endfor %}
+      </ul>
+    </div>
+  {% empty %}<p class="small text-muted mb-0">No restore checks yet.</p>{% endfor %}
+</div></div>
+{% endblock %}

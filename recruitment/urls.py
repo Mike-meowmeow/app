@@ -24,6 +24,7 @@ urlpatterns = [
     path('manage/vacancies/<uuid:pk>/applications/', apps.vacancy_applications,
          name='vacancy_applications'),
     path('manage/verification-queue/', apps.verification_queue, name='verification_queue'),
+    path('manage/applications/', apps.application_search, name='application_search'),
     path(APP, apps.review, name='application_review'),
     path(APP + 'start-review/', apps.start_review, name='application_start_review'),
     path(APP + 'reopen/', apps.reopen, name='application_reopen'),

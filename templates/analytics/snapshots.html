@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Metric snapshots{% endblock %}
+{% block content %}
+<a class="small" href="{% url 'analytics:dashboard' %}">&larr; Analytics</a>
+<h1 class="h4 mt-2">Saved metric snapshots</h1>
+<p class="small text-muted">Each snapshot keeps the values as calculated at that time, with its scope and definition version. Percentages are not combined across snapshots.</p>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-sm align-middle mb-0 small">
+  <thead class="table-light"><tr><th>Calculated</th><th>Scope</th><th class="text-end">Submitted</th><th class="text-end">Unique</th><th class="text-end">Shortlisted</th><th class="text-end">Interviews (done/scheduled)</th><th class="text-end">Recommended / reviewed</th><th>Time to fill</th><th>Definitions</th></tr></thead>
+  <tbody>
+    {% for s, label, fill in rows %}
+      <tr><td>{{ s.computed_at|date:"M j, Y g:i A" }}<div class="text-muted">{{ s.computed_by.full_name|default:s.computed_by.username }}</div></td><td>{{ label }}</td>
+        <td class="text-end">{{ s.submitted_applications }}</td><td class="text-end">{{ s.unique_applicants }}</td><td class="text-end">{{ s.shortlisted_count }}</td>
+        <td class="text-end">{{ s.completed_interviews }}/{{ s.scheduled_interviews }}</td><td class="text-end">{{ s.recommended_count }}/{{ s.reviewed_applications }}</td><td>{{ fill }}</td><td>{{ s.definition_version }}</td></tr>
+    {% empty %}<tr><td colspan="9" class="text-center text-muted py-3">No snapshots saved.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

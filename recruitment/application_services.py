@@ -18,6 +18,7 @@ from accounts import roles
 from applicants import services as applicant_services
 from applicants.models import DEGREE_RANK
 from audit import services as audit
+from notifications import events
 
 from . import application_selectors as access
 from . import fact_schema
@@ -228,6 +229,7 @@ def submit(user, application):
     audit.record('application.submitted', entity=application, actor=user,
                  changes={'snapshot_version': snapshot.version,
                           'requirement_version': requirement_version.version})
+    events.application_submitted(application)
     return application, False
 
 
@@ -477,6 +479,7 @@ def request_correction(actor, application, *, message, document_types=(), deadli
                  changes={'application': application.reference,
                           'deadline_at': deadline_at.isoformat(),
                           'document_types': request.document_type_codes})
+    events.correction_requested(request)
     return request
 
 
@@ -537,6 +540,7 @@ def resubmit_corrections(user, application):
     _bump_revision(application)
     audit.record('correction.submitted', entity=request, actor=user,
                  changes={'snapshot_version': snapshot.version})
+    events.corrections_submitted(request)
     return application
 
 
@@ -555,6 +559,7 @@ def withdraw(user, application, *, reason=''):
     application.withdrawn_at = timezone.now()
     application.save(update_fields=['withdrawn_at'])
     transition(application, S.WITHDRAWN, actor=user, reason=reason or 'Withdrawn by applicant')
+    events.application_withdrawn(application)
     _bump_revision(application)
     return application
 

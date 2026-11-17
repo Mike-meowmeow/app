@@ -1,0 +1,17 @@
+[Unit]
+Description=EVSU recruitment system (Gunicorn)
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=evsu
+Group=www-data
+WorkingDirectory=/srv/evsu-recruitment
+RuntimeDirectory=evsu-recruitment
+ExecStart=/srv/evsu-recruitment/.venv/bin/gunicorn config.wsgi:application -c deploy/gunicorn.conf.py
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

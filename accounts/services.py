@@ -182,3 +182,24 @@ def update_user_access(actor, target, *, role_names, is_active, reason):
         audit.record('account.enabled' if is_active else 'account.disabled',
                      entity=target, reason=reason,
                      changes={'is_active': {'old': not is_active, 'new': is_active}})
+
+
+# --------------------------------------------------------------------------
+# Login throttling (FR-001, Stage 9)
+# --------------------------------------------------------------------------
+
+def login_locked(identifier, ip_address):
+    """True when recent failed sign-ins for this identifier, or from this
+    address, reached the limit. Counted from the audit trail, so the limit
+    holds across all server processes. The same answer is given whether or
+    not the account exists."""
+    from datetime import timedelta
+
+    from audit.models import AuditLog
+    since = timezone.now() - timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
+    failures = AuditLog.objects.filter(action='auth.login_failed', occurred_at__gte=since)
+    if failures.filter(changes__identifier__iexact=identifier[:150]).count() \
+            >= settings.LOGIN_MAX_FAILURES:
+        return True
+    return bool(ip_address) and failures.filter(ip_address=ip_address).count() \
+        >= settings.LOGIN_MAX_FAILURES_PER_IP

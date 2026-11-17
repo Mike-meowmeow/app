@@ -1,11 +1,12 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.http import FileResponse, Http404
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from accounts import roles
 from accounts.access import role_required
+from core.files import private_file_response
 from recruitment.models import Vacancy
 
 from . import builder, layout, services
@@ -279,11 +280,8 @@ def download(request, pk):
     if not path.exists():
         raise Http404
     services.record_download(request.user, export)
-    response = FileResponse(open(path, 'rb'), as_attachment=True, filename=export.file_name,
-                            content_type=CONTENT_TYPES[export.format])
-    response['X-Content-Type-Options'] = 'nosniff'
-    response['Cache-Control'] = 'private, no-store'
-    return response
+    return private_file_response(path, filename=export.file_name,
+                                 content_type=CONTENT_TYPES[export.format])
 
 
 @role_required(roles.APPROVER)

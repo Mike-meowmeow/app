@@ -142,6 +142,30 @@ class ApplicationFilterForm(forms.Form):
         self.fields['status'].widget.attrs['class'] = 'form-select'
 
 
+class ApplicationSearchForm(ApplicationFilterForm):
+    """Cross-vacancy search (FR-015): name/ID/email/program, vacancy,
+    department, education, qualification review result, and status."""
+
+    vacancy = forms.ModelChoiceField(queryset=None, required=False, empty_label='Any vacancy')
+    department = forms.ModelChoiceField(queryset=None, required=False,
+                                        empty_label='Any department')
+    degree_level = forms.ChoiceField(required=False, label='Education')
+    outcome = forms.ChoiceField(required=False, label='Qualification review')
+
+    def __init__(self, *args, vacancies, **kwargs):
+        super().__init__(*args, **kwargs)
+        from applicants.models import DegreeLevel
+        from core.models import Department
+        self.fields['vacancy'].queryset = vacancies.order_by('position_title')
+        self.fields['department'].queryset = Department.objects.filter(
+            pk__in=vacancies.values('department_id'))
+        self.fields['degree_level'].choices = [('', 'Any education')] + list(DegreeLevel.choices)
+        self.fields['outcome'].choices = [('', 'Any result'), ('not_assessed', 'Not assessed')] \
+            + list(fact_schema.OUTCOME_LABELS.items())
+        for name in ('vacancy', 'department', 'degree_level', 'outcome'):
+            self.fields[name].widget.attrs['class'] = 'form-select'
+
+
 # --------------------------------------------------------------------------
 # Decisions (Stage 7)
 # --------------------------------------------------------------------------

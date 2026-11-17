@@ -46,7 +46,7 @@ VENV_DIR = ROOT / '.venv'
 ENV_FILE = ROOT / '.env'
 ENV_EXAMPLE = ROOT / '.env.example'
 REQUIREMENTS = ROOT / 'requirements.txt'
-PRIVATE_DIRS = ('private/documents', 'private/exports', 'logs')
+PRIVATE_DIRS = ('private/documents', 'private/exports', 'private/reports', 'logs')
 
 SUPPORTED_PY = ((3, 12), (3, 13))   # Tested range
 ALLOWED_PY = ((3, 12), (3, 14))     # Django 5.2 range; 3.14 warns as untested

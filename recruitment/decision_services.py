@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from accounts import roles
 from audit import services as audit
+from notifications import events
 
 from . import application_services as applications
 from . import selectors
@@ -242,6 +243,7 @@ def release_decision(actor, decision, *, note=''):
     audit.record('decision.released', entity=decision, actor=actor,
                  changes={'application': decision.application.reference,
                           'decision_type': decision.decision_type, 'outcome': decision.outcome})
+    events.decision_released(decision)
     return decision
 
 

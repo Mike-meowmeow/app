@@ -1,5 +1,7 @@
 from django.contrib.auth.decorators import login_required
-from django.http import FileResponse, Http404
+from django.http import Http404
+
+from core.files import private_file_response
 
 from . import services, storage
 from .models import DocumentVersion
@@ -23,8 +25,5 @@ def download(request, pk):
         raise Http404
     services.record_download(request.user, version)
     inline = request.GET.get('inline') == '1' and version.mime_type in INLINE_TYPES
-    response = FileResponse(open(path, 'rb'), as_attachment=not inline,
-                            filename=version.file_name, content_type=version.mime_type)
-    response['X-Content-Type-Options'] = 'nosniff'
-    response['Cache-Control'] = 'private, no-store'
-    return response
+    return private_file_response(path, as_attachment=not inline, filename=version.file_name,
+                                 content_type=version.mime_type)

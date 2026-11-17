@@ -15,7 +15,8 @@ administrator (prompted, or MYSQL_ROOT_USER / MYSQL_ROOT_PASSWORD) and:
 
   - creates DB_NAME (utf8mb4 / utf8mb4_0900_ai_ci) if it does not exist,
   - creates DB_USER for localhost and 127.0.0.1 if it does not exist,
-  - grants DB_USER access to DB_NAME and test_DB_NAME (Django's test database).
+  - grants DB_USER access to DB_NAME, test_DB_NAME (Django's test database), and
+    DB_NAME_restore (isolated database for backup restore verification).
 
 It never drops anything. An existing account whose password differs from .env
 is reset only with --reset-password or after you confirm.
@@ -140,11 +141,13 @@ class Status:
     charset: str = ''
     collation: str = ''
     test_grant: bool = False
+    restore_grant: bool = False
     timezones_loaded: bool = False
 
     @property
     def ready(self) -> bool:
-        return self.can_connect and self.test_grant and self.timezones_loaded
+        return (self.can_connect and self.test_grant and self.restore_grant
+                and self.timezones_loaded)
 
 
 def app_status(cfg) -> Status:
@@ -171,6 +174,9 @@ def app_status(cfg) -> Status:
         test_db = f'`test_{cfg["DB_NAME"]}`'
         status.test_grant = any(
             test_db in g or ('ON *.*' in g and 'ALL PRIVILEGES' in g) for g in grants)
+        restore_db = f'`{cfg["DB_NAME"]}_restore`'
+        status.restore_grant = any(
+            restore_db in g or ('ON *.*' in g and 'ALL PRIVILEGES' in g) for g in grants)
         # Django converts UTC to the display zone in SQL for date filters,
         # truncation, and reports; MySQL returns NULL without zone tables.
         cur.execute("SELECT CONVERT_TZ('2026-01-01 00:00:00', 'UTC', %s)",
@@ -191,6 +197,9 @@ def describe_problem(cfg, status: Status) -> str:
         return f'Account {user!r} has no access to database {db}.'
     if status.can_connect and not status.test_grant:
         return f'Account {user!r} cannot create the test database test_{db}.'
+    if status.can_connect and not status.restore_grant:
+        return (f'Account {user!r} cannot use the restore-check database {db}_restore '
+                '(needed to verify backups).')
     if status.can_connect and not status.timezones_loaded:
         return ('MySQL time zone tables are not loaded (needed for date filters '
                 'and reports).')
@@ -201,6 +210,7 @@ def report_ready(cfg, status: Status) -> None:
     ui.ok(f'Database {cfg["DB_NAME"]} found; {cfg["DB_USER"]!r} can connect '
           f'(MySQL {status.version})')
     ui.ok(f'Test database access: test_{cfg["DB_NAME"]}')
+    ui.ok(f'Restore-check database access: {cfg["DB_NAME"]}_restore')
     ui.ok(f'MySQL time zone support ({DISPLAY_TIME_ZONE})')
     if status.charset != CHARSET:
         ui.warn(f'Database character set is {status.charset}, expected {CHARSET}. '
@@ -272,9 +282,9 @@ def provision(cfg, status: Status, args, interactive: bool) -> None:
             ui.ok('Account password reset to match .env')
 
         for host in ACCOUNT_HOSTS:
-            for name in (db, f'test_{db}'):
+            for name in (db, f'test_{db}', f'{db}_restore'):
                 cur.execute(f'GRANT ALL PRIVILEGES ON `{name}`.* TO %s@%s', (user, host))
-        ui.ok(f'Granted {user!r} access to {db} and test_{db}')
+        ui.ok(f'Granted {user!r} access to {db}, test_{db}, and {db}_restore')
         conn.commit()
 
         if not status.timezones_loaded:

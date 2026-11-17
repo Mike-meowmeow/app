@@ -44,7 +44,33 @@ def can_review(user, application):
         selectors.can_manage(user, application.vacancy)
 
 
-def search(queryset, *, q='', status=''):
+def _current_facts(**filters):
+    from .models import ApplicationFact, FactReviewStatus
+    return ApplicationFact.objects.exclude(
+        review_status__in=(FactReviewStatus.SUPERSEDED, FactReviewStatus.REJECTED)
+    ).filter(**filters).values('application_id')
+
+
+def search(queryset, *, q='', status='', vacancy=None, department=None, degree_level='',
+           outcome=''):
+    """Combined filters (FR-015). Permission limits come from `queryset`; these
+    filters never change official roster membership."""
+    if vacancy is not None:
+        queryset = queryset.filter(vacancy=vacancy)
+    if department is not None:
+        queryset = queryset.filter(vacancy__department=department)
+    if degree_level:
+        queryset = queryset.filter(pk__in=_current_facts(
+            fact_type='education', value__degree_level=degree_level))
+    if outcome == 'not_assessed':
+        queryset = queryset.exclude(pk__in=_current_facts(fact_type='qualification_assessment'))
+    elif outcome:
+        queryset = queryset.filter(pk__in=_current_facts(
+            fact_type='qualification_assessment', value__outcome=outcome))
+    return _search_text(queryset, q=q, status=status)
+
+
+def _search_text(queryset, *, q='', status=''):
     if q:
         q = q.strip()
         term = (Q(applicant__user__first_name__icontains=q)

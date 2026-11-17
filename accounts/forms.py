@@ -24,6 +24,16 @@ class LoginForm(BootstrapFormMixin, auth_forms.AuthenticationForm):
         'inactive': 'Incorrect username/email or password.',
     }
 
+    def clean(self):
+        from audit.context import client_ip
+        from .services import login_locked
+        identifier = (self.cleaned_data.get('username') or '').strip()
+        if identifier and login_locked(identifier, client_ip(self.request)):
+            raise forms.ValidationError(
+                'Too many failed sign-in attempts. Please wait a few minutes and try again, '
+                'or reset your password.', code='throttled')
+        return super().clean()
+
     def confirm_login_allowed(self, user):
         super().confirm_login_allowed(user)
         if requires_email_verification(user):

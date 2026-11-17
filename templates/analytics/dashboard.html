@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Recruitment analytics{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+  <h1 class="h4 mb-0">Recruitment analytics</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'analytics:snapshots' %}">Saved snapshots</a>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'analytics:reports' %}">Reports</a>
+  </div>
+</div>
+<p class="small text-muted mb-3">Scope: {{ scope_label }} · calculated {{ values.computed_at|date:"M j, Y g:i A" }} · definitions {{ values.definition_version }}. Figures include only vacancies you are permitted to see.</p>
+
+<form method="get" class="card card-body shadow-sm mb-3">
+  {% include "includes/form_errors.html" %}
+  <div class="row g-2 align-items-end">
+    <div class="col-md-2"><label class="form-label small" for="{{ form.start.id_for_label }}">{{ form.start.label }}</label>{{ form.start }}</div>
+    <div class="col-md-2"><label class="form-label small" for="{{ form.end.id_for_label }}">{{ form.end.label }}</label>{{ form.end }}</div>
+    <div class="col-md-3"><label class="form-label small" for="{{ form.department.id_for_label }}">Department</label>{{ form.department }}</div>
+    <div class="col-md-3"><label class="form-label small" for="{{ form.vacancy.id_for_label }}">Vacancy</label>{{ form.vacancy }}</div>
+    <div class="col-md-2 d-flex gap-1"><button class="btn btn-primary flex-grow-1" type="submit">Apply</button><a class="btn btn-outline-secondary" href="{% url 'analytics:dashboard' %}">Clear</a></div>
+  </div>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Submitted applications</div><div class="h3 mb-0">{{ values.submitted_applications }}</div><div class="small text-muted">{{ values.unique_applicants }} unique applicant{{ values.unique_applicants|pluralize }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Shortlisting rate</div><div class="h3 mb-0">{{ rates.shortlisting }}</div><div class="small text-muted">{{ values.shortlisted_count }} ever shortlisted</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Interview completion</div><div class="h3 mb-0">{{ rates.interviews }}</div><div class="small text-muted">{{ values.completed_interviews }} of {{ values.scheduled_interviews }} scheduled · {{ values.canceled_interviews }} canceled</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Recommendation rate</div><div class="h3 mb-0">{{ rates.recommendation }}</div><div class="small text-muted">{{ values.recommended_count }} of {{ values.reviewed_applications }} reviewed by committee</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Active vacancies</div><div class="h3 mb-0">{{ values.active_vacancies }}</div><div class="small text-muted">accepting applications now</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Hired</div><div class="h3 mb-0">{{ values.hired_count }}</div><div class="small text-muted">{{ values.withdrawn_count }} withdrawn</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Time to fill</div><div class="h3 mb-0">{{ time_to_fill }}</div><div class="small text-muted">{{ values.filled_vacancies }} filled vacanc{{ values.filled_vacancies|pluralize:"y,ies" }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">Current evaluations</div><div class="h3 mb-0">{{ values.current_evaluations }}</div><div class="small text-muted">submitted, superseded excluded</div></div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-body">
+    <h2 class="h6">Current status</h2>
+    <table class="table table-sm small mb-0"><tbody>
+      {% for label, n in values.status_distribution %}<tr><td>{{ label }}</td><td class="text-end">{{ n }}</td></tr>{% endfor %}
+    </tbody></table>
+  </div></div></div>
+  <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-body">
+    <h2 class="h6">Submissions by month</h2>
+    {% for month, n in values.trend %}
+      <div class="small d-flex align-items-center gap-2 mb-1"><span class="text-nowrap" style="width: 4.5rem">{{ month }}</span>
+        <div class="progress flex-grow-1" role="progressbar" aria-label="{{ month }}" aria-valuenow="{{ n }}" aria-valuemin="0" aria-valuemax="{{ max_trend }}"><div class="progress-bar" style="width: {% widthratio n max_trend 100 %}%"></div></div>
+        <span style="width: 2rem" class="text-end">{{ n }}</span></div>
+    {% empty %}<p class="small text-muted mb-0">No submissions in scope.</p>{% endfor %}
+  </div></div></div>
+  <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-body">
+    <h2 class="h6">Stage durations (mean days)</h2>
+    <table class="table table-sm small mb-0"><tbody>
+      {% for s in values.stage_durations %}<tr><td>{{ s.label }}</td><td class="text-end">{% if s.mean_days is None %}Not applicable{% else %}{{ s.mean_days }}{% endif %}</td><td class="text-end text-muted">n={{ s.applications }}</td></tr>{% endfor %}
+    </tbody></table>
+  </div></div></div>
+</div>
+
+<div class="card shadow-sm mb-3"><div class="table-responsive">
+  <table class="table table-sm table-hover align-middle mb-0 small">
+    <thead class="table-light"><tr><th>Vacancy</th><th>Status</th><th class="text-end">Submitted</th><th class="text-end">Unique</th><th class="text-end">Shortlisted</th><th class="text-end">Interviews done</th><th class="text-end">Recommended</th><th class="text-end">Hired</th><th>Time to fill</th></tr></thead>
+    <tbody>
+      {% for row in per_vacancy %}
+        <tr><td><a href="{% url 'recruitment:vacancy_detail' row.vacancy.pk %}">{{ row.vacancy.position_title }}</a><div class="text-muted">{{ row.vacancy.department.code }} · {{ row.vacancy.reference }}</div></td>
+          <td>{{ row.vacancy.get_status_display }}</td><td class="text-end">{{ row.m.submitted_applications }}</td><td class="text-end">{{ row.m.unique_applicants }}</td>
+          <td class="text-end">{{ row.m.shortlisted_count }}</td><td class="text-end">{{ row.m.completed_interviews }}</td><td class="text-end">{{ row.m.recommended_count }}</td><td class="text-end">{{ row.m.hired_count }}</td><td>{{ row.time_to_fill }}</td></tr>
+      {% empty %}<tr><td colspan="9" class="text-center text-muted py-3">No vacancies in scope.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="row g-3">
+  <div class="col-lg-5"><div class="card shadow-sm"><div class="card-body">
+    <h2 class="h6">Save or export this scope</h2>
+    <form method="post" action="?{{ query }}" class="mb-3">{% csrf_token %}
+      <button class="btn btn-outline-primary btn-sm" name="action" value="snapshot" type="submit">Save metric snapshot</button>
+    </form>
+    <form method="post" action="?{{ query }}" class="row g-2 align-items-end">{% csrf_token %}
+      <div class="col-6"><label class="form-label small" for="id_report_type">Report</label>{{ report_form.report_type }}</div>
+      <div class="col-3"><label class="form-label small" for="id_fmt">Format</label>{{ report_form.fmt }}</div>
+      <div class="col-3 d-grid"><button class="btn btn-primary btn-sm" name="action" value="report" type="submit">Generate</button></div>
+    </form>
+  </div></div></div>
+  <div class="col-lg-7"><div class="card shadow-sm"><div class="card-body">
+    <h2 class="h6">Definitions ({{ values.definition_version }})</h2>
+    <dl class="small mb-0">{% for name, text in definitions %}<dt>{{ name }}</dt><dd class="text-muted">{{ text }}</dd>{% endfor %}</dl>
+  </div></div></div>
+</div>
+{% endblock %}

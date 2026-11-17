@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Search applications{% endblock %}
+{% block content %}
+<h1 class="h4">Search applications</h1>
+<p class="small text-muted">Submitted applications of the vacancies you are permitted to see. Combine filters as needed; filters never change who appears on an official roster.</p>
+<form method="get" class="card card-body shadow-sm mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-lg-4"><label class="form-label small" for="id_q">Search</label>{{ form.q }}</div>
+    <div class="col-lg-4"><label class="form-label small" for="id_vacancy">Vacancy</label>{{ form.vacancy }}</div>
+    <div class="col-lg-4"><label class="form-label small" for="id_department">Department</label>{{ form.department }}</div>
+    <div class="col-lg-3"><label class="form-label small" for="id_degree_level">Education</label>{{ form.degree_level }}</div>
+    <div class="col-lg-3"><label class="form-label small" for="id_outcome">Qualification review</label>{{ form.outcome }}</div>
+    <div class="col-lg-3"><label class="form-label small" for="id_status">Status</label>{{ form.status }}</div>
+    <div class="col-lg-3 d-flex gap-1"><button class="btn btn-primary flex-grow-1" type="submit">Search</button><a class="btn btn-outline-secondary" href="{% url 'recruitment:application_search' %}">Clear</a></div>
+  </div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Reference</th><th>Applicant</th><th>Vacancy</th><th>Status</th><th>Submitted</th></tr></thead>
+  <tbody>
+    {% for app in page %}
+      <tr>
+        <td><a href="{% url 'recruitment:application_review' app.pk %}">{{ app.reference }}</a></td>
+        <td>{{ app.applicant.user.last_name }}, {{ app.applicant.user.first_name }}<div class="small text-muted">{{ app.applicant.user.email }}</div></td>
+        <td>{{ app.vacancy.position_title }}<div class="small text-muted">{{ app.vacancy.department.code }}</div></td>
+        <td>{% include "recruitment/applications/_status.html" %}</td>
+        <td>{{ app.submitted_at|date:"M j, Y g:i A" }}</td>
+      </tr>
+    {% empty %}<tr><td colspan="5" class="text-center text-muted py-4">No submitted applications match.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div></div>
+<div class="d-flex justify-content-between align-items-center mt-2 small text-muted">
+  <span>{{ page.paginator.count }} result{{ page.paginator.count|pluralize }}</span>
+  {% if page.paginator.num_pages > 1 %}
+  <ul class="pagination pagination-sm mb-0">
+    {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?{{ query }}&page={{ page.previous_page_number }}">Previous</a></li>{% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+    {% if page.has_next %}<li class="page-item"><a class="page-link" href="?{{ query }}&page={{ page.next_page_number }}">Next</a></li>{% endif %}
+  </ul>
+  {% endif %}
+</div>
+{% endblock %}

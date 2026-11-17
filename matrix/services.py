@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from accounts import roles
 from audit import services as audit
+from notifications import events
 from recruitment import selectors as vacancy_access
 from recruitment.models import Application, Vacancy
 
@@ -313,7 +314,7 @@ def _populate(roster, previous_entries):
 
 
 def _event(roster, from_status, to_status, actor, comments=''):
-    RosterApprovalEvent.objects.create(roster=roster, from_status=from_status or '',
+    return RosterApprovalEvent.objects.create(roster=roster, from_status=from_status or '',
                                        to_status=to_status, actor=actor, comments=comments)
 
 
@@ -482,7 +483,7 @@ def submit_for_approval(actor, roster):
         from_status = roster.status
         roster.status = R.PENDING_APPROVAL
         roster.save(update_fields=['status'])
-        _event(roster, from_status, R.PENDING_APPROVAL, actor)
+        events.roster_event(roster, _event(roster, from_status, R.PENDING_APPROVAL, actor))
         audit.record('roster.submitted_for_approval', entity=roster, actor=actor,
                      changes={'version': roster.version})
     return []
@@ -517,7 +518,8 @@ def approve(actor, roster, *, comments=''):
         roster.approved_by = actor
         roster.approved_at = now
         roster.save(update_fields=['status', 'approved_by', 'approved_at'])
-        _event(roster, R.PENDING_APPROVAL, R.APPROVED, actor, comments)
+        events.roster_event(roster, _event(roster, R.PENDING_APPROVAL, R.APPROVED, actor,
+                                          comments))
         audit.record('roster.approved', entity=roster, actor=actor, reason=comments or None,
                      changes={'version': roster.version, 'vacancy': roster.vacancy.reference,
                               'prepared_by': str(roster.prepared_by_id),
@@ -537,7 +539,8 @@ def return_for_correction(actor, roster, *, comments):
         raise ValidationError('Explain what needs correction.')
     roster.status = R.RETURNED
     roster.save(update_fields=['status'])
-    _event(roster, R.PENDING_APPROVAL, R.RETURNED, actor, comments.strip())
+    events.roster_event(roster, _event(roster, R.PENDING_APPROVAL, R.RETURNED, actor,
+                                      comments.strip()))
     audit.record('roster.returned', entity=roster, actor=actor, reason=comments.strip(),
                  changes={'version': roster.version})
     return roster

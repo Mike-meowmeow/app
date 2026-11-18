@@ -282,6 +282,9 @@ BACKUP_MAX_AGE_HOURS = int(env('BACKUP_MAX_AGE_HOURS') or 26)
 # Isolated database used by restore checks; never the live database.
 RESTORE_CHECK_DATABASE = env('RESTORE_CHECK_DATABASE') or f"{DATABASES['default']['NAME']}_restore"
 
+# Tests use temporary storage and backup folders, never private/ or backups/.
+TEST_RUNNER = 'core.test_runner.IsolatedStorageRunner'
+
 # Logging: warnings and errors to the console and logs/app.log.
 LOG_DIR = Path(env('LOG_DIR') or BASE_DIR / 'logs')
 LOG_DIR.mkdir(parents=True, exist_ok=True)

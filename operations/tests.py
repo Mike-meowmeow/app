@@ -333,6 +333,23 @@ class AuditTrailTests(TestCase):
 
 
 class OrphanSweepTests(ApplicationTestCase):
+    def setUp(self):
+        super().setUp()
+        # Every area the sweep scans must be temporary: the test database has
+        # no rows for real files, so a real folder would be swept clean.
+        private = Path(self.storage_dir) / '_private'
+        override = override_settings(
+            PRIVATE_STORAGE_ROOT=private, EXPORT_STORAGE_ROOT=private / 'exports',
+            REPORT_STORAGE_ROOT=private / 'reports')
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def test_tests_never_scan_real_storage(self):
+        from operations.backup import file_areas
+        real = (settings.BASE_DIR / 'private').resolve()
+        for area, root in file_areas().items():
+            self.assertFalse(Path(root).resolve().is_relative_to(real), area)
+
     def test_lists_and_deletes_only_old_unreferenced_files(self):
         self.submitted()
         referenced = [p for p in Path(self.storage_dir).rglob('*') if p.is_file()]

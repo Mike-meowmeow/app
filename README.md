@@ -119,7 +119,8 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
    .\.venv\Scripts\python.exe manage.py runserver
    ```
    Open **http://127.0.0.1:8000/**. Staff sign in at **/accounts/staff/login/** and applicants at
-   **/accounts/login/**. Stop the server with **Ctrl+C**.
+   **/accounts/login/**. Stop the server with **Ctrl+C**. To run the applicant and staff sites
+   separately, as in production, see section 5b.
 
 > **Emails print in the server terminal.** Development uses Django's console email backend, so
 > verification and password-reset links appear in the terminal running `runserver`, not in an inbox.
@@ -132,7 +133,7 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
 | Task | Command |
 | --- | --- |
 | Run the server | `.\.venv\Scripts\python.exe manage.py runserver` |
-| Run the applicant and staff sites separately | See section 5b |
+| Run the applicant and staff sites at the same time | Two terminals, ports 8000 and 8001 (section 5b) |
 | Run all tests | `.\.venv\Scripts\python.exe manage.py test --noinput` |
 | Check database readiness (no changes) | `py setup_db.py --check` |
 | Apply new migrations + seed after `git pull` | `py setup_db.py` |
@@ -226,23 +227,68 @@ sites served from one server at school: the applicant site is public, and the st
 on the school network (`deploy/DEPLOY.md`). Staff accounts are created by a System Administrator at
 **System Admin → New staff account**; the person sets a password through an emailed link.
 
-A plain `runserver` is development mode: all pages on one address, with applicants signing in at
-`/accounts/login/` and staff at `/accounts/staff/login/`. To try the real separation, use two
-terminals:
+### Option 1: one server (everyday development)
+
+A plain `runserver` serves every page on one address:
 
 ```powershell
-# Terminal 1: public applicant site
+cd "C:\path\to\app"   # your app folder
+.\.venv\Scripts\python.exe manage.py runserver
+```
+
+Open **http://127.0.0.1:8000/**. Applicants sign in at `/accounts/login/` and staff at
+`/accounts/staff/login/`.
+
+### Option 2: applicant and staff sites running at the same time
+
+This works like the real deployment. You need **two terminals**, because each server keeps its
+terminal busy. In VS Code, open a second terminal with the **+** button in the terminal panel.
+
+**Terminal 1: applicant site (port 8000)**
+
+```powershell
+cd "C:\path\to\app"
 $env:SITE_PORTAL="public"; $env:PUBLIC_SITE_URL="http://127.0.0.1:8000"; $env:STAFF_SITE_URL="http://127.0.0.1:8001"
 .\.venv\Scripts\python.exe manage.py runserver 8000
+```
 
-# Terminal 2: staff site
+**Terminal 2: staff site (port 8001)**
+
+```powershell
+cd "C:\path\to\app"
 $env:SITE_PORTAL="staff"; $env:PUBLIC_SITE_URL="http://127.0.0.1:8000"; $env:STAFF_SITE_URL="http://127.0.0.1:8001"
 .\.venv\Scripts\python.exe manage.py runserver 8001
 ```
 
-Run each block in its own terminal, from the `app` folder. The sites share the database but keep
-separate sign-ins. Emails print in the terminal of the site that sent them. Close these terminals
-when finished, because the settings stay active in them.
+Replace the `cd` path with your own `app` folder. Each terminal should end with
+`Starting development server at http://127.0.0.1:8000/` (or `:8001/`) and keep running.
+
+| Site | Address | Who signs in |
+| --- | --- | --- |
+| Applicant | http://127.0.0.1:8000/ | Applicant accounts only; registration is here |
+| Staff | http://127.0.0.1:8001/ | Staff accounts only (opens **Staff sign in**) |
+
+- The two sites share one database, so an application submitted on 8000 appears on 8001 at once.
+- Each site has its own sign-in, so you can stay signed in to both in the same browser.
+- Emails, such as verification, password reset, and staff invitation links, print in the terminal of
+  the site that sent them, and each link points to the correct site.
+- On the applicant site, staff pages such as `/admin/` return "Page not found". In development this
+  is Django's yellow debug page.
+
+**macOS/Linux:** use `export` and `.venv/bin/python`, for example:
+
+```bash
+SITE_PORTAL=public PUBLIC_SITE_URL=http://127.0.0.1:8000 STAFF_SITE_URL=http://127.0.0.1:8001 .venv/bin/python manage.py runserver 8000
+SITE_PORTAL=staff  PUBLIC_SITE_URL=http://127.0.0.1:8000 STAFF_SITE_URL=http://127.0.0.1:8001 .venv/bin/python manage.py runserver 8001
+```
+
+**Stopping:** press **Ctrl+C** in each terminal, then close both terminals. The `$env:` settings
+stay active in a PowerShell terminal until it is closed, so do not reuse those terminals for
+Option 1 or for running tests. To clear them instead, run
+`Remove-Item Env:SITE_PORTAL, Env:PUBLIC_SITE_URL, Env:STAFF_SITE_URL`.
+
+Common problems: `.venv\Scripts\python.exe is not recognized` means the terminal is not in the
+`app` folder; `That port is already in use` means another server is still running on that port.
 
 Pages show breadcrumbs. Staff trails include the workspace, such as **Home > HR > Vacancies**. With
 several roles, the trail follows the workspace opened last when it covers the page.

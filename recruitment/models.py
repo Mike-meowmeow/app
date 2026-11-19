@@ -19,6 +19,11 @@ class Vacancy(BaseModel):
                                    related_name='vacancies')
     recruitment_type = models.ForeignKey('core.RecruitmentType', on_delete=models.PROTECT,
                                          related_name='vacancies')
+    # Catalog position whose defaults were copied in. Null for vacancies created
+    # before the catalog existed. position_title and description are the
+    # vacancy's own copies and never follow later catalog edits.
+    position = models.ForeignKey('Position', on_delete=models.PROTECT, null=True, blank=True,
+                                 related_name='vacancies')
     position_title = models.CharField(max_length=200)
     description = models.TextField()
     positions_available = models.PositiveIntegerField(default=1)
@@ -203,6 +208,75 @@ class VacancyCompetency(RequirementItem):
         db_table = 'vacancy_competencies'
         ordering = ['created_at']
         verbose_name_plural = 'vacancy competencies'
+
+
+# --------------------------------------------------------------------------
+# Position catalog: reusable defaults copied into new vacancies
+# --------------------------------------------------------------------------
+
+class Position(BaseModel):
+    """An HR-managed position with default description and requirements.
+    Defaults are copied into a vacancy when it is created; the vacancy then
+    keeps its own copy. Positions are deactivated, never deleted, once used."""
+
+    title = models.CharField(max_length=200, unique=True)
+    description = models.TextField()
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'positions'
+        ordering = ['title']
+
+    def __str__(self):
+        return self.title if self.is_active else f'{self.title} (inactive)'
+
+
+class PositionDocumentRequirement(BaseModel):
+    position = models.ForeignKey(Position, on_delete=models.CASCADE,
+                                 related_name='document_requirements')
+    document_type = models.ForeignKey('documents.DocumentType', on_delete=models.PROTECT,
+                                      related_name='position_requirements')
+    is_required = models.BooleanField(default=True)
+    max_files = models.PositiveSmallIntegerField(default=1)
+    instructions = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'position_document_requirements'
+        ordering = ['-is_required', 'document_type__name']
+        constraints = [
+            models.UniqueConstraint(fields=['position', 'document_type'],
+                                    name='position_document_requirement_unique'),
+            models.CheckConstraint(condition=Q(max_files__gt=0),
+                                   name='position_document_max_files_positive'),
+        ]
+
+
+class PositionQualificationStandard(BaseModel):
+    """Same structure as QualificationStandard, built by the same rules."""
+
+    position = models.ForeignKey(Position, on_delete=models.CASCADE,
+                                 related_name='qualification_standards')
+    criterion_type = models.CharField(max_length=20, choices=CriterionType.choices)
+    operator = models.CharField(max_length=20, choices=StandardOperator.choices)
+    required_value = models.JSONField(default=dict, blank=True)
+    unit = models.CharField(max_length=20, blank=True)
+    description = models.TextField()
+
+    class Meta:
+        db_table = 'position_qualification_standards'
+        ordering = ['created_at']
+
+
+class PositionCompetency(BaseModel):
+    position = models.ForeignKey(Position, on_delete=models.CASCADE,
+                                 related_name='competencies')
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'position_competencies'
+        ordering = ['created_at']
+        verbose_name_plural = 'position competencies'
 
 
 class AssignmentRole(models.TextChoices):

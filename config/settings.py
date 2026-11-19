@@ -67,6 +67,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'accounts.portal.PortalMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'audit.middleware.AuditContextMiddleware',
@@ -132,6 +133,18 @@ AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrUsernameBackend']
 LOGIN_URL = 'accounts:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'
 LOGOUT_REDIRECT_URL = 'accounts:login'
+CSRF_FAILURE_VIEW = 'accounts.views.csrf_failure'
+
+# Which site this process serves (see accounts/portal.py): "public" (applicants,
+# internet), "staff" (school network), or "all" (development and tests only).
+SITE_PORTAL = (env('SITE_PORTAL') or 'all').strip().lower()
+if SITE_PORTAL not in ('all', 'public', 'staff'):
+    raise ImproperlyConfigured('SITE_PORTAL must be "all", "public", or "staff".')
+# A production web process refuses to start without a specific portal.
+PORTAL_ENFORCED = not DEBUG
+if SITE_PORTAL != 'all':
+    SESSION_COOKIE_NAME = f'evsu_{SITE_PORTAL}_session'
+    CSRF_COOKIE_NAME = f'evsu_{SITE_PORTAL}_csrf'
 
 # Inactivity timeout: the session expiry is renewed on every request.
 SESSION_IDLE_TIMEOUT_MINUTES = int(env('SESSION_IDLE_TIMEOUT_MINUTES', '30'))
@@ -182,6 +195,10 @@ REPORT_STORAGE_ROOT = PRIVATE_STORAGE_ROOT / 'reports'
 # Optional malware scanner command; the file path is appended. Exit code
 # 0 = clean, 1 = infected. Empty = files are recorded as "not scanned".
 MALWARE_SCAN_COMMAND = env('MALWARE_SCAN_COMMAND', '')
+# When on, an upload is refused if it could not actually be scanned. Default:
+# on for the production public site.
+MALWARE_SCAN_REQUIRED = env_bool('MALWARE_SCAN_REQUIRED',
+                                 PORTAL_ENFORCED and SITE_PORTAL == 'public')
 
 # Default correction window offered to HR when requesting corrections.
 CORRECTION_WINDOW_DAYS = int(env('CORRECTION_WINDOW_DAYS', '5'))
@@ -229,6 +246,9 @@ NOTIFICATION_EMAIL_ENABLED = env_bool('NOTIFICATION_EMAIL_ENABLED', True)
 NOTIFICATION_MAX_ATTEMPTS = int(env('NOTIFICATION_MAX_ATTEMPTS', '3'))
 # Base address used for links in emails.
 SITE_URL = env('SITE_URL', 'http://127.0.0.1:8000')
+# Applicants receive public-site links; staff receive school-site links.
+PUBLIC_SITE_URL = env('PUBLIC_SITE_URL') or SITE_URL
+STAFF_SITE_URL = env('STAFF_SITE_URL') or SITE_URL
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -269,6 +289,8 @@ LOGIN_MAX_FAILURES = int(env('LOGIN_MAX_FAILURES') or 5)
 LOGIN_LOCKOUT_MINUTES = int(env('LOGIN_LOCKOUT_MINUTES') or 15)
 # Higher per-address limit: many users may share one campus network address.
 LOGIN_MAX_FAILURES_PER_IP = int(env('LOGIN_MAX_FAILURES_PER_IP') or 20)
+# Staff computers may share one school address, so their limit is separate.
+STAFF_LOGIN_MAX_FAILURES_PER_IP = int(env('STAFF_LOGIN_MAX_FAILURES_PER_IP') or 100)
 
 # Private downloads: 'django' streams files from the app; 'nginx' returns an
 # X-Accel-Redirect to an internal-only location after the permission check.

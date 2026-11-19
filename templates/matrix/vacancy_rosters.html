@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Official roster · {{ vacancy.position_title }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'recruitment:vacancy_detail' vacancy.pk %}">&larr; {{ vacancy.position_title }}</a>
 <h1 class="h4 mt-2">Official applicant roster</h1>
 <p class="small text-muted mb-3">{{ vacancy.reference }} · {{ vacancy.department.name }} · {{ submitted_count }} submitted application{{ submitted_count|pluralize }}.
   The roster lists <strong>every</strong> application submitted on or before the cutoff, including withdrawn and not-selected ones. Row numbers are positions, not ranks.</p>

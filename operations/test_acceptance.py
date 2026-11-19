@@ -108,7 +108,7 @@ class NonAIAcceptanceScenario(RosterTestCase):
 
         # 5. Committee, interview, evaluation, decisions, appointment.
         psb = self.make_psb()
-        board = committee.create_committee(self.hr, self.vacancy, name='PSB')
+        board = self.vacancy.committees.get()  # created when the vacancy was published
         chair = committee.add_member(self.hr, board, psb, member_role='chair')
         decisions.release_decision(self.hr, decisions.record_decision(
             self.hr, application, decision_type=T.SHORTLISTING, outcome=O.SHORTLISTED,

@@ -131,12 +131,17 @@ def sha256_file(path):
 
 
 def project_tables():
+    """Project tables that exist in the database. Tables of models whose
+    migration has not been applied yet (code deployed before `migrate`) are
+    left out, so a backup taken in that window still succeeds and records
+    exactly what the database held."""
     tables = set()
     for label in PROJECT_APPS:
         for model in apps.get_app_config(label).get_models():
             tables.add(model._meta.db_table)
     tables.add('auth_group')
-    return sorted(tables)
+    existing = set(connection.introspection.table_names())
+    return sorted(tables & existing)
 
 
 def row_counts(cursor, tables):

@@ -1,5 +1,5 @@
 [Unit]
-Description=EVSU recruitment system (Gunicorn)
+Description=EVSU recruitment %i site (Gunicorn)
 After=network.target mysql.service
 
 [Service]
@@ -7,11 +7,14 @@ Type=simple
 User=evsu
 Group=www-data
 WorkingDirectory=/srv/evsu-recruitment
-RuntimeDirectory=evsu-recruitment
+RuntimeDirectory=evsu-recruitment-%i
+Environment=SITE_PORTAL=%i
+# Values here take priority over the shared /srv/evsu-recruitment/.env
+EnvironmentFile=/etc/evsu-recruitment/%i.env
 ExecStart=/srv/evsu-recruitment/.venv/bin/gunicorn config.wsgi:application -c deploy/gunicorn.conf.py
 ExecReload=/bin/kill -s HUP $MAINPID
 Restart=on-failure
-UMask=0027
+UMask=0007
 
 [Install]
 WantedBy=multi-user.target

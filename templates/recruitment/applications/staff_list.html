@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Applications · {{ vacancy.position_title }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'recruitment:vacancy_detail' vacancy.pk %}">&larr; {{ vacancy.position_title }}</a>
 <h1 class="h4 mt-2">Applications</h1>
 <p class="small text-muted">{{ vacancy.reference }} · Submitted applications only (drafts stay private to applicants). Filters here never change who appears on the official roster.</p>
 <form method="get" class="card card-body shadow-sm mb-3">

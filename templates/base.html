@@ -1,4 +1,4 @@
-{% load static %}<!doctype html>
+{% load static navigation %}<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -9,6 +9,7 @@
     :root { --evsu-maroon: #7a1f1f; }
     .navbar-evsu { background: var(--evsu-maroon); }
     .workspace-card { border-left: 4px solid var(--evsu-maroon); }
+    .breadcrumb a { color: var(--evsu-maroon); }
   </style>
 </head>
 <body class="bg-light d-flex flex-column min-vh-100">
@@ -22,7 +23,6 @@
     <div class="collapse navbar-collapse" id="mainNav">
       {% if user.is_authenticated %}
         <ul class="navbar-nav me-auto">
-          <li class="nav-item"><a class="nav-link" href="{% url 'recruitment:public_list' %}">Vacancies</a></li>
           {% for url, label in user_workspaces %}
             <li class="nav-item"><a class="nav-link" href="{% url url %}">{{ label }}</a></li>
           {% endfor %}
@@ -50,6 +50,11 @@
           </li>
         </ul>
       {% else %}
+        {% if portal == 'staff' %}
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:staff_login' %}">Staff sign in</a></li>
+        </ul>
+        {% else %}
         <ul class="navbar-nav me-auto">
           <li class="nav-item"><a class="nav-link" href="{% url 'recruitment:public_list' %}">Vacancies</a></li>
         </ul>
@@ -57,12 +62,14 @@
           <li class="nav-item"><a class="nav-link" href="{% url 'accounts:login' %}">Sign in</a></li>
           <li class="nav-item"><a class="nav-link" href="{% url 'accounts:register' %}">Register</a></li>
         </ul>
+        {% endif %}
       {% endif %}
     </div>
   </div>
 </nav>
 
 <main class="container py-4 flex-grow-1">
+  {% block breadcrumbs %}{% breadcrumbs %}{% endblock %}
   {% for message in messages %}
     <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show" role="alert">
       {{ message }}
@@ -76,5 +83,6 @@
   EVSU-Ormoc HRMDO · Recruitment Management System · development build
 </footer>
 <script src="{% static 'vendor/bootstrap-5.3.3/bootstrap.bundle.min.js' %}"></script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Verify {{ version.file_name }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'recruitment:application_review' application.pk %}">&larr; {{ application.reference }}</a>
 <div class="row g-3 mt-1">
   <div class="col-lg-7">
     <div class="card shadow-sm"><div class="card-body">

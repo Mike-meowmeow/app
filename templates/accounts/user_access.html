@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Manage {{ target.username }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'accounts:user_list' %}">&larr; All accounts</a>
 <h1 class="h4 mt-2">{{ target.full_name|default:target.username }} <span class="text-muted fs-6">{{ target.username }} · {{ target.email }}</span></h1>
 <div class="row g-3 mt-1">
   <div class="col-lg-7">
@@ -16,6 +15,15 @@
         </form>
       {% endif %}
     </div></div>
+    {% if can_invite %}
+      <div class="card shadow-sm mt-3"><div class="card-body">
+        <h2 class="h6">Staff password</h2>
+        <p class="small text-muted">Emails a single-use link for choosing a new password on the staff site.</p>
+        <form method="post" action="{% url 'accounts:staff_invite' target.pk %}">{% csrf_token %}
+          <button class="btn btn-outline-primary btn-sm" type="submit">Send set-password link</button>
+        </form>
+      </div></div>
+    {% endif %}
     <div class="card shadow-sm mt-3"><div class="card-body small">
       <h2 class="h6">Role responsibilities</h2>
       <dl class="mb-0">{% for role, text in descriptions.items %}<dt>{{ role }}</dt><dd class="text-muted">{{ text }}</dd>{% endfor %}</dl>

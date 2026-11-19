@@ -1,3 +1,5 @@
+from smtplib import SMTPException
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -6,11 +8,13 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_http_methods
+from django.views.csrf import csrf_failure as default_csrf_failure
+from django.views.decorators.http import require_http_methods, require_POST
 
 from audit import services as audit
 from audit.models import AuditLog
@@ -19,7 +23,8 @@ from . import roles, services
 from .access import role_required
 from .forms import (LoginForm, PasswordChangeForm, PasswordResetForm,
                     PrivacyAcknowledgmentForm, RegistrationForm, ResendVerificationForm,
-                    SetPasswordForm, UserAccessForm, UserSearchForm)
+                    SetPasswordForm, StaffAccountForm, StaffLoginForm, UserAccessForm,
+                    UserSearchForm)
 
 User = get_user_model()
 
@@ -34,8 +39,27 @@ class LoginView(auth_views.LoginView):
     redirect_authenticated_user = True
 
 
+class StaffLoginView(LoginView):
+    authentication_form = StaffLoginForm
+    extra_context = {'staff_login': True}
+
+
+def csrf_failure(request, reason=''):
+    """A sign-in page left open goes stale when the user signs in or out in
+    another tab. Nothing is submitted: reload the page and ask again (or go on
+    to the dashboard if already signed in). Other forms keep the normal 403."""
+    if request.path in (reverse('accounts:login'), reverse('accounts:staff_login')):
+        if not request.user.is_authenticated:
+            messages.warning(request, 'This sign-in page had expired. Please sign in again.')
+        return redirect(request.get_full_path())
+    return default_csrf_failure(request, reason=reason)
+
+
 class LogoutView(auth_views.LogoutView):
-    pass
+    def post(self, request, *args, **kwargs):
+        if roles.is_staff_account(request.user):
+            self.next_page = 'accounts:staff_login'
+        return super().post(request, *args, **kwargs)
 
 
 class PasswordResetView(auth_views.PasswordResetView):
@@ -188,6 +212,7 @@ def account(request):
 
 @role_required(roles.SYSTEM_ADMIN)
 def user_list(request):
+    request.session[roles.ACTIVE_WORKSPACE_SESSION_KEY] = roles.SYSTEM_ADMIN
     form = UserSearchForm(request.GET or None)
     users = User.objects.prefetch_related('groups').order_by('last_name', 'first_name',
                                                              'username')
@@ -205,7 +230,7 @@ def user_access(request, pk):
     target = get_object_or_404(User, pk=pk)
     is_self = target.pk == request.user.pk
     current_roles = sorted(target.groups.values_list('name', flat=True))
-    form = UserAccessForm(request.POST or None,
+    form = UserAccessForm(request.POST or None, target=target,
                           initial={'roles': current_roles, 'is_active': target.is_active})
     if request.method == 'POST' and form.is_valid():
         try:
@@ -214,6 +239,8 @@ def user_access(request, pk):
                 is_active=form.cleaned_data['is_active'], reason=form.cleaned_data['reason'])
         except PermissionDenied as exc:
             form.add_error(None, str(exc))
+        except roles.RoleConflict as exc:
+            form.add_error(None, exc)
         else:
             messages.success(request, f'Access for {target.username} was updated.')
             return redirect('accounts:user_list')
@@ -221,4 +248,51 @@ def user_access(request, pk):
         .select_related('actor')[:15]
     return render(request, 'accounts/user_access.html', {
         'target': target, 'form': form, 'is_self': is_self, 'events': events,
-        'descriptions': roles.ROLE_DESCRIPTIONS})
+        'descriptions': roles.ROLE_DESCRIPTIONS,
+        'can_invite': target.is_active and roles.is_staff_account(target)})
+
+
+def _send_invitation(request, user):
+    try:
+        services.send_staff_invitation(request.user, user)
+    except (SMTPException, OSError):
+        messages.warning(request, f'The email to {user.email} could not be sent. Check the '
+                                  'mail settings, then use Send set-password link.')
+        return False
+    return True
+
+
+@role_required(roles.SYSTEM_ADMIN)
+@require_http_methods(['GET', 'POST'])
+def staff_create(request):
+    form = StaffAccountForm(request.POST or None)
+    if request.method == 'POST' and form.is_valid():
+        data = form.cleaned_data
+        try:
+            user = services.create_staff_account(
+                request.user, username=data['username'], email=data['email'],
+                first_name=data['first_name'], middle_name=data['middle_name'],
+                last_name=data['last_name'], role_names=data['roles'], reason=data['reason'])
+        except IntegrityError:
+            form.add_error(None, 'An account with this username or email already exists.')
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            if _send_invitation(request, user):
+                messages.success(request, f'Staff account created. A set-password link was '
+                                          f'sent to {user.email}.')
+            return redirect('accounts:user_access', pk=user.pk)
+    return render(request, 'form_page.html', {
+        'form': form, 'title': 'New staff account', 'submit_label': 'Create account',
+        'intro': 'The person receives a link to choose their own password. Applicants '
+                 'register themselves on the public site.',
+        'cancel_url': 'accounts:user_list'})
+
+
+@role_required(roles.SYSTEM_ADMIN)
+@require_POST
+def staff_invite(request, pk):
+    target = get_object_or_404(User, pk=pk)
+    if _send_invitation(request, target):
+        messages.success(request, f'A set-password link was sent to {target.email}.')
+    return redirect('accounts:user_access', pk=pk)

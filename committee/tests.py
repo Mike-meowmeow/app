@@ -21,13 +21,14 @@ from audit.models import AuditLog
 from documents.models import DocumentVersion
 from recruitment import application_services as applications
 from recruitment import decision_services as decisions
+from recruitment import services as recruitment
 from recruitment.models import (ApplicationStatus, DecisionOutcome, DecisionType,
                                 RecruitmentDecision, Vacancy, VacancyStatus, WorkflowLog,
                                 WorkflowVisibility)
 from recruitment.test_applications import ApplicationTestCase
 
 from . import selectors, services
-from .models import (AttendanceStatus, ConflictStatus, EvaluationStatus, Interview,
+from .models import (AttendanceStatus, Committee, CommitteeMember, ConflictStatus, EvaluationStatus, Interview,
                      InterviewEvaluation, InterviewEventType, InterviewMode, InterviewStatus,
                      MemberRole)
 
@@ -42,7 +43,7 @@ class CommitteeTestCase(ApplicationTestCase):
         super().setUp()
         self.psb1 = make_user('psb1', roles.PSB_MEMBER)
         self.psb2 = make_user('psb2', roles.PSB_MEMBER)
-        self.committee = services.create_committee(self.hr, self.vacancy, name='PSB - COED')
+        self.committee = self.vacancy.committees.get()  # created when published
         self.chair = services.add_member(self.hr, self.committee, self.psb1,
                                          member_role=MemberRole.CHAIR)
         self.member2 = services.add_member(self.hr, self.committee, self.psb2)
@@ -90,7 +91,7 @@ class CommitteeTestCase(ApplicationTestCase):
 class CommitteeAccessTests(CommitteeTestCase):
     def test_only_assigned_hr_manages_and_members_need_a_committee_role(self):
         with self.assertRaises(PermissionDenied):
-            services.create_committee(self.hr2, self.vacancy, name='Other')
+            services.create_committee(self.hr2, self.vacancy)
         with self.assertRaises(ValidationError):
             services.add_member(self.hr, self.committee, self.other_applicant)
         with self.assertRaises(ValidationError):  # one chair
@@ -114,7 +115,7 @@ class CommitteeAccessTests(CommitteeTestCase):
         self.shortlist()
         other_vacancy = self.published()
         outsider = make_user('outsider', roles.PSB_MEMBER)
-        other = services.create_committee(self.hr, other_vacancy, name='PSB - other')
+        other = other_vacancy.committees.get()
         services.add_member(self.hr, other, outsider)
         self.assertFalse(selectors.can_view_candidate(outsider, self.application))
         self.assertFalse(applications.access.can_view(outsider, self.application))
@@ -509,3 +510,67 @@ class DecisionTests(CommitteeTestCase):
         self.assertEqual(self.client.get(
             reverse('recruitment:decision_new', args=[self.application.pk, 'shortlisting'])
         ).status_code, 403)
+
+
+class CommitteeNamingTests(CommitteeTestCase):
+    def expected(self, vacancy, suffix=''):
+        return f'PSB - {vacancy.position_title} - {vacancy.reference}{suffix}'
+
+    def test_publishing_creates_one_named_committee_ready_for_members(self):
+        self.assertEqual(self.committee.name, self.expected(self.vacancy))
+        event = AuditLog.objects.get(action='committee.created', entity_id=str(self.committee.pk))
+        self.assertEqual((event.actor, event.changes['automatic']), (self.hr, True))
+        self.assertEqual(services.add_member(self.hr, self.committee, self.dept_head).user,
+                         self.dept_head)
+
+    def test_publishing_new_requirements_adds_no_committee(self):
+        recruitment.start_requirements_update(self.hr, self.vacancy)
+        recruitment.publish(self.hr, self.vacancy, reason='Updated standard')
+        self.assertEqual(self.vacancy.committees.count(), 1)
+
+    def test_draft_vacancies_have_no_committee(self):
+        draft = self.new_vacancy()
+        self.assertFalse(draft.committees.exists())
+        with self.assertRaises(ValidationError):
+            services.create_committee(self.hr, draft)
+
+    def test_hr_adds_another_committee_without_typing_a_name(self):
+        self.client.force_login(self.hr)
+        url = reverse('committee:vacancy_committees', args=[self.vacancy.pk])
+        self.assertNotContains(self.client.get(url), 'name="name"')
+        self.client.post(url, {'name': 'Typed name is ignored'})
+        names = list(self.vacancy.committees.order_by('created_at').values_list('name', flat=True))
+        self.assertEqual(names, [self.expected(self.vacancy), self.expected(self.vacancy, ' (2)')])
+
+    def test_vacancy_without_a_committee_gets_one_click_creation(self):
+        self.vacancy.committees.update(is_active=False)
+        CommitteeMember.objects.filter(committee=self.committee).delete()
+        self.vacancy.committees.all().delete()
+        self.client.force_login(self.hr)
+        url = reverse('committee:vacancy_committees', args=[self.vacancy.pk])
+        self.assertContains(self.client.get(url), 'Create committee')
+        self.client.post(url)
+        self.assertEqual(self.vacancy.committees.get().name, self.expected(self.vacancy))
+
+    def test_long_titles_fit_and_keep_the_reference(self):
+        self.vacancy.position_title = 'T' * 200
+        name = services.committee_name(self.vacancy, 12)
+        self.assertLessEqual(len(name), 200)
+        self.assertTrue(name.endswith(f'{self.vacancy.reference} (12)'))
+
+    def test_existing_names_are_not_changed(self):
+        Committee.objects.filter(pk=self.committee.pk).update(name='Earlier committee')
+        services.create_committee(self.hr, self.vacancy)
+        self.committee.refresh_from_db()
+        self.assertEqual(self.committee.name, 'Earlier committee')
+
+    def test_only_managing_hr_can_create(self):
+        self.client.force_login(self.hr2)
+        response = self.client.post(reverse('committee:vacancy_committees',
+                                            args=[self.vacancy.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.client.force_login(self.approver)
+        response = self.client.post(reverse('committee:vacancy_committees',
+                                            args=[self.vacancy.pk]))
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(self.vacancy.committees.count(), 1)

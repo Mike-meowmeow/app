@@ -242,6 +242,8 @@ class AccessControlTests(TestCase):
     def test_anonymous_users_are_sent_to_login(self):
         response = self.client.get(reverse('core:workspace_hr'))
         self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith(reverse('accounts:staff_login')))
+        response = self.client.get(reverse('core:workspace_applicant'))
         self.assertTrue(response.url.startswith(reverse('accounts:login')))
 
     def test_workspaces_require_matching_role(self):
@@ -321,11 +323,11 @@ class AccessControlTests(TestCase):
 
     def test_role_changes_outside_services_are_still_audited(self):
         # e.g. Django admin or shell
-        Group.objects.get(name=roles.PSB_MEMBER).user_set.add(self.applicant)
-        self.applicant.groups.clear()
-        self.assertIn('role.assigned', actions(entity_id=str(self.applicant.pk)))
+        Group.objects.get(name=roles.PSB_MEMBER).user_set.add(self.hr)
+        self.hr.groups.clear()
+        self.assertIn('role.assigned', actions(entity_id=str(self.hr.pk)))
         self.assertEqual(AuditLog.objects.filter(action='role.revoked',
-                                                 entity_id=str(self.applicant.pk)).count(), 2)
+                                                 entity_id=str(self.hr.pk)).count(), 2)
 
 
 class SeedAndAuditTests(TestCase):

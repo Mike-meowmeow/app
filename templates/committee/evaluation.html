@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Evaluation v{{ evaluation.version }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'committee:candidate' evaluation.application.pk %}">&larr; {{ evaluation.application.applicant.user.last_name }}, {{ evaluation.application.applicant.user.first_name }}</a>
 <h1 class="h4 mt-2">Evaluation version {{ evaluation.version }}
   <span class="badge {% if evaluation.status == 'draft' %}text-bg-secondary{% else %}text-bg-success{% endif %}">{{ evaluation.get_status_display }}</span></h1>
 <p class="small text-muted">{% if evaluation.interview %}Interview on {{ evaluation.interview.starts_at|date:"M j, Y g:i A" }}{% else %}Assessment of the application documents{% endif %}.

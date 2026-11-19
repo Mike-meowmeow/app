@@ -22,6 +22,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from accounts.portal import site_url_for
 from audit import services as audit
 
 from .models import Channel, DeliveryStatus, Notification, NotificationDelivery
@@ -65,7 +66,7 @@ def notify_many(users, **kwargs):
 
 
 def _email_body(notification):
-    link = settings.SITE_URL.rstrip('/') + notification.target_url()
+    link = site_url_for(notification.user) + notification.target_url()
     return (f'{notification.message}\n\nOpen the recruitment system to see the details:\n'
             f'{link}\n\nThis is an automated message from EVSU-Ormoc HRMDO recruitment.')
 

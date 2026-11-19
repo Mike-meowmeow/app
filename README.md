@@ -1,8 +1,10 @@
 # EVSU-Ormoc Recruitment Management System
 
 Django + MySQL web application for part-time instructor recruitment at EVSU-Ormoc HRMDO:
-applicant accounts and profiles, vacancies with versioned requirements, and (in later stages)
-applications, document review, the official applicant roster, committees, and analytics.
+applicant accounts and profiles, a reusable position catalog, vacancies with versioned
+requirements, applications, document review, the official applicant roster, committees and
+interviews, notifications, analytics, and backup/restore tools. Applicants and staff use separate
+accounts and sites. AI features are not built yet.
 
 This README covers setting up a development machine. Design documents (functional requirements,
 database specification, development guide) live in the separate project vault.
@@ -88,14 +90,21 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
    .\.venv\Scripts\python.exe manage.py assign_role <username> "System Administrator"
    .\.venv\Scripts\python.exe manage.py assign_role <username> "HR Personnel"
    ```
-   Roles: `Applicant`, `HR Personnel`, `HR Head / Approver`, `Department Head`, `PSB Member`,
-   `System Administrator`. After this, System Administrators manage other users' roles in the app
-   at **/accounts/admin/users/**.
+   Staff roles: `HR Personnel`, `HR Head / Approver`, `Department Head`, `PSB Member`,
+   `System Administrator`. One staff account may hold several. `Applicant` cannot be combined with
+   a staff role; applicants register themselves. After this, System Administrators create staff
+   accounts and manage their roles in the app at **/accounts/admin/users/**.
 3. **Optional sample data** — a clearly labeled development department so HR can create vacancies:
    ```powershell
    .\.venv\Scripts\python.exe manage.py seed_reference_data --sample-department
    ```
    Real departments are added by a System Administrator in the Django admin (**/admin/**).
+   HR then builds the **Position catalog** (HR workspace → Position catalog, or Vacancies →
+   Position catalog): each position's title, default description and default requirements.
+   New vacancies are created by choosing a position; its defaults are copied into the vacancy,
+   which HR adjusts before publishing. Catalog edits never change existing vacancies. Publishing
+   a vacancy also creates its committee with a standard name; HR assigns the members under
+   **Committees & interviews**.
 4. **Register the official roster template** (needed before HR can prepare rosters). The file is
    checked against the PART-TIME layout, copied into `private/templates/`, and recorded with its
    SHA-256; `--approve-as` must name an HR Head / Approver or System Administrator:
@@ -109,7 +118,8 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
    ```powershell
    .\.venv\Scripts\python.exe manage.py runserver
    ```
-   Open **http://127.0.0.1:8000/**. Stop it with **Ctrl+C**.
+   Open **http://127.0.0.1:8000/**. Staff sign in at **/accounts/staff/login/** and applicants at
+   **/accounts/login/**. Stop the server with **Ctrl+C**.
 
 > **Emails print in the server terminal.** Development uses Django's console email backend, so
 > verification and password-reset links appear in the terminal running `runserver`, not in an inbox.
@@ -122,7 +132,8 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
 | Task | Command |
 | --- | --- |
 | Run the server | `.\.venv\Scripts\python.exe manage.py runserver` |
-| Run all tests | `.\.venv\Scripts\python.exe manage.py test` |
+| Run the applicant and staff sites separately | See section 5b |
+| Run all tests | `.\.venv\Scripts\python.exe manage.py test --noinput` |
 | Check database readiness (no changes) | `py setup_db.py --check` |
 | Apply new migrations + seed after `git pull` | `py setup_db.py` |
 | Re-run the full setup | `.\setup.ps1` or `./setup.sh` |
@@ -136,7 +147,8 @@ Commands below use Windows paths. On macOS/Linux replace `.\.venv\Scripts\python
 | List (or `--delete`) unreferenced private files | `manage.py sweep_orphan_files` |
 
 On macOS/Linux use `python3 setup_db.py` instead of `py setup_db.py`.
-Tests need the MySQL test database permission that setup grants; they take about a minute.
+Tests need the MySQL test database permission that setup grants; the full suite takes about 10
+minutes. Run them in a terminal where `SITE_PORTAL` is not set.
 After pulling changes, run `py setup_db.py` (or the full setup if `requirements.txt` changed).
 
 ---
@@ -163,7 +175,11 @@ After pulling changes, run `py setup_db.py` (or the full setup if `requirements.
 | `ROSTER_ALLOW_SELF_APPROVAL` | Whether the HR preparer may also approve their own roster | `False` |
 | `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` | Email delivery; the console backend prints emails in the server terminal | console backend |
 | `NOTIFICATION_EMAIL_ENABLED`, `NOTIFICATION_MAX_ATTEMPTS` | Email copies of in-app notifications and how many attempts are made | `True`, `3` |
-| `SITE_URL` | Base address used in email links | `http://127.0.0.1:8000` |
+| `SITE_PORTAL` | Site this process serves: `public`, `staff`, or `all` (development only) | `all` |
+| `SITE_URL` | Base address for email links in development | `http://127.0.0.1:8000` |
+| `PUBLIC_SITE_URL`, `STAFF_SITE_URL` | Addresses used in applicant and staff email links | `SITE_URL` |
+| `STAFF_LOGIN_MAX_FAILURES_PER_IP` | Failed staff sign-ins allowed per address | `100` |
+| `MALWARE_SCAN_REQUIRED` | Refuse uploads that could not be scanned | on for the production public site |
 | `BACKUP_ROOT`, `MYSQL_BIN_DIR`, `BACKUP_MAX_AGE_HOURS` | Where backup sets go, where `mysqldump`/`mysql` are (if not found automatically), and when the last backup counts as overdue | `backups/`, auto, `26` |
 | `LOGIN_MAX_FAILURES`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_MINUTES` | Sign-in throttling per account identifier and per address | `5`, `20`, `15` |
 | `TRUSTED_PROXIES`, `PRIVATE_FILE_DELIVERY` | Proxy addresses whose X-Forwarded-For is trusted; `nginx` to deliver private files through X-Accel-Redirect | empty, `django` |
@@ -195,11 +211,43 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   isolated `<DB_NAME>_restore` database, never the live one. System Administrators see the results
   under the account menu, **Backups and restore checks**. The recovery procedure is in
   `deploy/RECOVERY.md`.
-- **Linux server:** follow `deploy/DEPLOY.md` (Nginx, Gunicorn, systemd timers for backups and
-  email retries). Production settings are in `.env.production.example`. With `DJANGO_DEBUG=False`,
-  HTTPS, secure cookies, and HSTS turn on, and `manage.py check --deploy` must pass.
+- **School server:** follow `deploy/DEPLOY.md` (two sites, Nginx, Gunicorn, router and firewall
+  rules, systemd timers for backups and email retries). These steps have not yet been run on a real
+  server. Production settings are in `.env.production.example` and `deploy/*.env.example`. With
+  `DJANGO_DEBUG=False`, HTTPS, secure cookies, and HSTS turn on; each site must pass
+  `manage.py check --deploy`.
 - **Audit trail:** HR Head / Approver and System Administrator can search and export it from the
   account menu, **Audit trail**.
+
+## 5b. Applicant and staff sites
+
+Applicants and staff use separate accounts and separate sign-in pages. In production they are two
+sites served from one server at school: the applicant site is public, and the staff site works only
+on the school network (`deploy/DEPLOY.md`). Staff accounts are created by a System Administrator at
+**System Admin → New staff account**; the person sets a password through an emailed link.
+
+A plain `runserver` is development mode: all pages on one address, with applicants signing in at
+`/accounts/login/` and staff at `/accounts/staff/login/`. To try the real separation, use two
+terminals:
+
+```powershell
+# Terminal 1: public applicant site
+$env:SITE_PORTAL="public"; $env:PUBLIC_SITE_URL="http://127.0.0.1:8000"; $env:STAFF_SITE_URL="http://127.0.0.1:8001"
+.\.venv\Scripts\python.exe manage.py runserver 8000
+
+# Terminal 2: staff site
+$env:SITE_PORTAL="staff"; $env:PUBLIC_SITE_URL="http://127.0.0.1:8000"; $env:STAFF_SITE_URL="http://127.0.0.1:8001"
+.\.venv\Scripts\python.exe manage.py runserver 8001
+```
+
+Run each block in its own terminal, from the `app` folder. The sites share the database but keep
+separate sign-ins. Emails print in the terminal of the site that sent them. Close these terminals
+when finished, because the settings stay active in them.
+
+Pages show breadcrumbs. Staff trails include the workspace, such as **Home > HR > Vacancies**. With
+several roles, the trail follows the workspace opened last when it covers the page.
+
+---
 
 ## 6. Troubleshooting
 
@@ -216,7 +264,12 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
 | Signed in but see "Access denied" / no workspaces | Your account has no role yet — use `manage.py assign_role` (section 3). |
 | Can't find the verification email | Look in the terminal running `runserver` (section 3). |
 | `restore_check` says it cannot use `..._restore`, or `setup_db.py --check` reports the restore-check database | Run `py setup_db.py` once and enter the MySQL root password; it grants the app account the isolated restore-check database. |
-| "Too many failed sign-in attempts" | Wait `LOGIN_LOCKOUT_MINUTES` (15) or reset the password. |
+| "Too many failed sign-in attempts" | Wait `LOGIN_LOCKOUT_MINUTES` (15) or reset the password. Each site counts failures separately. |
+| Correct staff password is refused | Staff must use `/accounts/staff/login/`; applicants use `/accounts/login/`. |
+| `.\.venv\Scripts\python.exe` is not recognized | Change to the `app` folder first. |
+| `That port is already in use` | Stop the other `runserver` with Ctrl+C or close its terminal. |
+| `navigation is not a registered tag library` | Restart `runserver` after pulling these changes. |
+| Many tests fail with 404 or redirects | Use a terminal where `SITE_PORTAL` is not set. |
 
 ---
 
@@ -225,15 +278,15 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
 ```text
 app/
   config/         Settings, root URLs, WSGI
-  core/           Shared base models, departments, recruitment types, workspaces
-  accounts/       Custom user, roles (Django groups), sign-in, registration, role admin
+  core/           Shared base models, departments, recruitment types, workspaces, breadcrumbs
+  accounts/       Custom user, roles, applicant and staff sign-in, site separation, staff accounts
   audit/          Protected audit trail and audit service
   documents/      Document types, private versioned uploads, verification, downloads
-  recruitment/    Vacancies, requirement versions, staff assignments, applications,
+  recruitment/    Position catalog, vacancies, requirement versions, staff assignments, applications,
                   snapshots, facts, corrections, workflow, human decisions and release
   applicants/     Applicant profiles and qualification records
   matrix/         Official applicant roster: templates, versions, approval, Excel/PDF export
-  committee/      Committees, conflicts of interest, interviews, narrative evaluations
+  committee/      Automatically named committees, conflicts, interviews, narrative evaluations
   notifications/  In-app notifications and email delivery attempts (retry with send_notifications)
   analytics/      Recruitment metrics, snapshots, Excel/PDF reports
   operations/     Backup sets, restore checks, monitoring; orphan-file sweep
@@ -256,12 +309,12 @@ records are view-only there.
 | 1 Environment and skeleton | Done |
 | 2 Models and migrations | All non-AI batches (A–F) applied; AI tables arrive in Stage 10 |
 | 3 Accounts, roles, access | Done |
-| 4 Vacancies and applicant profiles | Done |
+| 4 Vacancies and applicant profiles | Done; position catalog added 18 Nov 2026 |
 | 5 Applications, documents, manual review | Done |
 | 6 Official roster, approval, Excel/PDF | Done |
 | 7 Committees, interviews, decisions | Done |
 | 8 Notifications, search, analytics | Done |
-| 9 Stabilization: backup/restore, production settings, deployment files | Code done; Linux staging and HR walkthrough pending |
+| 9 Stabilization: backup/restore, production settings, two-site deployment files | Code done; school server deployment and HR walkthrough pending |
 | 10–11 AI features, final release | Not started |
 
 Pending institutional inputs (HR): official privacy notice wording, document checklist,
@@ -270,3 +323,7 @@ shortlisting, final decisions, decision release, and conflict resolution), and
 roster conventions (row order, missing-value labels, remark wording, signatories, treatment of
 unverified values at release). Seeded document types and the privacy notice are development
 placeholders until then.
+
+Before the public launch: school IT details (public address or tunnel, domain names, network range,
+router access, certificates, SMTP account), Data Privacy Officer review, and an HR rule for deadlines
+after an internet or power outage.

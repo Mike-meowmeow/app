@@ -7,7 +7,7 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 
-from .roles import has_role
+from .roles import APPLICANT, has_role
 
 
 def role_required(*roles):
@@ -20,7 +20,9 @@ def role_required(*roles):
                 raise PermissionDenied
             return view(request, *args, **kwargs)
 
-        return login_required(wrapped)
+        # Staff pages send signed-out visitors to the staff sign-in page.
+        login_url = None if APPLICANT in roles else 'accounts:staff_login'
+        return login_required(wrapped, login_url=login_url)
 
     return decorator
 

@@ -30,7 +30,10 @@ class Command(BaseCommand):
             self.stdout.write(f'No change: {target.username} '
                               f'{"does not have" if revoke else "already has"} {role}.')
             return
-        services.set_roles(target, sorted(wanted & set(roles.ALL_ROLES)), reason=reason)
+        try:
+            services.set_roles(target, sorted(wanted & set(roles.ALL_ROLES)), reason=reason)
+        except roles.RoleConflict as exc:
+            raise CommandError(exc.message)
         self.stdout.write(self.style.SUCCESS(
             f'{"Revoked" if revoke else "Assigned"} {role} '
             f'{"from" if revoke else "to"} {target.username}.'))

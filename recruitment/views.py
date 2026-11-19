@@ -8,10 +8,10 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts import roles
 from accounts.access import role_required
 
-from . import selectors, services
-from .forms import (AssignmentForm, CompetencyForm, DocumentRequirementForm,
+from . import position_services, selectors, services
+from .forms import (ApplyPositionForm, AssignmentForm, CompetencyForm, DocumentRequirementForm,
                     QualificationStandardForm, ReasonForm, VacancyFilterForm, VacancyForm)
-from .models import Vacancy, VacancyAssignment, VacancyStatus
+from .models import Position, Vacancy, VacancyAssignment, VacancyStatus
 
 STAFF_ROLES = (roles.HR, roles.APPROVER, roles.DEPARTMENT_HEAD)
 
@@ -50,18 +50,58 @@ def vacancy_list(request):
         'can_create': roles.has_role(request.user, roles.HR)})
 
 
+def _position_defaults():
+    """Catalog defaults for the vacancy form's pre-fill and preview."""
+    return {str(p.pk): position_services.defaults_manifest(p) for p in
+            Position.objects.filter(is_active=True).prefetch_related(
+                'document_requirements__document_type', 'qualification_standards',
+                'competencies')}
+
+
 @role_required(roles.HR)
 @require_http_methods(['GET', 'POST'])
 def vacancy_create(request):
     form = VacancyForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         data = {k: v for k, v in form.cleaned_data.items() if k != 'reason'}
-        vacancy = services.create_vacancy(request.user, **data)
-        messages.success(request, 'Draft vacancy created. Add its requirements, then publish.')
-        return redirect('recruitment:vacancy_detail', pk=vacancy.pk)
+        try:
+            vacancy = services.create_vacancy(request.user, **data)
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(request, "Draft vacancy created with the position's default "
+                                      'requirements. Review and adjust them, then publish.')
+            return redirect('recruitment:vacancy_detail', pk=vacancy.pk)
+    return render(request, 'recruitment/vacancy_create.html', {
+        'form': form, 'position_defaults': _position_defaults(),
+        'has_positions': Position.objects.filter(is_active=True).exists()})
+
+
+@role_required(roles.HR)
+@require_http_methods(['GET', 'POST'])
+def vacancy_apply_position(request, pk):
+    """Explicitly load a position's defaults into a never-published draft."""
+    vacancy = _visible_or_404(request.user, pk)
+    if not selectors.can_manage(request.user, vacancy):
+        raise PermissionDenied
+    initial = {'position': vacancy.position_id} if vacancy.position_id else None
+    form = ApplyPositionForm(request.POST or None, initial=initial)
+    if request.method == 'POST' and form.is_valid():
+        try:
+            services.apply_position_defaults(request.user, vacancy, form.cleaned_data['position'],
+                                             confirm=form.cleaned_data['confirm'])
+        except ValidationError as exc:
+            form.add_error(None, exc)
+        else:
+            messages.success(request, 'Position defaults loaded into the draft.')
+            return redirect('recruitment:vacancy_detail', pk=pk)
     return render(request, 'form_page.html', {
-        'form': form, 'title': 'New vacancy', 'submit_label': 'Create draft',
-        'cancel_url': 'recruitment:vacancy_list'})
+        'form': form, 'title': 'Load defaults from a position',
+        'intro': f'{vacancy.position_title} · draft. This replaces the title, description and '
+                 'every draft requirement (including your edits) with the chosen position\'s '
+                 'current defaults. The replaced values are kept in the audit trail.',
+        'submit_label': 'Replace with position defaults',
+        'cancel_url': 'recruitment:vacancy_detail', 'cancel_arg': pk})
 
 
 @role_required(*STAFF_ROLES)
@@ -83,6 +123,8 @@ def vacancy_detail(request, pk):
         'reason_form': ReasonForm(),
         'assignment_form': AssignmentForm(),
         'submitted_count': vacancy.applications.filter(submitted_at__isnull=False).count(),
+        'can_apply_position': can_manage and vacancy.status == VacancyStatus.DRAFT
+                              and not vacancy.posted_at and current is None,
     }
     return render(request, 'recruitment/vacancy_detail.html', context)
 
@@ -210,7 +252,10 @@ def requirements_discard(request, pk):
 @role_required(roles.HR)
 @require_POST
 def vacancy_publish(request, pk):
-    return _action(request, pk, services.publish, 'Published.')
+    first_time = _visible_or_404(request.user, pk).status == VacancyStatus.DRAFT
+    message = ('Vacancy published and its committee created. Assign the members under '
+               'Committees & interviews.') if first_time else 'Published.'
+    return _action(request, pk, services.publish, message)
 
 
 @role_required(roles.HR)

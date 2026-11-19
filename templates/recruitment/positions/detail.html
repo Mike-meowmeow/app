@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{{ position.title }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ position.title }}
+      {% if position.is_active %}<span class="badge text-bg-success align-middle">Active</span>{% else %}<span class="badge text-bg-secondary align-middle">Inactive</span>{% endif %}</h1>
+    <div class="text-muted small">Used by {{ vacancy_count }} vacanc{{ vacancy_count|pluralize:"y,ies" }}. Editing this position does not change them.</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{% url 'recruitment:position_edit' position.pk %}">Edit title and description</a>
+    {% if position.is_active %}
+      <form method="post" action="{% url 'recruitment:position_set_active' position.pk 'deactivate' %}" onsubmit="return confirm('Deactivate this position? It will no longer be offered for new vacancies. Existing vacancies are not changed.');">{% csrf_token %}
+        <button class="btn btn-outline-danger" type="submit">Deactivate</button></form>
+    {% else %}
+      <form method="post" action="{% url 'recruitment:position_set_active' position.pk 'reactivate' %}">{% csrf_token %}
+        <button class="btn btn-outline-success" type="submit">Reactivate</button></form>
+    {% endif %}
+  </div>
+</div>
+{% if not position.is_active %}<div class="alert alert-secondary small">This position is inactive: it cannot be chosen for new vacancies. Vacancies already created from it keep their own copies.</div>{% endif %}
+
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <h2 class="h6">Default job description</h2>
+  <div style="white-space: pre-line">{{ position.description }}</div>
+</div></div>
+
+<div class="card shadow-sm"><div class="card-body">
+  <h2 class="h5">Default requirements</h2>
+  <p class="small text-muted">Copied into a new vacancy's draft requirements. HR can then add, remove or change items for that vacancy before publishing.</p>
+
+  <h3 class="h6 mt-2">Required documents</h3>
+  <ul class="list-group mb-2">
+    {% for d in documents %}
+      <li class="list-group-item d-flex justify-content-between align-items-start">
+        <div>
+          <span class="fw-semibold">{{ d.document_type.name }}</span>
+          {% if d.is_required %}<span class="badge text-bg-danger ms-1">required</span>{% else %}<span class="badge text-bg-secondary ms-1">optional</span>{% endif %}
+          {% if d.max_files > 1 %}<span class="text-muted small ms-1">up to {{ d.max_files }} files</span>{% endif %}
+          {% if not d.document_type.is_active %}<span class="badge text-bg-warning ms-1">document type inactive · not copied</span>{% endif %}
+          {% if d.instructions %}<div class="small text-muted">{{ d.instructions }}</div>{% endif %}
+        </div>
+        <form method="post" action="{% url 'recruitment:position_item_remove' position.pk 'document' d.pk %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+      </li>
+    {% empty %}<li class="list-group-item text-muted">None yet.</li>{% endfor %}
+  </ul>
+  <a class="btn btn-sm btn-outline-primary mb-3" href="{% url 'recruitment:position_item_add' position.pk 'document' %}">+ Document</a>
+
+  <h3 class="h6">Qualification standards</h3>
+  <ul class="list-group mb-2">
+    {% for s in standards %}
+      <li class="list-group-item d-flex justify-content-between align-items-start">
+        <div><span class="badge text-bg-light border me-1">{{ s.get_criterion_type_display }}</span>{{ s.description }}</div>
+        <form method="post" action="{% url 'recruitment:position_item_remove' position.pk 'standard' s.pk %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+      </li>
+    {% empty %}<li class="list-group-item text-muted">None yet.</li>{% endfor %}
+  </ul>
+  <a class="btn btn-sm btn-outline-primary mb-3" href="{% url 'recruitment:position_item_add' position.pk 'standard' %}">+ Qualification standard</a>
+
+  <h3 class="h6">Relevant subjects and competencies</h3>
+  <ul class="list-group mb-2">
+    {% for c in competencies %}
+      <li class="list-group-item d-flex justify-content-between align-items-start">
+        <div><span class="fw-semibold">{{ c.name }}</span>{% if c.description %}<div class="small text-muted">{{ c.description }}</div>{% endif %}</div>
+        <form method="post" action="{% url 'recruitment:position_item_remove' position.pk 'competency' c.pk %}">{% csrf_token %}
+          <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+      </li>
+    {% empty %}<li class="list-group-item text-muted">None listed.</li>{% endfor %}
+  </ul>
+  <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:position_item_add' position.pk 'competency' %}">+ Subject / competency</a>
+</div></div>
+{% endblock %}

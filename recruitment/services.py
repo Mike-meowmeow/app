@@ -9,9 +9,9 @@ from django.utils import timezone
 from accounts import roles
 from audit import services as audit
 
-from . import selectors
-from .models import (AssignmentRole, CriterionType, QualificationStandard, StandardOperator,
-                     Vacancy, VacancyAssignment, VacancyCompetency,
+from . import position_services, selectors
+from .models import (AssignmentRole, CriterionType, Position, QualificationStandard,
+                     StandardOperator, Vacancy, VacancyAssignment, VacancyCompetency,
                      VacancyDocumentRequirement, VacancyRequirementVersion, VacancyStatus)
 
 MANIFEST_SCHEMA_VERSION = 1
@@ -33,17 +33,90 @@ def _locked(vacancy):
 # Vacancy records
 # --------------------------------------------------------------------------
 
+def _usable_position(position):
+    if position is None:
+        raise ValidationError({'position': 'Choose a position from the catalog.'})
+    position = Position.objects.select_for_update().get(pk=position.pk)
+    if not position.is_active:
+        raise ValidationError({'position': 'This position is inactive and cannot be used '
+                                           'for new vacancies.'})
+    return position
+
+
+def _record_defaults_applied(vacancy, position, draft, *, description_customized, skipped,
+                             replaced=None):
+    changes = {'position': str(position.pk), 'position_title': position.title,
+               'requirement_version': draft.version,
+               'description_customized': description_customized,
+               'copied': position_services.defaults_manifest(position)}
+    if skipped:
+        changes['skipped_inactive_documents'] = skipped
+    if replaced is not None:
+        changes['replaced'] = replaced
+    audit.record('vacancy.position_defaults_applied', entity=vacancy, changes=changes)
+
+
 @transaction.atomic
-def create_vacancy(actor, **data):
+def create_vacancy(actor, *, position, description=None, **data):
+    """Create a draft vacancy from a catalog position. The position title,
+    description (unless HR supplied an edited one) and default requirements
+    are copied; the vacancy keeps those copies independently of the catalog."""
     if not roles.has_role(actor, roles.HR):
         raise PermissionDenied('Only HR Personnel can create vacancies.')
-    vacancy = Vacancy(**{f: data[f] for f in VACANCY_FIELDS if f in data})
+    position = _usable_position(position)
+    fields = {f: data[f] for f in VACANCY_FIELDS if f in data
+              and f not in ('position_title', 'description')}
+    text = description if description and description.strip() else position.description
+    vacancy = Vacancy(position=position, position_title=position.title, description=text,
+                      **fields)
     vacancy.full_clean()
     vacancy.save()
-    VacancyRequirementVersion.objects.create(vacancy=vacancy, version=1)
+    draft = VacancyRequirementVersion.objects.create(vacancy=vacancy, version=1)
+    skipped = position_services.copy_defaults(position, draft)
     VacancyAssignment.objects.create(vacancy=vacancy, user=actor,
                                      assignment_role=AssignmentRole.HR, assigned_by=actor)
     audit.record('vacancy.created', entity=vacancy, changes=audit.snapshot(vacancy))
+    _record_defaults_applied(vacancy, position, draft, skipped=skipped,
+                             description_customized=text != position.description)
+    return vacancy
+
+
+def _draft_contents(draft):
+    return {'documents': [d.document_type.code for d in
+                          draft.document_requirements.select_related('document_type')],
+            'standards': [s.description for s in draft.qualification_standards.all()],
+            'competencies': [c.name for c in draft.competencies.all()]}
+
+
+@transaction.atomic
+def apply_position_defaults(actor, vacancy, position, *, confirm=False):
+    """Explicitly (re)load a position's defaults into a never-published draft
+    vacancy. Replaces the title, description, and draft requirements, so HR
+    must confirm; the replaced values are kept in the audit record."""
+    _require_manage(actor, vacancy)
+    vacancy = _locked(vacancy)
+    if vacancy.status != VacancyStatus.DRAFT or vacancy.posted_at or             vacancy.requirement_versions.filter(published_at__isnull=False).exists():
+        raise ValidationError('Position defaults can only be loaded into a draft vacancy '
+                              'that has never been published.')
+    if not confirm:
+        raise ValidationError('Confirm that the current title, description and draft '
+                              'requirements will be replaced.')
+    position = _usable_position(position)
+    draft = _draft(vacancy)
+    replaced = {'position': str(vacancy.position_id) if vacancy.position_id else None,
+                'position_title': vacancy.position_title, 'description': vacancy.description,
+                **_draft_contents(draft)}
+    for model in (VacancyDocumentRequirement, QualificationStandard, VacancyCompetency):
+        for item in model.objects.filter(requirement_version=draft):
+            item.delete()
+    vacancy.position = position
+    vacancy.position_title = position.title
+    vacancy.description = position.description
+    vacancy.full_clean()
+    vacancy.save(update_fields=['position', 'position_title', 'description'])
+    skipped = position_services.copy_defaults(position, draft)
+    _record_defaults_applied(vacancy, position, draft, skipped=skipped,
+                             description_customized=False, replaced=replaced)
     return vacancy
 
 
@@ -62,6 +135,10 @@ def update_vacancy(actor, vacancy, *, reason='', **data):
             raise ValidationError('The deadline of a published vacancy must be in the future.')
     else:
         raise ValidationError(f'A {vacancy.get_status_display().lower()} vacancy cannot be edited.')
+    if vacancy.position_id:
+        # The title comes from the catalog position; change it by loading
+        # another position's defaults, not by editing the copy.
+        allowed = tuple(f for f in allowed if f != 'position_title')
 
     before = audit.snapshot(vacancy)
     for field in allowed:
@@ -311,6 +388,9 @@ def publish(actor, vacancy, *, reason=''):
     audit.record('vacancy.requirements_published' if is_update else 'vacancy.published',
                  entity=vacancy, reason=reason,
                  changes={'version': draft.version, 'status': vacancy.status})
+    if not is_update:
+        from committee.services import create_committee
+        create_committee(actor, vacancy, automatic=True)
     return draft
 
 

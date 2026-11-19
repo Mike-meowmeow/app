@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import application_views as apps
-from . import decision_views
+from . import decision_views, position_views
 from . import views
 
 app_name = 'recruitment'
@@ -59,6 +59,19 @@ urlpatterns = [
     path('manage/vacancies/new/', views.vacancy_create, name='vacancy_create'),
     path('manage/vacancies/<uuid:pk>/', views.vacancy_detail, name='vacancy_detail'),
     path('manage/vacancies/<uuid:pk>/edit/', views.vacancy_edit, name='vacancy_edit'),
+    path('manage/vacancies/<uuid:pk>/load-position/', views.vacancy_apply_position,
+         name='vacancy_apply_position'),
+    # Staff: position catalog
+    path('manage/positions/', position_views.position_list, name='position_list'),
+    path('manage/positions/new/', position_views.position_create, name='position_create'),
+    path('manage/positions/<uuid:pk>/', position_views.position_detail, name='position_detail'),
+    path('manage/positions/<uuid:pk>/edit/', position_views.position_edit, name='position_edit'),
+    path('manage/positions/<uuid:pk>/<slug:action>/', position_views.position_set_active,
+         name='position_set_active'),
+    path('manage/positions/<uuid:pk>/defaults/<slug:kind>/add/', position_views.position_item_add,
+         name='position_item_add'),
+    path('manage/positions/<uuid:pk>/defaults/<slug:kind>/<uuid:item_pk>/remove/',
+         position_views.position_item_remove, name='position_item_remove'),
     path('manage/vacancies/<uuid:pk>/versions/<int:version>/', views.version_detail,
          name='version_detail'),
     path('manage/vacancies/<uuid:pk>/requirements/start/', views.requirements_start,

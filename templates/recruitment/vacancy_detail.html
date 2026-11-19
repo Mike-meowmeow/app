@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ vacancy.position_title }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'recruitment:vacancy_list' %}">&larr; Vacancies</a>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
   <div>
     <h1 class="h4 mb-1">{{ vacancy.position_title }} {% include "recruitment/_status_badge.html" with v=vacancy %}</h1>
     <div class="text-muted small">{{ vacancy.reference }} · {{ vacancy.department.name }} · {{ vacancy.recruitment_type }} · {{ vacancy.positions_available }} position{{ vacancy.positions_available|pluralize }}</div>
+    <div class="text-muted small">{% if vacancy.position %}Defaults copied from catalog position {% if 'HR Personnel' in user_roles %}<a href="{% url 'recruitment:position_detail' vacancy.position_id %}">{{ vacancy.position }}</a>{% else %}{{ vacancy.position }}{% endif %}; this vacancy keeps its own copy.{% else %}Created before the position catalog; not linked to a catalog position.{% endif %}</div>
   </div>
   <div class="d-flex gap-2">
     {% if vacancy.status != 'draft' %}<a class="btn btn-primary" href="{% url 'recruitment:vacancy_applications' vacancy.pk %}">Applications ({{ submitted_count }})</a>{% endif %}
@@ -47,6 +47,7 @@
             <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:requirement_add' vacancy.pk 'document' %}">+ Document</a>
             <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:requirement_add' vacancy.pk 'standard' %}">+ Qualification standard</a>
             <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:requirement_add' vacancy.pk 'competency' %}">+ Subject / competency</a>
+            {% if can_apply_position %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'recruitment:vacancy_apply_position' vacancy.pk %}">Load defaults from a position&hellip;</a>{% endif %}
             {% if current %}
               <form method="post" action="{% url 'recruitment:requirements_discard' vacancy.pk %}">{% csrf_token %}
                 <button class="btn btn-sm btn-outline-secondary" type="submit">Discard draft</button></form>

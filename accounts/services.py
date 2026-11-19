@@ -4,6 +4,7 @@ together with its audit event."""
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.auth.tokens import default_token_generator
 from django.core import signing
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
@@ -11,11 +12,13 @@ from django.db import transaction
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 
 from audit import services as audit
 from audit.context import audit_reason
 
-from . import roles
+from . import portal, roles
 from .models import PrivacyAcknowledgment
 
 VERIFY_SALT = 'accounts.email-verification'
@@ -56,7 +59,7 @@ def make_verification_token(user):
 
 def send_verification_email(request, user):
     token = make_verification_token(user)
-    link = request.build_absolute_uri(reverse('accounts:verify_email', args=[token]))
+    link = portal.site_url_for(user) + reverse('accounts:verify_email', args=[token])
     context = {'user': user, 'link': link,
                'hours': settings.EMAIL_VERIFICATION_TIMEOUT // 3600}
     send_mail(
@@ -153,6 +156,8 @@ def set_roles(target, role_names, *, reason=''):
     if len(wanted) != len(set(role_names)):
         raise ValueError('Roles are not set up yet. Run: manage.py seed_reference_data')
     current = set(target.groups.filter(name__in=roles.ALL_ROLES))
+    roles.validate_role_change({g.name for g in current}, role_names,
+                               is_superuser=target.is_superuser)
     with audit_reason(reason):
         if current - wanted:
             target.groups.remove(*(current - wanted))
@@ -185,21 +190,69 @@ def update_user_access(actor, target, *, role_names, is_active, reason):
 
 
 # --------------------------------------------------------------------------
+# Staff accounts: created only by System Administrators
+# --------------------------------------------------------------------------
+
+def _require_system_admin(actor):
+    if not roles.has_role(actor, roles.SYSTEM_ADMIN):
+        raise PermissionDenied('Only System Administrators can manage staff accounts.')
+
+
+@transaction.atomic
+def create_staff_account(actor, *, username, email, first_name, last_name, role_names,
+                         reason, middle_name=None):
+    """Create a staff account with no usable password; the person chooses one
+    through the emailed link."""
+    _require_system_admin(actor)
+    if not role_names or set(role_names) - set(roles.STAFF_ROLES):
+        raise roles.RoleConflict('Choose at least one staff role.')
+    user = get_user_model().objects.create_user(
+        username=username, email=email, password=None, first_name=first_name,
+        last_name=last_name, middle_name=middle_name or None)
+    audit.record('account.staff_created', entity=user, reason=reason,
+                 changes={'username': user.username, 'email': user.email,
+                          'roles': sorted(role_names)})
+    set_roles(user, role_names, reason=reason)
+    return user
+
+
+def send_staff_invitation(actor, user):
+    """Email a single-use link to the staff site for choosing a password."""
+    _require_system_admin(actor)
+    if not user.is_active or not roles.is_staff_account(user):
+        raise PermissionDenied('Invitations are only for active staff accounts.')
+    path = reverse('accounts:password_reset_confirm', kwargs={
+        'uidb64': urlsafe_base64_encode(force_bytes(user.pk)),
+        'token': default_token_generator.make_token(user)})
+    context = {'user': user, 'link': portal.site_url_for(user) + path,
+               'minutes': settings.PASSWORD_RESET_TIMEOUT // 60}
+    send_mail(
+        subject=render_to_string('accounts/emails/staff_invite_subject.txt', context).strip(),
+        message=render_to_string('accounts/emails/staff_invite.txt', context),
+        from_email=None, recipient_list=[user.email])
+    audit.record('account.staff_invitation_sent', entity=user,
+                 changes={'email': user.email})
+
+
+# --------------------------------------------------------------------------
 # Login throttling (FR-001, Stage 9)
 # --------------------------------------------------------------------------
 
-def login_locked(identifier, ip_address):
+def login_locked(identifier, ip_address, audience='applicant'):
     """True when recent failed sign-ins for this identifier, or from this
     address, reached the limit. Counted from the audit trail, so the limit
     holds across all server processes. The same answer is given whether or
-    not the account exists."""
+    not the account exists. Each sign-in page counts separately, so failures
+    on the public site can never lock staff out of the school site."""
     from datetime import timedelta
 
     from audit.models import AuditLog
     since = timezone.now() - timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
-    failures = AuditLog.objects.filter(action='auth.login_failed', occurred_at__gte=since)
+    failures = AuditLog.objects.filter(action='auth.login_failed', occurred_at__gte=since,
+                                       changes__audience=audience)
+    per_address = settings.STAFF_LOGIN_MAX_FAILURES_PER_IP if audience == 'staff' \
+        else settings.LOGIN_MAX_FAILURES_PER_IP
     if failures.filter(changes__identifier__iexact=identifier[:150]).count() \
             >= settings.LOGIN_MAX_FAILURES:
         return True
-    return bool(ip_address) and failures.filter(ip_address=ip_address).count() \
-        >= settings.LOGIN_MAX_FAILURES_PER_IP
+    return bool(ip_address) and failures.filter(ip_address=ip_address).count() >= per_address

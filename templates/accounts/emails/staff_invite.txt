@@ -1,0 +1,12 @@
+{% autoescape off %}Hello {{ user.first_name|default:user.username }},
+
+A System Administrator has set up your EVSU-Ormoc recruitment staff account ({{ user.username }}).
+Use this link to choose your password. It works once and expires in {{ minutes }} minutes:
+
+{{ link }}
+
+The staff site is available only from the school network. If the link has expired, ask a
+System Administrator to send a new one.
+
+EVSU-Ormoc HRMDO Recruitment
+{% endautoescape %}

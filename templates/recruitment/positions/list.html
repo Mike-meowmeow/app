@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Position catalog{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">Position catalog</h1>
+    <div class="text-muted small">Reusable positions with default descriptions and requirements. New vacancies copy these defaults; existing vacancies never change when a position is edited.</div>
+  </div>
+  <a class="btn btn-primary" href="{% url 'recruitment:position_create' %}">New position</a>
+</div>
+<form method="get" class="card card-body shadow-sm mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-6"><label class="form-label small" for="q">Search titles</label><input class="form-control" id="q" name="q" value="{{ q }}"></div>
+    <div class="col-md-4"><label class="form-label small" for="show">Show</label>
+      <select class="form-select" id="show" name="show">
+        <option value="active" {% if show == 'active' %}selected{% endif %}>Active positions</option>
+        <option value="inactive" {% if show == 'inactive' %}selected{% endif %}>Inactive positions</option>
+        <option value="all" {% if show == 'all' %}selected{% endif %}>All positions</option>
+      </select></div>
+    <div class="col-md-2 d-grid"><button class="btn btn-outline-secondary" type="submit">Filter</button></div>
+  </div>
+</form>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-hover align-middle mb-0">
+  <thead class="table-light"><tr><th>Position</th><th>Status</th><th class="text-end">Vacancies created</th></tr></thead>
+  <tbody>
+    {% for p in page %}
+      <tr>
+        <td><a href="{% url 'recruitment:position_detail' p.pk %}">{{ p.title }}</a></td>
+        <td>{% if p.is_active %}<span class="badge text-bg-success">Active</span>{% else %}<span class="badge text-bg-secondary">Inactive</span>{% endif %}</td>
+        <td class="text-end">{{ p.vacancy_count }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3" class="text-center text-muted py-4">No positions{% if q or show != 'active' %} match{% else %} yet. Create one to start building vacancies from the catalog{% endif %}.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% if page.paginator.num_pages > 1 %}
+<ul class="pagination pagination-sm mt-2">
+  {% if page.has_previous %}<li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&show={{ show }}&page={{ page.previous_page_number }}">Previous</a></li>{% endif %}
+  <li class="page-item disabled"><span class="page-link">{{ page.number }} / {{ page.paginator.num_pages }}</span></li>
+  {% if page.has_next %}<li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&show={{ show }}&page={{ page.next_page_number }}">Next</a></li>{% endif %}
+</ul>
+{% endif %}
+{% endblock %}

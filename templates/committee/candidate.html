@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Candidate {{ application.reference }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'committee:my_candidates' %}">&larr; Assigned candidates</a>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
   <div>
     <h1 class="h4 mb-1">{{ application.applicant.user.last_name }}, {{ application.applicant.user.first_name }}</h1>

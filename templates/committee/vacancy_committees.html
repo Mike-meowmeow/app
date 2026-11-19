@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Committees · {{ vacancy.position_title }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'recruitment:vacancy_detail' vacancy.pk %}">&larr; {{ vacancy.position_title }}</a>
 <h1 class="h4 mt-2">Committees &amp; interviews</h1>
 <p class="small text-muted">{{ vacancy.reference }} · {{ vacancy.department.name }}. Committee members see only this vacancy's shortlisted applicants, and lose access to an applicant when they declare a conflict of interest.</p>
 
@@ -45,14 +44,10 @@
     {% endfor %}
 
     {% if can_manage %}
-      <div class="card shadow-sm mb-3"><div class="card-body">
-        <h2 class="h6">New committee</h2>
-        {% include "includes/form_errors.html" %}
-        <form method="post" novalidate>{% csrf_token %}
-          {% for field in form %}{% include "includes/field.html" %}{% endfor %}
-          <button class="btn btn-primary" type="submit">Create committee</button>
-        </form>
-      </div></div>
+      <form method="post" class="mb-3">{% csrf_token %}
+        <button class="btn {% if committees %}btn-sm btn-outline-secondary{% else %}btn-primary{% endif %}" type="submit">{% if committees %}Add another committee{% else %}Create committee{% endif %}</button>
+        <div class="form-text">The name is created automatically from the position and vacancy reference.</div>
+      </form>
     {% endif %}
   </div>
 

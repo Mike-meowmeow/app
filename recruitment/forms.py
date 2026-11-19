@@ -7,8 +7,8 @@ from core.forms import BootstrapFormMixin
 from core.models import Department, RecruitmentType
 from documents.models import DocumentType
 
-from .models import AssignmentRole, CriterionType, Vacancy, VacancyDocumentRequirement, \
-    VacancyStatus
+from .models import (AssignmentRole, CriterionType, Position, PositionDocumentRequirement,
+                     Vacancy, VacancyDocumentRequirement, VacancyStatus)
 
 DATETIME_WIDGET = forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
 LOCKED_WHEN_PUBLISHED = ('department', 'recruitment_type', 'position_title', 'opens_at')
@@ -32,17 +32,46 @@ class VacancyForm(BootstrapFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['department'].queryset = Department.objects.filter(is_active=True)
         self.fields['recruitment_type'].queryset = RecruitmentType.objects.filter(is_active=True)
-        self.is_published = bool(self.instance.pk) and \
+        self.is_new = self.instance._state.adding
+        if self.is_new:
+            # New vacancies start from the position catalog: the title is copied
+            # from the chosen position and the description is pre-filled.
+            del self.fields['position_title']
+            self.fields['position'] = forms.ModelChoiceField(
+                queryset=Position.objects.filter(is_active=True), label='Position',
+                empty_label='Choose a position',
+                help_text='Its title, default description and default requirements are '
+                          'copied into this vacancy. Manage positions in the Position '
+                          'catalog.')
+            self.fields['position'].widget.attrs.update({'class': 'form-select',
+                                                         'data-position-select': ''})
+            self.fields['description'].required = False
+            self.fields['description'].help_text = (
+                "Pre-filled from the position; edit it for this vacancy if needed. Left "
+                "blank, the position's default description is used.")
+            self.fields['description'].widget.attrs['data-position-description'] = ''
+            self.order_fields(['position'])
+        elif self.instance.position_id:
+            del self.fields['position_title']
+        self.is_published = not self.is_new and \
             self.instance.status == VacancyStatus.PUBLISHED
         if self.is_published:
             for name in LOCKED_WHEN_PUBLISHED:
-                self.fields[name].disabled = True
-                self.fields[name].help_text = 'Fixed after publication.'
+                if name in self.fields:
+                    self.fields[name].disabled = True
+                    self.fields[name].help_text = 'Fixed after publication.'
         else:
             del self.fields['reason']
 
     def clean(self):
         data = super().clean()
+        position = data.get('position') if self.is_new else None
+        if position is not None:
+            # Model validation runs on the instance; give it the values the
+            # service will copy from the position.
+            self.instance.position_title = position.title
+            if not (data.get('description') or '').strip():
+                data['description'] = position.description
         if self.is_published and not data.get('reason'):
             self.add_error('reason', 'Explain why the published vacancy is changing.')
         opens, deadline = data.get('opens_at'), data.get('deadline_at')
@@ -99,6 +128,64 @@ class QualificationStandardForm(BootstrapFormMixin, forms.Form):
 class CompetencyForm(BootstrapFormMixin, forms.Form):
     name = forms.CharField(max_length=200, label='Subject or competency')
     description = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 2}))
+
+
+class ApplyPositionForm(BootstrapFormMixin, forms.Form):
+    """Explicit reload of catalog defaults into a never-published draft."""
+
+    position = forms.ModelChoiceField(queryset=Position.objects.none(), label='Position',
+                                      empty_label='Choose a position')
+    confirm = forms.BooleanField(
+        label='Replace the current title, description and draft requirements with this '
+              "position's defaults")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['position'].queryset = Position.objects.filter(is_active=True)
+
+
+class PositionForm(BootstrapFormMixin, forms.ModelForm):
+    reason = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 2}),
+                             help_text='Optional; recorded in the audit trail. Existing '
+                                       'vacancies are not changed by catalog edits.')
+
+    class Meta:
+        model = Position
+        fields = ('title', 'description')
+        labels = {'description': 'Default job description'}
+        widgets = {'description': forms.Textarea(attrs={'rows': 6})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance._state.adding:
+            del self.fields['reason']
+
+    def clean_title(self):
+        title = ' '.join(self.cleaned_data['title'].split())
+        clash = Position.objects.filter(title__iexact=title)
+        if self.instance.pk:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise forms.ValidationError('A position with this title already exists.')
+        return title
+
+    def validate_unique(self):
+        pass  # clean_title checks case-insensitively; the service rechecks under lock
+
+
+class PositionDocumentForm(BootstrapFormMixin, forms.ModelForm):
+    class Meta:
+        model = PositionDocumentRequirement
+        fields = ('document_type', 'is_required', 'max_files', 'instructions')
+        widgets = {'instructions': forms.Textarea(attrs={'rows': 2})}
+        labels = {'is_required': 'Required document', 'max_files': 'Maximum files'}
+
+    def __init__(self, *args, position=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        qs = DocumentType.objects.filter(is_active=True)
+        if position is not None:
+            qs = qs.exclude(position_requirements__position=position)
+        self.fields['document_type'].queryset = qs
 
 
 class ReasonForm(BootstrapFormMixin, forms.Form):

@@ -6,6 +6,8 @@ system administration never implies a recruitment role (FR-002): use
 Django grants superusers every permission.
 """
 
+from django.core.exceptions import ValidationError
+
 APPLICANT = 'Applicant'
 HR = 'HR Personnel'
 APPROVER = 'HR Head / Approver'
@@ -15,6 +17,9 @@ SYSTEM_ADMIN = 'System Administrator'
 
 ALL_ROLES = (APPLICANT, HR, APPROVER, DEPARTMENT_HEAD, PSB_MEMBER, SYSTEM_ADMIN)
 STAFF_ROLES = (HR, APPROVER, DEPARTMENT_HEAD, PSB_MEMBER, SYSTEM_ADMIN)
+
+# Session key: the staff workspace this user opened most recently.
+ACTIVE_WORKSPACE_SESSION_KEY = 'active_workspace_role'
 
 ROLE_DESCRIPTIONS = {
     APPLICANT: 'Manage own profile, submit applications and documents, view released updates.',
@@ -77,3 +82,33 @@ def has_role(user, *roles):
 
 def clear_role_cache(user):
     user.__dict__.pop('_role_names_cache', None)
+
+
+# --------------------------------------------------------------------------
+# Applicant and staff accounts are separate
+# --------------------------------------------------------------------------
+
+class RoleConflict(ValidationError):
+    """A change would mix applicant and staff access on one account."""
+
+
+def is_staff_account(user):
+    return bool(getattr(user, 'is_superuser', False)) or has_role(user, *STAFF_ROLES)
+
+
+def is_applicant_account(user):
+    return has_role(user, APPLICANT) and not is_staff_account(user)
+
+
+def validate_role_change(current, wanted, *, is_superuser=False):
+    """Applicant and staff access never share an account, and an existing
+    account is not converted from one kind to the other: a person who is both
+    uses one account of each kind."""
+    current, wanted = set(current), set(wanted)
+    staff = set(STAFF_ROLES)
+    if APPLICANT in wanted and (wanted & staff or is_superuser):
+        raise RoleConflict('An account cannot be both an applicant and staff. '
+                           'Use separate accounts.')
+    if (APPLICANT in current and wanted & staff) or (current & staff and APPLICANT in wanted):
+        raise RoleConflict('Applicant and staff accounts cannot be converted into each '
+                           'other. Create a separate account.')

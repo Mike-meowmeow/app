@@ -101,7 +101,8 @@ def delete(key):
 def scan(key):
     """Run the configured malware scanner (e.g. "clamscan --no-summary").
     Exit 0 = clean, 1 = infected (file moved to quarantine). Without a scanner
-    the file is honestly recorded as not scanned."""
+    the file is honestly recorded as not scanned, unless MALWARE_SCAN_REQUIRED
+    is on (the production public site), where the caller refuses the upload."""
     command = getattr(settings, 'MALWARE_SCAN_COMMAND', '')
     if not command:
         return MalwareStatus.NOT_SCANNED

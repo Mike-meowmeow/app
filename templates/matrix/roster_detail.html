@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Roster v{{ roster.version }} · {{ roster.vacancy.position_title }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'matrix:vacancy_rosters' roster.vacancy.pk %}">&larr; All roster versions</a>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2">
   <div>
     <h1 class="h4 mb-1">Roster version {{ roster.version }} {% include "matrix/_status.html" %}</h1>

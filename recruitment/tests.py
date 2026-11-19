@@ -16,8 +16,8 @@ from core.models import Department, RecruitmentType
 from documents.models import DocumentType
 
 from . import selectors, services
-from .models import (AssignmentRole, CriterionType, Vacancy, VacancyDocumentRequirement,
-                     VacancyStatus)
+from .models import (AssignmentRole, CriterionType, Position, Vacancy,
+                     VacancyDocumentRequirement, VacancyStatus)
 
 
 class VacancyTestCase(TestCase):
@@ -33,13 +33,20 @@ class VacancyTestCase(TestCase):
         self.dept_head = make_user('dhead', roles.DEPARTMENT_HEAD)
         self.applicant = make_user('appl', roles.APPLICANT)
 
+    def position(self, title='Part-Time Instructor - Mathematics',
+                 description='Teach undergraduate mathematics.'):
+        """A bare catalog position (no default requirements)."""
+        position = Position.objects.filter(title=title).first()
+        return position or Position.objects.create(title=title, description=description)
+
     def new_vacancy(self, actor=None, **overrides):
         now = timezone.now()
+        title = overrides.pop('position_title', 'Part-Time Instructor - Mathematics')
         data = dict(department=self.dept, recruitment_type=self.pti,
-                    position_title='Part-Time Instructor - Mathematics',
                     description='Teach undergraduate mathematics.', positions_available=2,
                     opens_at=now - timedelta(hours=1), deadline_at=now + timedelta(days=7))
         data.update(overrides)
+        data.setdefault('position', self.position(title))
         return services.create_vacancy(actor or self.hr, **data)
 
     def complete(self, vacancy, actor=None):
@@ -306,8 +313,9 @@ class HttpFlowTests(VacancyTestCase):
     def test_hr_creates_configures_and_publishes_through_screens(self):
         self.client.force_login(self.hr)
         now = timezone.localtime()
+        physics = self.position('Part-Time Instructor - Physics', 'Teach physics.')
         response = self.client.post(reverse('recruitment:vacancy_create'), {
-            'position_title': 'Part-Time Instructor - Physics', 'department': self.dept.pk,
+            'position': physics.pk, 'department': self.dept.pk,
             'recruitment_type': self.pti.pk, 'description': 'Teach physics.',
             'positions_available': 1,
             'opens_at': (now - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'),

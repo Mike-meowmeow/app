@@ -67,7 +67,7 @@ The application account needs access to `<DB_NAME>_restore`:
 Recover only from a set whose restore check passed.
 
 1. Announce downtime and stop the application:
-   `sudo systemctl stop evsu-recruitment evsu-notifications.timer evsu-backup.timer`.
+   `sudo systemctl stop evsu-recruitment@public evsu-recruitment@staff evsu-notifications.timer evsu-backup.timer`.
 2. Keep the current state as evidence. Run `backup_create` if the database still works, and copy
    `private/` aside.
 3. Recreate the database:
@@ -85,8 +85,8 @@ Recover only from a set whose restore check passed.
    ```
 5. Check out the code commit recorded in `manifest.json` (`application_commit`), or a later one, then:
    - run `migrate` with the migration account;
-   - run `check --deploy`;
-   - start the service.
+   - run `check --deploy` for each site (DEPLOY.md, section 5);
+   - start both services.
 6. Verify:
    - sign in as an administrator;
    - open a recent application and download a document;

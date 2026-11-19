@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Selection · {{ application.reference }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'recruitment:application_review' application.pk %}">&larr; Application review</a>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
   <div>
     <h1 class="h4 mb-1">Selection: {{ application.applicant.user.last_name }}, {{ application.applicant.user.first_name }} {% include "recruitment/applications/_status.html" with app=application %}</h1>

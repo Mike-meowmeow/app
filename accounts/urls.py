@@ -6,6 +6,7 @@ app_name = 'accounts'
 
 urlpatterns = [
     path('login/', views.LoginView.as_view(), name='login'),
+    path('staff/login/', views.StaffLoginView.as_view(), name='staff_login'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
     path('register/', views.register, name='register'),
     path('verify/resend/', views.resend_verification, name='resend_verification'),
@@ -21,5 +22,7 @@ urlpatterns = [
     path('password/reset/complete/', views.PasswordResetCompleteView.as_view(),
          name='password_reset_complete'),
     path('admin/users/', views.user_list, name='user_list'),
+    path('admin/users/new/', views.staff_create, name='staff_create'),
     path('admin/users/<uuid:pk>/', views.user_access, name='user_access'),
+    path('admin/users/<uuid:pk>/invite/', views.staff_invite, name='staff_invite'),
 ]

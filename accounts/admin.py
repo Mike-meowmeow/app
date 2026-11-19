@@ -1,11 +1,24 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.forms import UserChangeForm
 
+from . import roles
 from .models import PrivacyAcknowledgment, User
+
+
+class UserForm(UserChangeForm):
+    def clean(self):
+        data = super().clean()
+        if 'groups' in data:
+            current = self.instance.groups.values_list('name', flat=True)
+            roles.validate_role_change(current, [g.name for g in data['groups']],
+                                       is_superuser=data.get('is_superuser', False))
+        return data
 
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
+    form = UserForm
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Personal info', {'fields': ('first_name', 'middle_name', 'last_name', 'email',

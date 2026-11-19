@@ -18,12 +18,6 @@ def _text(label, rows=3, required=True, **kwargs):
                            widget=forms.Textarea(attrs={'rows': rows}), **kwargs)
 
 
-class CommitteeForm(BootstrapFormMixin, forms.Form):
-    name = forms.CharField(max_length=200, label='Committee name',
-                           help_text='For example: Personnel Selection Board - College of '
-                                     'Education')
-
-
 class MemberForm(BootstrapFormMixin, forms.Form):
     user = forms.ModelChoiceField(queryset=None, label='Member',
                                   help_text='Active PSB Members and Department Heads.')

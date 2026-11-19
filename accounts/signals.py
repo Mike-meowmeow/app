@@ -10,6 +10,8 @@ from django.dispatch import receiver
 from audit import services as audit
 from audit.context import client_ip
 
+from . import roles
+
 User = get_user_model()
 
 
@@ -28,8 +30,29 @@ def audit_logout(sender, request, user, **kwargs):
 def audit_login_failed(sender, credentials, request=None, **kwargs):
     # Django masks the password in `credentials`; only the identifier is kept.
     identifier = str(credentials.get('username', ''))[:150]
+    match = getattr(request, 'resolver_match', None)
+    audience = 'staff' if match and match.view_name == 'accounts:staff_login' else 'applicant'
     audit.record('auth.login_failed', entity_type='auth', entity_id='', actor=None,
-                 changes={'identifier': identifier}, ip_address=client_ip(request))
+                 changes={'identifier': identifier, 'audience': audience},
+                 ip_address=client_ip(request))
+
+
+def _check_new_roles(user, added):
+    current = set(user.groups.values_list('name', flat=True))
+    roles.validate_role_change(current, current | set(added), is_superuser=user.is_superuser)
+
+
+@receiver(m2m_changed, sender=User.groups.through)
+def keep_account_kinds_separate(sender, instance, action, reverse, pk_set, **kwargs):
+    """Last line of defense, wherever a role is added from."""
+    if action != 'pre_add' or not pk_set:
+        return
+    if reverse:
+        for user in User.objects.filter(pk__in=pk_set):
+            _check_new_roles(user, [instance.name])
+    else:
+        _check_new_roles(instance, Group.objects.filter(pk__in=pk_set)
+                         .values_list('name', flat=True))
 
 
 @receiver(m2m_changed, sender=User.groups.through)

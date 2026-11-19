@@ -11,7 +11,7 @@ from recruitment.application_views import _snapshot_view
 from recruitment.models import Application, FactReviewStatus, FactType, Vacancy
 
 from . import selectors, services
-from .forms import (AmendEvaluationForm, AttendanceForm, CommitteeForm, ConflictForm,
+from .forms import (AmendEvaluationForm, AttendanceForm, ConflictForm,
                     EvaluationForm, InterviewForm, MemberForm, ReasonForm, RescheduleForm,
                     ResolveConflictForm)
 from .models import (Committee, CommitteeConflict, CommitteeMember, ConflictStatus, Interview,
@@ -51,17 +51,15 @@ def _app_url(application):
 def vacancy_committees(request, pk):
     vacancy = _vacancy_or_404(request.user, pk)
     can_manage = selectors.can_manage(request.user, vacancy)
-    form = CommitteeForm(request.POST or None)
     if request.method == 'POST':
         _require_manage(request.user, vacancy)
-        if form.is_valid():
-            try:
-                services.create_committee(request.user, vacancy, name=form.cleaned_data['name'])
-            except ValidationError as exc:
-                _flash(request, exc)
-            else:
-                messages.success(request, 'Committee created. Add its members next.')
-                return redirect('committee:vacancy_committees', pk=pk)
+        try:
+            committee = services.create_committee(request.user, vacancy)
+        except ValidationError as exc:
+            _flash(request, exc)
+        else:
+            messages.success(request, f'{committee.name} created. Assign its members next.')
+        return redirect('committee:vacancy_committees', pk=pk)
     committees = []
     for committee in vacancy.committees.prefetch_related('members__user'):
         committees.append({
@@ -78,7 +76,7 @@ def vacancy_committees(request, pk):
     interviews = Interview.objects.filter(application__vacancy=vacancy).select_related(
         'application__applicant__user').prefetch_related('panel__committee_member__user')
     return render(request, 'committee/vacancy_committees.html', {
-        'vacancy': vacancy, 'can_manage': can_manage, 'form': form, 'committees': committees,
+        'vacancy': vacancy, 'can_manage': can_manage, 'committees': committees,
         'conflicts': conflicts, 'interviews': interviews,
         'can_resolve': services.can_resolve_conflicts(request.user, vacancy),
         'reason_form': ReasonForm(),

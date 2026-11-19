@@ -6,6 +6,7 @@
     <h1 class="h4 mb-0">User accounts and roles</h1>
     <div class="text-muted small">System Administrator workspace. Role changes and account status changes are audited.</div>
   </div>
+  <a class="btn btn-primary" href="{% url 'accounts:staff_create' %}">New staff account</a>
   <form class="d-flex" method="get" role="search">
     <input class="form-control me-2" type="search" name="q" value="{{ q }}" placeholder="Name, username, or email" aria-label="Search">
     <button class="btn btn-outline-secondary" type="submit">Search</button>

@@ -212,8 +212,8 @@ class BackupFailureTests(TestCase):
 class LoginThrottleTests(TestCase):
     def setUp(self):
         seed()
-        self.user = make_user('rosa', roles.HR)
-        self.other = make_user('ben', roles.HR)
+        self.user = make_user('rosa', roles.APPLICANT)
+        self.other = make_user('ben', roles.APPLICANT)
 
     def login(self, username, password, ip='10.0.0.5'):
         return self.client.post(reverse('accounts:login'),
@@ -371,3 +371,13 @@ class OrphanSweepTests(ApplicationTestCase):
         self.assertFalse(orphan.exists())
         self.assertTrue(fresh.exists())
         self.assertTrue(all(p.exists() for p in referenced))
+
+
+class ProjectTablesTests(TestCase):
+    def test_tables_not_yet_migrated_are_left_out(self):
+        tables = backup.project_tables()
+        self.assertIn('vacancies', tables)
+        existing = set(connection.introspection.table_names()) - {'positions'}
+        with mock.patch.object(connection.introspection, 'table_names',
+                               return_value=sorted(existing)):
+            self.assertNotIn('positions', backup.project_tables())

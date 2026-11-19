@@ -6,7 +6,7 @@
     <h1 class="h4 mb-0">Vacancies</h1>
     <div class="text-muted small">Showing only vacancies you are assigned to{% if 'HR Head / Approver' in user_roles %} (approvers see all){% endif %}.</div>
   </div>
-  {% if can_create %}<a class="btn btn-primary" href="{% url 'recruitment:vacancy_create' %}">New vacancy</a>{% endif %}
+  {% if can_create %}<div class="d-flex gap-2"><a class="btn btn-outline-primary" href="{% url 'recruitment:position_list' %}">Position catalog</a><a class="btn btn-primary" href="{% url 'recruitment:vacancy_create' %}">New vacancy</a></div>{% endif %}
 </div>
 <form method="get" class="card card-body shadow-sm mb-3">
   <div class="row g-2 align-items-end">

@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ vacancy.position_title }} · v{{ req.version }}{% endblock %}
 {% block content %}
-<a class="small" href="{% url 'recruitment:vacancy_detail' vacancy.pk %}">&larr; {{ vacancy.position_title }}</a>
 <h1 class="h4 mt-2">Requirements version {{ req.version }}</h1>
 <p class="text-muted small">Published {{ req.published_at|date:"M j, Y g:i A" }} by {{ req.published_by.full_name|default:req.published_by.username }}. This version is preserved unchanged.</p>
 <div class="card shadow-sm"><div class="card-body">

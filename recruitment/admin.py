@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from .models import RecruitmentDecision, Vacancy, VacancyAssignment, VacancyRequirementVersion
+from .models import (Position, RecruitmentDecision, Vacancy, VacancyAssignment,
+                     VacancyRequirementVersion)
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -22,6 +23,13 @@ class VacancyAdmin(ReadOnlyAdmin):
     list_display = ('position_title', 'department', 'status', 'deadline_at')
     list_filter = ('status', 'department', 'recruitment_type')
     search_fields = ('position_title',)
+
+
+@admin.register(Position)
+class PositionAdmin(ReadOnlyAdmin):
+    list_display = ('title', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    search_fields = ('title',)
 
 
 @admin.register(VacancyRequirementVersion)

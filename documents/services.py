@@ -6,6 +6,7 @@ transaction fails, the file is deleted, so no dangling file or reference
 remains. Removing a draft document deletes its files only after commit.
 """
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -74,6 +75,9 @@ def upload(user, application, document_type, upload_file, *, replaces=None):
                 mime_type=info['mime_type'], sha256=info['sha256'],
                 validation_status=ValidationStatus.VALID, uploaded_by=user)
             status = storage.scan(key)
+            if status == MalwareStatus.NOT_SCANNED and settings.MALWARE_SCAN_REQUIRED:
+                raise ValidationError('The file could not be checked for malware right now. '
+                                      'Please try again later.')
             if status != MalwareStatus.NOT_SCANNED:
                 version.malware_status = status
                 version.save(update_fields=['malware_status'])

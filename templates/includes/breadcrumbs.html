@@ -1,0 +1,13 @@
+{% if trail %}
+<nav aria-label="Breadcrumb">
+  <ol class="breadcrumb small mb-3">
+    {% for crumb in trail %}
+      {% if crumb.url %}
+        <li class="breadcrumb-item"><a href="{{ crumb.url }}" title="{{ crumb.label }}">{{ crumb.label|truncatechars:45 }}</a></li>
+      {% else %}
+        <li class="breadcrumb-item active" aria-current="page" title="{{ crumb.label }}">{{ crumb.label|truncatechars:45 }}</li>
+      {% endif %}
+    {% endfor %}
+  </ol>
+</nav>
+{% endif %}

@@ -16,7 +16,7 @@ from audit import services as audit
 from notifications import events
 from recruitment import application_services as applications
 from recruitment.models import (Application, ApplicationStatus, DecisionOutcome, DecisionType,
-                                VacancyStatus, WorkflowVisibility)
+                                Vacancy, VacancyStatus, WorkflowVisibility)
 
 from . import selectors
 from .models import (AttendanceStatus, Committee, CommitteeConflict, CommitteeMember,
@@ -42,17 +42,26 @@ def _name(user):
 # Committees and membership
 # --------------------------------------------------------------------------
 
+def committee_name(vacancy, number=1):
+    """Standard name, e.g. "PSB - Part-Time Instructor - Mathematics - VAC-1A2B3C4D".
+    Further committees of the same vacancy end in " (2)", " (3)", and so on."""
+    prefix = 'PSB - '
+    suffix = f' - {vacancy.reference}' + (f' ({number})' if number > 1 else '')
+    limit = Committee._meta.get_field('name').max_length - len(prefix) - len(suffix)
+    return f'{prefix}{vacancy.position_title[:limit].rstrip()}{suffix}'
+
+
 @transaction.atomic
-def create_committee(actor, vacancy, *, name):
+def create_committee(actor, vacancy, *, automatic=False):
+    """Create a committee named from its vacancy; HR then assigns the members."""
     _require_manage(actor, vacancy)
-    name = (name or '').strip()
-    if not name:
-        raise ValidationError('Enter a committee name.')
+    vacancy = Vacancy.objects.select_for_update().get(pk=vacancy.pk)
     if vacancy.status not in COMMITTEE_VACANCY_STATUSES:
         raise ValidationError('Committees can be created for published or closed vacancies.')
+    name = committee_name(vacancy, vacancy.committees.count() + 1)
     committee = Committee.objects.create(vacancy=vacancy, name=name)
     audit.record('committee.created', entity=committee, actor=actor,
-                 changes={'vacancy': vacancy.reference, 'name': name})
+                 changes={'vacancy': vacancy.reference, 'name': name, 'automatic': automatic})
     return committee
 
 

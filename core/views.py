@@ -16,6 +16,7 @@ WORKSPACE_PLAN = {
     ]),
     'hr': ('HR workspace', roles.HR, [
         ('Vacancies and requirements', 'Stage 4', 'recruitment:vacancy_list'),
+        ('Position catalog (reusable vacancy defaults)', 'Stage 4', 'recruitment:position_list'),
         ('Document verification queue', 'Stage 5', 'recruitment:verification_queue'),
         ('Applications: fact review and corrections', 'Stage 5', 'recruitment:vacancy_list'),
         ('Official roster preparation (open a vacancy, then Official roster)', 'Stage 6',
@@ -68,6 +69,7 @@ def _workspace_view(key):
 
     @role_required(role)
     def view(request):
+        request.session[roles.ACTIVE_WORKSPACE_SESSION_KEY] = role
         return render(request, 'workspaces/workspace.html',
                       {'title': title, 'role': role, 'items': items,
                        'description': roles.ROLE_DESCRIPTIONS[role]})

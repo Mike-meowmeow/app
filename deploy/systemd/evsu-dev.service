@@ -1,0 +1,15 @@
+[Unit]
+Description=EVSU recruitment - development copy (home network, plain HTTP)
+After=network.target mysql.service
+
+[Service]
+User=evsu
+Group=evsu
+WorkingDirectory=/srv/evsu-recruitment
+# Development server only (DJANGO_DEBUG=True). Never expose this port to the
+# internet; production uses Gunicorn and Nginx (deploy/DEPLOY.md).
+ExecStart=/srv/evsu-recruitment/.venv/bin/python manage.py runserver 0.0.0.0:8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

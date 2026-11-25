@@ -255,3 +255,44 @@ class ProfessionalLicense(ProfileRecord):
 
     def __str__(self):
         return f'{self.profession} ({self.license_number})'
+
+
+# Document types each profile section accepts (codes from seed_reference_data).
+SECTION_DOCUMENT_TYPES = {
+    'education': ('TOR', 'DIPLOMA'),
+    'experience': ('EMPLOYMENT',),
+    'training': ('TRAINING',),
+    'eligibility': ('PRC',),
+    'license': ('PRC',),
+}
+MAX_FILES_PER_RECORD = 3
+
+
+class ProfileDocument(BaseModel):
+    """A supporting file attached to one profile record (e.g. a transcript on
+    an education entry). It stays with the profile for reuse; applications get
+    their own copy (documents.Document.profile_document), so removing or
+    changing it never alters a submitted application."""
+
+    applicant = models.ForeignKey(Applicant, on_delete=models.CASCADE,
+                                  related_name='profile_documents')
+    record_kind = models.CharField(max_length=20)
+    record_id = models.UUIDField()
+    document_type = models.ForeignKey('documents.DocumentType', on_delete=models.PROTECT,
+                                      related_name='profile_documents')
+    file_name = models.CharField(max_length=255)
+    storage_key = models.CharField(max_length=255, unique=True)
+    file_size_bytes = models.PositiveBigIntegerField()
+    mime_type = models.CharField(max_length=100)
+    sha256 = models.CharField(max_length=64)
+    malware_status = models.CharField(max_length=20, default='not_scanned')
+    uploaded_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'profile_documents'
+        ordering = ['uploaded_at']
+        indexes = [models.Index(fields=['applicant', 'record_kind', 'record_id'],
+                                name='profile_document_record_idx')]
+
+    def __str__(self):
+        return f'{self.file_name} ({self.record_kind})'

@@ -82,6 +82,15 @@ def store(upload, application_id, extension):
     return key
 
 
+def copy(source_key, folder, extension):
+    """Copy a stored file under a new random name in `folder`. Returns the key."""
+    key = f'{folder}/{uuid.uuid4().hex}{extension}'
+    target = root() / key
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(path_for(source_key), target)
+    return key
+
+
 def path_for(key):
     """Absolute path for a storage key, refusing anything outside the root."""
     base = root().resolve()

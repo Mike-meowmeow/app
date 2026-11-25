@@ -170,6 +170,10 @@ Use the staff site (8001), signed in as `hrtest` or your administrator account.
 | 7.4 | **My profile**: fill in personal information and add one education record | Saved |
 | 7.5 | Open **Open vacancies**, choose the vacancy from Part 6, apply, upload the PDF as the Personal Data Sheet, and submit | Application submitted |
 | 7.6 | Confirm the top menu has no **Vacancies** link while signed in | Not shown (it appears only when signed out) |
+| 7.7 | **My profile**: under your education entry, choose **Transcript of Records**, pick a PDF, **Attach file** | The file is listed under the entry; clicking it opens it |
+| 7.8 | As HR, add **Transcript of Records** to a vacancy's documents and publish it; as `appltest`, apply to that vacancy | The draft already lists the transcript with the badge **from your profile** |
+| 7.9 | Submit; as HR, open the application's **Application facts** | The education fact lists the transcript as evidence ("attached to this profile entry") |
+| 7.10 | As `appltest`, remove the file from **My profile** | Removed from the profile; the submitted application still has its copy |
 
 ---
 
@@ -251,7 +255,7 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | 4 Pages per site (4.1-4.7) | | |
 | 5 Staff sign-in and accounts (5.1-5.8) | | |
 | 6 Position catalog, vacancy, committee (6.1-6.9) | | |
-| 7 Applicant registration and application (7.1-7.6) | | |
+| 7 Applicant registration, application, and profile files (7.1-7.10) | | |
 | 8 Applicant and staff together (8.1-8.3) | | |
 | 9 Breadcrumbs (9.1-9.8) | | |
 | 10 Password reset, limits, two-factor (10.1-10.11) | | |

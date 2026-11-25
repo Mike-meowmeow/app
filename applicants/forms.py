@@ -83,3 +83,26 @@ RECORD_FORMS = {
     'eligibility': EligibilityForm,
     'license': LicenseForm,
 }
+
+
+class ProfileDocumentForm(BootstrapFormMixin, forms.Form):
+    """Attach a supporting file to one profile entry. The document type list
+    is limited to the types that section accepts."""
+
+    document_type = forms.ModelChoiceField(queryset=None, label='Document type',
+                                           empty_label=None)
+    file = forms.FileField()
+
+    def __init__(self, *args, types=(), optional=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        from documents.models import DocumentType
+        self.fields['document_type'].queryset = DocumentType.objects.filter(
+            pk__in=[t.pk for t in types])
+        if optional:  # inside the add/edit entry form: the file can be left out
+            self.fields['file'].required = False
+            self.fields['document_type'].required = False
+            self.fields['file'].label = 'Supporting file (optional)'
+            self.fields['file'].help_text = 'PDF, JPG, or PNG. You can also attach files later.'
+        if len(types) == 1:
+            self.fields['document_type'].widget = forms.HiddenInput()
+            self.initial.setdefault('document_type', types[0].pk)

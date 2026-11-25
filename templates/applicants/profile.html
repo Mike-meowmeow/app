@@ -16,6 +16,9 @@
 {% endif %}
 <p class="small text-muted">Changes here update your current profile only. Applications you have
   already submitted keep the information you submitted.</p>
+<p class="small text-muted">You can attach a supporting file to each entry (for example your
+  transcript to an education entry). When you start an application, files of the kinds the vacancy
+  asks for are added to it automatically; HR verifies them there.</p>
 
 <div class="card shadow-sm mb-3"><div class="card-body">
   <div class="d-flex justify-content-between align-items-center">
@@ -33,15 +36,16 @@
   </dl>
 </div></div>
 
-{% for kind, label, records in sections %}
+{% for kind, label, rows, types in sections %}
 <div class="card shadow-sm mb-3"><div class="card-body">
   <div class="d-flex justify-content-between align-items-center mb-2">
     <h2 class="h5 mb-0">{{ label }}</h2>
     <a class="btn btn-sm btn-outline-primary" href="{% url 'applicants:add_record' kind %}">Add</a>
   </div>
   <ul class="list-group list-group-flush">
-    {% for r in records %}
-      <li class="list-group-item px-0 d-flex justify-content-between align-items-start gap-2">
+    {% for r, files, file_form in rows %}
+      <li class="list-group-item px-0" id="record-{{ r.pk }}">
+      <div class="d-flex justify-content-between align-items-start gap-2">
         <div class="small">
           {% if kind == 'education' %}
             <div class="fw-semibold">{{ r.get_degree_level_display }} · {{ r.program }}</div>
@@ -66,9 +70,29 @@
         </div>
         <div class="d-flex gap-1 flex-shrink-0">
           <a class="btn btn-sm btn-outline-secondary" href="{% url 'applicants:edit_record' kind r.pk %}">Edit</a>
-          <form method="post" action="{% url 'applicants:delete_record' kind r.pk %}" onsubmit="return confirm('Remove this record?');">{% csrf_token %}
+          <form method="post" action="{% url 'applicants:delete_record' kind r.pk %}" onsubmit="return confirm('Remove this record{% if files %} and its attached files{% endif %}?');">{% csrf_token %}
             <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
         </div>
+      </div>
+      {% if types %}
+        <div class="small mt-2 ps-2 border-start">
+          {% for f in files %}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+              <a href="{% url 'applicants:document_file' f.pk %}?inline=1" target="_blank" rel="noopener">{{ f.file_name }}</a>
+              <span class="text-muted">{{ f.document_type.name }} · {{ f.file_size_bytes|filesizeformat }}</span>
+              <form method="post" action="{% url 'applicants:remove_document' f.pk %}" onsubmit="return confirm('Remove this file from your profile? Applications that already include it keep their copy.');">{% csrf_token %}
+                <button class="btn btn-sm btn-link text-danger p-0" type="submit">Remove file</button></form>
+            </div>
+          {% empty %}<div class="text-muted mb-1">No supporting file attached.</div>{% endfor %}
+          {% if files|length < max_files %}
+            <form method="post" enctype="multipart/form-data" action="{% url 'applicants:attach_document' kind r.pk %}" class="d-flex flex-wrap gap-1 align-items-center">{% csrf_token %}
+              {% if types|length > 1 %}{{ file_form.document_type }}{% else %}<input type="hidden" name="{{ file_form.document_type.html_name }}" value="{{ types.0.pk }}"><span class="text-muted">{{ types.0.name }}:</span>{% endif %}
+              <input class="form-control form-control-sm w-auto" type="file" name="{{ file_form.file.html_name }}" accept=".pdf,.jpg,.jpeg,.png" required aria-label="File to attach">
+              <button class="btn btn-sm btn-outline-primary" type="submit">Attach file</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endif %}
       </li>
     {% empty %}<li class="list-group-item px-0 text-muted small">None added.</li>{% endfor %}
   </ul>

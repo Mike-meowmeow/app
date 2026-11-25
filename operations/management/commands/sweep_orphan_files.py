@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from django.core.management.base import BaseCommand
 
 from analytics.models import AnalyticsReport
+from applicants.models import ProfileDocument
 from audit import services as audit
 from documents.models import DocumentVersion
 from matrix.models import RosterExport, RosterTemplate
@@ -28,6 +29,8 @@ class Command(BaseCommand):
             if not root.exists():
                 continue
             known = set(REFERENCES[area].objects.values_list('storage_key', flat=True))
+            if area == 'documents':  # files attached to applicant profile records
+                known |= set(ProfileDocument.objects.values_list('storage_key', flat=True))
             for path in root.rglob('*'):
                 if not path.is_file() or path.name.startswith('.'):
                     continue

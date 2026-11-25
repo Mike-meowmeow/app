@@ -6,6 +6,8 @@ transaction fails, the file is deleted, so no dangling file or reference
 remains. Removing a draft document deletes its files only after commit.
 """
 
+from pathlib import Path
+
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -18,7 +20,7 @@ from recruitment.models import Application, ApplicationStatus
 
 from . import storage
 from .models import (Document, DocumentType, DocumentVerification, DocumentVersion,
-                     MalwareStatus, ValidationStatus, VerificationStatus)
+                     FactEvidence, MalwareStatus, ValidationStatus, VerificationStatus)
 
 
 def _upload_context(user, application):
@@ -97,6 +99,96 @@ def upload(user, application, document_type, upload_file, *, replaces=None):
         storage.delete(key)
         raise
     return version
+
+
+def import_profile_documents(user, application):
+    """Copy files attached to the applicant's profile records into a draft
+    application: only types on the vacancy's checklist, within each type's file
+    limit, and each profile file at most once. Each copy is a separate stored
+    file, so later profile changes never alter the application.
+    Returns (imported_versions, skipped_messages)."""
+    from applicants.models import ProfileDocument
+
+    application = Application.objects.select_related('applicant').get(pk=application.pk)
+    if not access.is_owner(user, application):
+        raise PermissionDenied('This is not your application.')
+    if application.status != ApplicationStatus.DRAFT:
+        raise ValidationError('Profile files can only be added to a draft application.')
+    requirements = {item.document_type_id: item
+                    for item, _ in applications.document_checklist(application)}
+    already = set(application.documents.exclude(profile_document=None)
+                  .values_list('profile_document_id', flat=True))
+    imported, skipped = [], []
+    for source in ProfileDocument.objects.filter(applicant=application.applicant) \
+            .select_related('document_type').order_by('uploaded_at'):
+        if source.pk in already:
+            continue
+        requirement = requirements.get(source.document_type_id)
+        if requirement is None:
+            continue  # this vacancy does not ask for this kind of document
+        if application.documents.filter(document_type=source.document_type).count() \
+                >= requirement.max_files:
+            skipped.append(f'{source.file_name}: {source.document_type.name} already has '
+                           f'{requirement.max_files} file(s) in this application.')
+            continue
+        extension = Path(source.file_name).suffix.lower() or \
+            storage.EXTENSIONS[source.mime_type][0]
+        key = storage.copy(source.storage_key, application.pk, extension)
+        try:
+            with transaction.atomic():
+                Application.objects.select_for_update().get(pk=application.pk)
+                status = storage.scan(key)
+                if status == MalwareStatus.QUARANTINED:
+                    skipped.append(f'{source.file_name}: flagged by the malware scanner.')
+                    continue
+                if status == MalwareStatus.NOT_SCANNED and settings.MALWARE_SCAN_REQUIRED:
+                    raise ValidationError('Files could not be checked for malware right now. '
+                                          'Please try again later.')
+                document = Document.objects.create(
+                    application=application, document_type=source.document_type,
+                    uploaded_by=user, profile_document=source)
+                version = DocumentVersion.objects.create(
+                    document=document, version=1, file_name=source.file_name,
+                    storage_key=key, file_size_bytes=source.file_size_bytes,
+                    mime_type=source.mime_type, sha256=source.sha256,
+                    validation_status=ValidationStatus.VALID, malware_status=status,
+                    uploaded_by=user)
+                audit.record('document.imported_from_profile', entity=version, actor=user,
+                             changes={'application': application.reference,
+                                      'document_type': source.document_type.code,
+                                      'file_name': source.file_name,
+                                      'profile_document': str(source.pk),
+                                      'sha256': source.sha256, 'malware_status': status})
+                imported.append(version)
+        except Exception:
+            storage.delete(key)
+            raise
+    return imported, skipped
+
+
+def link_profile_evidence(application, actor):
+    """After submission: link each document copied from a profile record as
+    evidence for the fact created from that record (FR-024 evidence)."""
+    linked = 0
+    documents = application.documents.exclude(profile_document=None).select_related(
+        'profile_document')
+    for document in documents:
+        source = document.profile_document
+        version = document.current_version()
+        if source is None or version is None:
+            continue
+        for fact in application.facts.filter(fact_type=source.record_kind).exclude(
+                review_status='superseded'):
+            if fact.value.get('source_record_id') != str(source.record_id):
+                continue
+            _, created = FactEvidence.objects.get_or_create(
+                application_fact=fact, document_version=version,
+                defaults={'source_location': {'note': 'attached to this profile entry'}})
+            linked += created
+    if linked:
+        audit.record('fact.evidence_linked_from_profile', entity=application, actor=actor,
+                     changes={'links': linked})
+    return linked
 
 
 @transaction.atomic

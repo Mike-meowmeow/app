@@ -79,6 +79,10 @@ class Document(BaseModel):
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                                     related_name='+')
     uploaded_at = models.DateTimeField(default=timezone.now)
+    # Set when the file was copied from a file attached to the applicant's
+    # profile record; the application keeps its own copy of the file.
+    profile_document = models.ForeignKey('applicants.ProfileDocument', on_delete=models.SET_NULL,
+                                         null=True, blank=True, related_name='application_copies')
 
     class Meta:
         db_table = 'documents'

@@ -51,6 +51,7 @@
               <div>
                 <a href="{% url 'documents:download' v.pk %}">{{ v.file_name }}</a>
                 <span class="text-muted">· v{{ v.version }} · {{ v.file_size_bytes|filesizeformat }} · {{ v.uploaded_at|date:"M j, g:i A" }}</span>
+                {% if doc.profile_document_id and v.version == 1 %}<span class="badge text-bg-light border">from your profile</span>{% endif %}
                 {% include "recruitment/applications/_verification.html" %}
               </div>
               {% if can_upload %}
@@ -74,6 +75,12 @@
         </div>
       {% endfor %}
 
+      {% if is_draft and profile_files_available %}
+        <form method="post" action="{% url 'recruitment:import_profile_documents' application.pk %}" class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 py-2 small">{% csrf_token %}
+          <span>Your <a href="{% url 'applicants:profile' %}">profile</a> has {{ profile_files_available }} file{{ profile_files_available|pluralize }} this vacancy asks for that {{ profile_files_available|pluralize:"is,are" }} not in this draft yet.</span>
+          <button class="btn btn-sm btn-primary" type="submit">Add files from my profile</button>
+        </form>
+      {% endif %}
       {% if can_upload %}
         <form method="post" enctype="multipart/form-data" action="{% url 'recruitment:upload_document' application.pk %}" class="row g-2 align-items-end mt-2">{% csrf_token %}
           <div class="col-md-5"><label class="form-label small" for="id_document_type">Document category</label>{{ upload_form.document_type }}</div>

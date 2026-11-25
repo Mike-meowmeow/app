@@ -225,6 +225,8 @@ def submit(user, application):
         application.save(update_fields=['submitted_at'])
     transition(application, S.SUBMITTED, actor=user, reason='Application submitted')
     sync_facts(application, snapshot)
+    from documents.services import link_profile_evidence
+    link_profile_evidence(application, user)
     _bump_revision(application)
     audit.record('application.submitted', entity=application, actor=user,
                  changes={'snapshot_version': snapshot.version,
@@ -537,6 +539,8 @@ def resubmit_corrections(user, application):
     request.submitted_at = timezone.now()
     request.save(update_fields=['status', 'submitted_at'])
     sync_facts(application, snapshot)
+    from documents.services import link_profile_evidence
+    link_profile_evidence(application, user)
     transition(application, S.UNDER_REVIEW, actor=user, reason='Corrections submitted')
     _bump_revision(application)
     audit.record('correction.submitted', entity=request, actor=user,

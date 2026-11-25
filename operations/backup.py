@@ -45,10 +45,11 @@ from .models import BackupRun, RestoreRun, RunStatus
 MANIFEST_VERSION = 1
 CHUNK = 1024 * 1024
 PROJECT_APPS = ('core', 'accounts', 'audit', 'documents', 'recruitment', 'applicants', 'matrix',
-                'committee', 'notifications', 'analytics', 'operations')
+                'committee', 'notifications', 'analytics', 'operations', 'ai_processing')
 # (table, area) pairs whose storage_key/sha256 columns point at private files.
-FILE_TABLES = (('document_versions', 'documents'), ('roster_exports', 'exports'),
-               ('analytics_reports', 'reports'), ('roster_templates', 'templates'))
+FILE_TABLES = (('document_versions', 'documents'), ('profile_documents', 'documents'),
+               ('roster_exports', 'exports'), ('analytics_reports', 'reports'),
+               ('roster_templates', 'templates'))
 # Ownership links that must survive a restore: (description, child, column, parent).
 LINKS = (
     ('applications -> applicants', 'applications', 'applicant_id', 'applicants'),

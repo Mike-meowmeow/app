@@ -220,7 +220,8 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   `manage.py check --deploy`.
 - **AI server:** `deploy/AI-SERVER.md` sets up one headless Ubuntu server for the sites, MySQL, and
   the AI runtime (OCR, spaCy, SBERT); `deploy/SERVER-INSTALL.md` walks a first-timer through the
-  Ubuntu installation; `deploy/ai_check.py` proves the runtime works.
+  Ubuntu installation; `deploy/ai_check.py` proves the runtime works; `deploy/DEV-SERVER.md`
+  explains everyday use of the development copy running on that server.
 - **AI extraction (Stage 10, advisory):** after HR verifies a document, the `ai_worker` service
   reads it (digital PDF text, or OCR for scans and images) and proposes education, experience,
   training, eligibility, and license items. HR accepts, corrects (with a reason), links to an

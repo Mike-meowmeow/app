@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4">{{ title }}</h1>
+    <p class="small text-muted">Fields marked <span class="text-danger">*</span> are required.</p>
+    {% include "includes/form_errors.html" %}
+    <form method="post" enctype="multipart/form-data" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+
+      {% if types %}
+        <fieldset class="border rounded p-3 mb-3">
+          <legend class="h6 float-none w-auto px-1 mb-0">Supporting file</legend>
+          {% if attached %}
+            <ul class="small mb-2">
+              {% for f in attached %}<li><a href="{% url 'applicants:document_file' f.pk %}?inline=1" target="_blank" rel="noopener">{{ f.file_name }}</a> <span class="text-muted">· {{ f.document_type.name }}</span></li>{% endfor %}
+            </ul>
+          {% endif %}
+          {% if file_form %}
+            {% include "includes/form_errors.html" with form=file_form %}
+            {% if types|length > 1 %}{% include "includes/field.html" with field=file_form.document_type %}{% else %}{{ file_form.document_type }}<p class="small text-muted mb-2">Accepted here: {{ types.0.name }}.</p>{% endif %}
+            {% include "includes/field.html" with field=file_form.file %}
+            <p class="small text-muted mb-0">When you apply to a vacancy that asks for this kind of document, the file is added to your application automatically.</p>
+          {% else %}
+            <p class="small text-muted mb-0">This entry already has {{ max_files }} files. Remove one on your profile page to attach another.</p>
+          {% endif %}
+        </fieldset>
+      {% endif %}
+
+      <button class="btn btn-primary" type="submit">Save</button>
+      <a class="btn btn-link" href="{% url 'applicants:profile' %}">Cancel</a>
+    </form>
+  </div></div>
+</div></div>
+{% endblock %}

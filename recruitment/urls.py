@@ -17,6 +17,8 @@ urlpatterns = [
     path('my-applications/<uuid:pk>/documents/<uuid:document_pk>/remove/', apps.remove_document,
          name='remove_document'),
     path('my-applications/<uuid:pk>/submit/', apps.submit_application, name='submit_application'),
+    path('my-applications/<uuid:pk>/profile-files/', apps.import_profile_documents,
+         name='import_profile_documents'),
     path('my-applications/<uuid:pk>/resubmit/', apps.resubmit_corrections,
          name='resubmit_corrections'),
     path('my-applications/<uuid:pk>/withdraw/', apps.withdraw, name='withdraw'),

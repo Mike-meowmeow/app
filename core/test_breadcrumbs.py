@@ -24,6 +24,8 @@ NO_TRAIL = {
     'accounts:password_reset_complete', 'accounts:staff_invite',
     'accounts:two_factor_verify', 'accounts:two_factor_setup', 'accounts:two_factor_reset',
     'applicants:delete_record', 'documents:download',
+    'applicants:attach_document', 'applicants:document_file', 'applicants:remove_document',
+    'recruitment:import_profile_documents',
     'recruitment:apply', 'recruitment:upload_document', 'recruitment:remove_document',
     'recruitment:submit_application', 'recruitment:resubmit_corrections',
     'recruitment:application_start_review', 'recruitment:application_reopen',

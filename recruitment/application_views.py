@@ -78,7 +78,33 @@ def apply(request, vacancy_pk):
     if created:
         messages.success(request, 'Draft application started. Upload your documents, review, '
                                   'then submit before the deadline.')
+        _import_from_profile(request, application)
     return redirect('recruitment:my_application', pk=application.pk)
+
+
+def _import_from_profile(request, application, report_none=False):
+    try:
+        imported, skipped = documents.import_profile_documents(request.user, application)
+    except (FileRejected, ValidationError) as exc:
+        _flash(request, exc)
+        return
+    if imported:
+        messages.success(request, f'Added {len(imported)} file{"s" if len(imported) != 1 else ""} '
+                                  'from your profile: '
+                                  + ', '.join(v.file_name for v in imported) + '.')
+    elif report_none:
+        messages.info(request, 'No new files from your profile match this vacancy\'s '
+                               'document list.')
+    for message in skipped:
+        messages.warning(request, message)
+
+
+@role_required(roles.APPLICANT)
+@require_POST
+def import_profile_documents(request, pk):
+    application = _own_or_404(request.user, pk)
+    _import_from_profile(request, application, report_none=True)
+    return redirect('recruitment:my_application', pk=pk)
 
 
 @role_required(roles.APPLICANT)
@@ -105,7 +131,15 @@ def my_application(request, pk):
         preview_data = services.build_snapshot_data(application, requirement) if requirement \
             else None
     preview = _snapshot_view(preview_data)
+    profile_files_available = 0
+    if is_draft:
+        imported = application.documents.exclude(profile_document=None) \
+            .values_list('profile_document_id', flat=True)
+        profile_files_available = application.applicant.profile_documents.filter(
+            document_type__in=[r.document_type_id for r, _ in checklist]
+        ).exclude(pk__in=list(imported)).count()
     return render(request, 'recruitment/applications/applicant_detail.html', {
+        'profile_files_available': profile_files_available,
         'application': application, 'checklist': checklist, 'correction': correction,
         'is_draft': is_draft, 'can_upload': can_upload, 'preview': preview,
         'problems': services.submission_problems(application) if is_draft else

@@ -44,8 +44,10 @@ APPLICANT_ONLY_VIEWS = frozenset({
     'core:workspace_applicant',
     'applicants:profile', 'applicants:edit_personal', 'applicants:add_record',
     'applicants:edit_record', 'applicants:delete_record',
+    'applicants:attach_document', 'applicants:document_file', 'applicants:remove_document',
     'recruitment:apply', 'recruitment:my_applications', 'recruitment:my_application',
     'recruitment:upload_document', 'recruitment:remove_document',
+    'recruitment:import_profile_documents',
     'recruitment:submit_application', 'recruitment:resubmit_corrections',
     'recruitment:withdraw',
 })

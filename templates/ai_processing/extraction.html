@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}AI extraction · {{ application.reference }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">AI extraction: {{ version.document.document_type.name }} v{{ version.version }}</h1>
+    <div class="small text-muted">{{ application.reference }} · <a href="{% url 'documents:download' version.pk %}?inline=1" target="_blank" rel="noopener">{{ version.file_name }}</a></div>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'recruitment:application_review' application.pk %}#documents">Back to the application</a>
+</div>
+
+<div class="alert alert-info small">
+  <strong>Advisory.</strong> These items were proposed by automated text reading and rules. They are not facts until HR accepts, corrects, or links them, and they never change the application's status, shortlist, decisions, or the official roster by themselves. Check each item against the document.
+</div>
+
+<div class="card shadow-sm mb-3"><div class="card-body small">
+  <div class="d-flex flex-wrap gap-3 align-items-center">
+    <div><span class="text-muted">Status:</span>
+      <span class="badge {% if job.is_invalidated %}text-bg-dark{% elif job.status == 'completed' %}text-bg-success{% elif job.status == 'needs_review' %}text-bg-warning{% elif job.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ job.display_status }}</span></div>
+    <div><span class="text-muted">Queued:</span> {{ job.queued_at|date:"M j, Y g:i A" }}{% if job.requested_by %} by {{ job.requested_by.full_name|default:job.requested_by.username }}{% endif %}</div>
+    {% if job.completed_at %}<div><span class="text-muted">Finished:</span> {{ job.completed_at|date:"M j, Y g:i A" }}</div>{% endif %}
+    <div><span class="text-muted">Method:</span> {{ job.model_name }} ({{ job.model_version }})</div>
+    {% if can_review and job.status == 'failed' %}
+      <form method="post" action="{% url 'ai_processing:retry' application.pk job.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Retry</button></form>
+    {% endif %}
+  </div>
+  {% if job.is_invalidated %}<div class="mt-2 text-danger">Invalidated {{ job.invalidated_at|date:"M j, Y g:i A" }}: {{ job.invalidation_reason }} Its items cannot be used.</div>{% endif %}
+  {% if job.last_error %}<div class="mt-2 text-danger">Last error: {{ job.last_error }}</div>{% endif %}
+  {% if extraction.warnings %}<ul class="mt-2 mb-0 text-warning-emphasis">{% for w in extraction.warnings %}<li>{{ w }}</li>{% endfor %}</ul>{% endif %}
+  {% if attempts %}
+    <details class="mt-2"><summary>Attempts ({{ attempts|length }})</summary>
+      <ul class="mb-0">{% for a in attempts %}<li>#{{ a.attempt_number }} {{ a.get_status_display }} · {{ a.started_at|date:"M j g:i:s A" }}{% if a.finished_at %} – {{ a.finished_at|date:"g:i:s A" }}{% endif %} · {{ a.worker_reference }}{% if a.error_message %} · <span class="text-danger">{{ a.error_message }}</span>{% endif %}</li>{% endfor %}</ul>
+    </details>
+  {% endif %}
+  {% if extraction %}<div class="mt-2 text-muted">Parser {{ extraction.parser_version }}{% for name, v in extraction.engine_versions.items %}{% if v %} · {{ name }} {{ v }}{% endif %}{% endfor %}</div>{% endif %}
+</div></div>
+
+{% if not extraction %}
+  <p class="text-muted">{% if job.status == 'queued' or job.status == 'processing' %}Waiting for the AI worker. Refresh this page in a moment.{% else %}No text was extracted. Continue with manual review on the application page.{% endif %}</p>
+{% else %}
+<div class="row g-3">
+  <div class="col-lg-6">
+    <h2 class="h5">Proposed items</h2>
+    {% for row in rows %}{% with item=row.item %}
+      <div class="card shadow-sm mb-2" id="item-{{ item.pk }}"><div class="card-body small">
+        <div class="d-flex justify-content-between gap-2">
+          <div>
+            <span class="badge text-bg-light border">{{ row.label }}</span>
+            <span class="badge {% if item.review_status == 'pending' %}text-bg-secondary{% elif item.review_status == 'rejected' %}text-bg-danger{% else %}text-bg-success{% endif %}">{{ item.get_review_status_display }}</span>
+            {% if item.confidence is not None %}<span class="text-muted">rule confidence {{ item.confidence|floatformat:2 }}</span>{% endif %}
+          </div>
+          <span class="text-muted">page {{ item.page_number }}{% if item.source_location.lines %}, lines {{ item.source_location.lines.0 }}–{{ item.source_location.lines.1 }}{% endif %}</span>
+        </div>
+        <dl class="row mb-1 mt-2">
+          {% for label, value in row.values %}<dt class="col-4 fw-normal text-muted">{{ label }}</dt><dd class="col-8 mb-0">{{ value }}</dd>{% endfor %}
+        </dl>
+        {% if row.unread %}<div class="text-warning-emphasis">Not read: {{ row.unread|join:", " }}</div>{% endif %}
+        <div class="text-muted fst-italic mt-1">“{{ item.raw_text|truncatechars:240 }}”</div>
+        {% for fact, same, differing in row.matches %}
+          <div class="mt-1 {% if same %}text-success{% else %}text-warning-emphasis{% endif %}">{% if same %}Same as an existing {{ row.label|lower }} fact: link it instead of adding it again.{% else %}Looks like an existing fact but differs in: {{ differing|join:", " }}. Check before accepting.{% endif %}</div>
+        {% endfor %}
+        {% if item.review_status != 'pending' %}
+          <div class="mt-1 text-muted">{{ item.reviewed_by.full_name|default:item.reviewed_by.username }}, {{ item.reviewed_at|date:"M j, Y g:i A" }}{% if item.review_reason %} · {{ item.review_reason }}{% endif %}</div>
+        {% elif can_review %}
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <form method="post" action="{% url 'ai_processing:item_action' application.pk item.pk %}">{% csrf_token %}
+              <button class="btn btn-sm btn-outline-success" name="action" value="accept" type="submit">Accept</button></form>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'ai_processing:item_edit' application.pk item.pk %}">Edit and accept</a>
+            {% if row.link_choices %}
+              <form method="post" action="{% url 'ai_processing:item_action' application.pk item.pk %}" class="d-flex gap-1">{% csrf_token %}
+                <input type="hidden" name="action" value="link">
+                <select class="form-select form-select-sm" name="fact" aria-label="Existing fact">
+                  {% for fact, values in row.link_choices %}<option value="{{ fact.pk }}">{% for label, value in values|slice:":2" %}{{ value }}{% if not forloop.last %} · {% endif %}{% endfor %}</option>{% endfor %}
+                </select>
+                <button class="btn btn-sm btn-outline-secondary text-nowrap" type="submit">Link as evidence</button>
+              </form>
+            {% endif %}
+            <form method="post" action="{% url 'ai_processing:item_action' application.pk item.pk %}" class="d-flex gap-1">{% csrf_token %}
+              <input type="hidden" name="action" value="reject">
+              <input class="form-control form-control-sm" name="reason" placeholder="Reason to reject" aria-label="Reason to reject">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
+            </form>
+          </div>
+        {% endif %}
+      </div></div>
+    {% endwith %}{% empty %}
+      <p class="text-muted small">No items were proposed. Read the text and add facts manually on the application page if needed.</p>
+    {% endfor %}
+  </div>
+  <div class="col-lg-6">
+    <h2 class="h5">Extracted text</h2>
+    <p class="small text-muted">Highlighted lines are the sources of the proposed items.</p>
+    {% for page in pages %}
+      <div class="card mb-2"><div class="card-header small py-1">Page {{ page.number }} · {% if page.method == 'ocr' %}OCR{% if page.confidence is not None %} (confidence {{ page.confidence|floatformat:2 }}){% endif %}{% else %}digital text{% endif %}</div>
+        <div class="card-body p-2" style="max-height: 28rem; overflow:auto">
+          <pre class="small mb-0" style="white-space: pre-wrap">{% for no, text, hl in page.lines %}<span class="text-muted">{{ no|stringformat:"3d" }}</span> {% if hl %}<mark>{{ text }}</mark>{% else %}{{ text }}{% endif %}
+{% endfor %}</pre>
+        </div></div>
+    {% empty %}<p class="small text-muted">No text.</p>{% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

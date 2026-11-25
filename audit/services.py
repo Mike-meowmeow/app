@@ -56,9 +56,9 @@ def diff(before, after):
 
 
 def record(action, *, entity=None, entity_type='', entity_id='', changes=None,
-           reason=None, actor=_FROM_CONTEXT, ip_address=_FROM_CONTEXT):
+           reason=None, actor=_FROM_CONTEXT, ip_address=_FROM_CONTEXT, job=None):
     """Store one audit event. Actor, IP, and reason default to the current
-    request/command context."""
+    request/command context. `job` links the event to an AI job."""
     ctx = current()
     if entity is not None:
         entity_type = entity_label(entity)
@@ -77,4 +77,5 @@ def record(action, *, entity=None, entity_type='', entity_id='', changes=None,
         changes=redact(changes or {}),
         reason=reason if reason is not None else ctx.reason,
         ip_address=ip_address,
+        job=job,
     )

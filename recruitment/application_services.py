@@ -245,13 +245,14 @@ def _current_facts(application, fact_type):
 def sync_facts(application, snapshot):
     """Create pending facts for new or changed snapshot items; supersede facts
     whose source item changed or was removed. Unchanged facts (and their review
-    outcome) are kept. HR-entered manual facts are never touched."""
+    outcome) are kept. Facts HR entered manually or accepted from an AI
+    extraction are never touched."""
     data = snapshot.data
     groups = {'identity': [data['identity']]}
     groups.update({kind: data.get(kind, []) for kind in fact_schema.PROFILE_KINDS})
     for fact_type, items in groups.items():
         current = {f.value.get('source_record_id'): f for f in _current_facts(application, fact_type)
-                   if not f.value.get('manual')}
+                   if not fact_schema.is_reviewer_entered(f.value)}
         seen = set()
         for item in items:
             key = item['source_record_id']
@@ -353,7 +354,7 @@ def correct_fact(actor, fact, new_value, *, reason):
     fact = ApplicationFact.objects.select_for_update().get(pk=fact.pk)
     if not fact.is_current:
         raise ValidationError('This fact was already superseded.')
-    value = {**{k: v for k, v in fact.value.items() if k in ('source_record_id', 'manual')},
+    value = {**{k: v for k, v in fact.value.items() if k in fact_schema.BOOKKEEPING_KEYS},
              **new_value}
     changes = audit.diff(fact_schema.comparable(fact.value), fact_schema.comparable(value))
     if not changes:

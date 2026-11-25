@@ -1,0 +1,18 @@
+[Unit]
+Description=EVSU recruitment: AI worker (document text extraction, advisory)
+After=network.target mysql.service
+
+[Service]
+User=evsu
+Group=evsu
+WorkingDirectory=/srv/evsu-recruitment
+ExecStart=/srv/evsu-recruitment/.venv/bin/python manage.py ai_worker
+# The websites come first: lower CPU priority, and a memory ceiling so the
+# worker is restarted rather than crowding out MySQL (deploy/AI-SERVER.md step 8).
+Nice=10
+MemoryMax=3G
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

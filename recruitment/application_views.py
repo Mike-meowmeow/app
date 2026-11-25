@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
@@ -274,10 +275,18 @@ def review(request, pk):
     outcomes = services.qualification_outcomes(application)
     standards = list(requirement.qualification_standards.all()) if requirement else []
     snapshot = application.latest_snapshot()
-    versions = DocumentVersion.objects.filter(document__application=application) \
-        .select_related('document__document_type').order_by('document__document_type__name',
-                                                            'document_id', '-version')
+    versions = list(DocumentVersion.objects.filter(document__application=application)
+                    .select_related('document__document_type')
+                    .order_by('document__document_type__name', 'document_id', '-version'))
+    from ai_processing import services as ai
+    ai_jobs = ai.jobs_by_version(application)
+    for v in versions:
+        v.ai_job = ai_jobs.get(v.pk)
+        v.ai_can_run = (settings.AI_EXTRACTION_ENABLED and can_review
+                        and (v.ai_job is None or v.ai_job.is_invalidated)
+                        and not ai.eligibility_problems(v))
     return render(request, 'recruitment/applications/review.html', {
+        'show_ai': settings.AI_EXTRACTION_ENABLED or bool(ai_jobs),
         'application': application, 'can_review': can_review,
         'snapshot': snapshot, 'snapshot_view': _snapshot_view(snapshot.data if snapshot else None),
         'checklist': services.document_checklist(application),

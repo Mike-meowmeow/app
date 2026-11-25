@@ -32,8 +32,9 @@
 <div class="row g-3">
   <div class="col-lg-7">
     {# Documents #}
-    <div class="card shadow-sm mb-3"><div class="card-body">
+    <div class="card shadow-sm mb-3" id="documents"><div class="card-body">
       <h2 class="h5">Documents</h2>
+      {% if show_ai %}<p class="small text-muted mb-2">AI extraction (advisory) reads verified documents and proposes items for your review; manual review works without it.</p>{% endif %}
       {% for requirement, docs in checklist %}
         <div class="mb-2">
           <span class="fw-semibold small">{{ requirement.document_type.name }}</span>
@@ -42,16 +43,20 @@
         </div>
       {% endfor %}
       <table class="table table-sm align-middle small mb-0">
-        <thead><tr><th>Document</th><th>Version</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Document</th><th>Version</th><th>Status</th>{% if show_ai %}<th>AI</th>{% endif %}<th></th></tr></thead>
         <tbody>
           {% for v in versions %}
             <tr {% if v.document.current_version.pk != v.pk %}class="text-muted"{% endif %}>
               <td>{{ v.document.document_type.name }}<div><a href="{% url 'documents:download' v.pk %}?inline=1" target="_blank" rel="noopener">{{ v.file_name }}</a></div></td>
               <td>v{{ v.version }}{% if v.document.current_version.pk != v.pk %} (earlier){% endif %}{% if v.correction_request_id %}<div><span class="badge text-bg-light border">correction</span></div>{% endif %}</td>
               <td>{% include "recruitment/applications/_verification.html" %}</td>
+              {% if show_ai %}<td>
+                {% if v.ai_job %}<a href="{% url 'ai_processing:extraction' application.pk v.ai_job.pk %}" class="badge text-decoration-none {% if v.ai_job.is_invalidated %}text-bg-dark{% elif v.ai_job.status == 'completed' %}text-bg-success{% elif v.ai_job.status == 'needs_review' %}text-bg-warning{% elif v.ai_job.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ v.ai_job.display_status }}</a>{% endif %}
+                {% if v.ai_can_run %}<form method="post" action="{% url 'ai_processing:run' application.pk v.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0 ms-1" type="submit">Extract</button></form>{% endif %}
+              </td>{% endif %}
               <td class="text-end">{% if can_review and v.document.current_version.pk == v.pk and v.is_usable %}<a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Verify</a>{% endif %}</td>
             </tr>
-          {% empty %}<tr><td colspan="4" class="text-muted">No documents.</td></tr>{% endfor %}
+          {% empty %}<tr><td colspan="5" class="text-muted">No documents.</td></tr>{% endfor %}
         </tbody>
       </table>
     </div></div>
@@ -67,6 +72,7 @@
               <span class="badge text-bg-light border">{{ fact.get_fact_type_display }}</span>
               {% if fact.review_status == 'accepted' %}<span class="badge text-bg-success">Accepted</span>{% elif fact.review_status == 'rejected' %}<span class="badge text-bg-danger">Rejected</span>{% else %}<span class="badge text-bg-secondary">Pending review</span>{% endif %}
               {% if fact.value.manual %}<span class="badge text-bg-info">HR entry</span>{% endif %}
+              {% if fact.value.extraction_item_id %}<span class="badge text-bg-info">From AI extraction, HR reviewed</span>{% endif %}
               {% if fact.supersedes_id %}<span class="badge text-bg-light border">corrected</span>{% endif %}
               {% if fact.relevance_status != 'not_applicable' %}<span class="badge text-bg-light border">{{ fact.get_relevance_status_display }}</span>{% endif %}
               <div class="mt-1">{% for label, value in items %}{% if not forloop.first %} · {% endif %}<span class="text-muted">{{ label }}:</span> {{ value }}{% endfor %}</div>

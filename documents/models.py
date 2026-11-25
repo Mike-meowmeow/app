@@ -167,13 +167,16 @@ class DocumentVerification(AppendOnlyModel):
 
 
 class FactEvidence(BaseModel):
-    """Links an application fact to the exact file version supporting it. The
-    optional extraction_item link is added in Stage 10."""
+    """Links an application fact to the exact file version supporting it, and
+    (Stage 10, optional) to the AI extraction item HR reviewed. Manual evidence
+    keeps extraction_item null."""
 
     application_fact = models.ForeignKey('recruitment.ApplicationFact', on_delete=models.PROTECT,
                                          related_name='evidence')
     document_version = models.ForeignKey(DocumentVersion, on_delete=models.PROTECT,
                                          related_name='evidence')
+    extraction_item = models.ForeignKey('ai_processing.ExtractionItem', on_delete=models.PROTECT,
+                                        null=True, blank=True, related_name='evidence')
     source_location = models.JSONField(default=dict, blank=True)
 
     class Meta:

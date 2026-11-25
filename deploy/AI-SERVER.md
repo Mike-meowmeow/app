@@ -9,9 +9,9 @@ That one machine runs everything: both websites, MySQL, the private files, and t
 - Steps 1 to 7 prepare the machine and install the AI runtime, then prove it works with
   `deploy/ai_check.py`. You can do all of this now.
 - The recruitment system itself is installed with `deploy/DEPLOY.md` (step 4 points there).
-- The AI features inside the application (the background worker, document extraction, qualification
-  checks, competency matching) are built in **Stage 10** and do not exist in the code yet. Step 8
-  shows how the worker will run once they do.
+- The AI features inside the application are built in **Stage 10**. The first part exists: the
+  background worker, document text extraction with OCR, and HR review of the proposed items
+  (step 8). Qualification checks and SBERT competency matching come next.
 
 Allow about half a day. Commands run on the server unless marked **(your Windows computer)**.
 
@@ -336,28 +336,39 @@ explains restoring.
 
 ---
 
-## 8. The AI worker (after Stage 10)
+## 8. The AI worker
 
-When the Stage 10 code exists, the AI runs as **one more background service** on this machine. It
-reads queued jobs from the database, processes verified documents, and stores results for HR
-review. It never runs inside a web request, so a slow OCR job never slows a page.
+The AI runs as **one more background service** on this machine. It reads queued jobs from the
+database, reads verified documents (digital text, or OCR for scanned pages), and stores proposed
+items for HR review. It never runs inside a web request, so a slow OCR job never slows a page.
+Results are advisory: HR accepts, corrects, links, or rejects each item, and nothing changes an
+application's status, shortlist, or roster by itself.
 
-It will be added as `deploy/systemd/evsu-ai-worker.service`, with limits so the websites always
-come first:
-
-```ini
-# Preview only. The real file comes with the Stage 10 code.
-[Service]
-User=evsu
-WorkingDirectory=/srv/evsu-recruitment
-ExecStart=/srv/evsu-recruitment/.venv/bin/python manage.py ai_worker
-Nice=10                 # lower CPU priority than the websites
-MemoryMax=3G            # stopped and restarted rather than crowding out MySQL
-Restart=on-failure
+```bash
+cd /srv/evsu-recruitment
+sudo install -m 644 deploy/systemd/evsu-ai-worker.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now evsu-ai-worker
+journalctl -u evsu-ai-worker -n 20 --no-pager      # "AI worker ... started."
 ```
 
-It starts with one job at a time. Concurrency is raised only after measuring memory on this server
-(Development Guide, Stage 10).
+Then set `AI_EXTRACTION_ENABLED=True` in `.env` and restart the sites. From then on, verifying a
+document queues it; HR sees the result in the **AI** column of the application's documents.
+
+The service runs with `Nice=10` (the websites get the processor first) and `MemoryMax=3G` (it is
+restarted rather than crowding out MySQL). It processes one job at a time; a job is retried up to
+`AI_MAX_ATTEMPTS` times, and a run whose worker stopped is picked up again after
+`AI_JOB_STALE_SECONDS`.
+
+**Try it with made-up documents:**
+
+```bash
+sudo -u evsu .venv/bin/python manage.py make_ai_samples /tmp/samples
+sudo -u evsu .venv/bin/python manage.py ai_extract_file /tmp/samples/TOR_transcript.pdf --type TOR
+```
+
+`ai_extract_file` prints what the AI would propose for one file, without touching the database.
+Upload the same files as a test applicant to try the whole flow.
 
 ---
 

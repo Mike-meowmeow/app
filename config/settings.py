@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'notifications.apps.NotificationsConfig',
     'analytics.apps.AnalyticsConfig',
     'operations.apps.OperationsConfig',
+    'ai_processing.apps.AiProcessingConfig',
 ]
 
 MIDDLEWARE = [
@@ -255,6 +256,28 @@ SITE_URL = env('SITE_URL', 'http://127.0.0.1:8000')
 # Applicants receive public-site links; staff receive school-site links.
 PUBLIC_SITE_URL = env('PUBLIC_SITE_URL') or SITE_URL
 STAFF_SITE_URL = env('STAFF_SITE_URL') or SITE_URL
+
+
+# AI processing (Stage 10). Advisory only: it proposes items from verified
+# documents for HR review and never changes statuses, shortlists, or rosters.
+# The runtime (Tesseract, pdfplumber, pypdfium2, spaCy) is installed only where
+# the worker runs (requirements-ai.txt, deploy/AI-SERVER.md). With this off,
+# nothing is queued and the AI controls are hidden; manual review always works.
+AI_EXTRACTION_ENABLED = env_bool('AI_EXTRACTION_ENABLED', False)
+# Document types processed after verification (codes from seed_reference_data).
+AI_EXTRACTION_TYPES = env_list('AI_EXTRACTION_TYPES',
+                               'PDS,RESUME,TOR,DIPLOMA,PRC,TRAINING,EMPLOYMENT')
+AI_MAX_ATTEMPTS = int(env('AI_MAX_ATTEMPTS', '3'))
+AI_RETRY_SECONDS = int(env('AI_RETRY_SECONDS', '60'))
+# A running attempt without a heartbeat for this long is treated as stopped.
+AI_JOB_STALE_SECONDS = int(env('AI_JOB_STALE_SECONDS', '900'))
+AI_WORKER_POLL_SECONDS = int(env('AI_WORKER_POLL_SECONDS', '5'))
+AI_OCR_DPI = int(env('AI_OCR_DPI', '300'))
+AI_OCR_LANGUAGES = env('AI_OCR_LANGUAGES', 'eng')
+AI_MAX_PAGES = int(env('AI_MAX_PAGES', '30'))
+# A PDF page with less digital text than this is read with OCR instead.
+AI_MIN_PAGE_CHARACTERS = int(env('AI_MIN_PAGE_CHARACTERS', '40'))
+SPACY_MODEL = env('SPACY_MODEL', 'en_core_web_sm')
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -220,7 +220,14 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   `manage.py check --deploy`.
 - **AI server:** `deploy/AI-SERVER.md` sets up one headless Ubuntu server for the sites, MySQL, and
   the AI runtime (OCR, spaCy, SBERT); `deploy/SERVER-INSTALL.md` walks a first-timer through the
-  Ubuntu installation; `deploy/ai_check.py` proves the runtime works. The AI packages
+  Ubuntu installation; `deploy/ai_check.py` proves the runtime works.
+- **AI extraction (Stage 10, advisory):** after HR verifies a document, the `ai_worker` service
+  reads it (digital PDF text, or OCR for scans and images) and proposes education, experience,
+  training, eligibility, and license items. HR accepts, corrects (with a reason), links to an
+  existing fact, or rejects each one on the extraction page; the original proposal is kept, and AI
+  never changes statuses, shortlists, decisions, or rosters. Off unless `AI_EXTRACTION_ENABLED=True`;
+  failures leave manual review untouched. `manage.py make_ai_samples` writes made-up test documents,
+  and `manage.py ai_extract_file` shows what would be proposed for one file. The AI packages
   (`requirements-ai.txt`) are installed only on the server; the AI features arrive in Stage 10.
 - **Audit trail:** HR Head / Approver and System Administrator can search and export it from the
   account menu, **Audit trail**.

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Edit extracted item · {{ application.reference }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4">Edit and accept: {{ label|lower }}</h1>
+    <p class="text-muted">{{ application.reference }} · the AI proposal is kept unchanged; your values become the accepted fact. A reason is required when you change anything.</p>
+    <div class="small border rounded p-2 mb-3 bg-light"><span class="text-muted">Source (page {{ item.page_number }}):</span> “{{ item.raw_text|truncatechars:300 }}”</div>
+    <p class="small text-muted">Fields marked <span class="text-danger">*</span> are required.</p>
+    {% include "includes/form_errors.html" %}
+    <form method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+      <button class="btn btn-primary" type="submit">Accept with these values</button>
+      <a class="btn btn-link" href="{{ cancel_url }}">Cancel</a>
+    </form>
+  </div></div>
+</div></div>
+{% endblock %}

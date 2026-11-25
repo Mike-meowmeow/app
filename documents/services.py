@@ -83,6 +83,9 @@ def upload(user, application, document_type, upload_file, *, replaces=None):
                 version.save(update_fields=['malware_status'])
             if correction is not None:
                 applications._bump_revision(application)
+            if replaces is not None:
+                from ai_processing import services as ai
+                ai.on_document_replaced(user, document, version)
             audit.record('document.replaced' if replaces else 'document.uploaded',
                          entity=version, actor=user,
                          changes={'application': application.reference,
@@ -136,6 +139,8 @@ def verify(actor, version, *, status, notes=''):
     version.verification_status = status
     version.save(update_fields=['verification_status'])
     applications._bump_revision(application)
+    from ai_processing import services as ai  # Stage 10: queue or invalidate AI jobs
+    ai.on_verification_recorded(actor, version, old, status)
     audit.record('document.verified' if status == VerificationStatus.VERIFIED
                  else 'document.verification_failed', entity=version, actor=actor, reason=notes,
                  changes={'verification_status': {'old': old, 'new': status},

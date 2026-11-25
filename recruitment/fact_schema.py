@@ -141,6 +141,17 @@ def initial_from_value(fact_type, value):
     return {name: value.get(name) for name, _, _, _ in FACT_FIELDS[fact_type]}
 
 
+# Keys that record where a fact came from rather than what it says: the profile
+# record, an HR entry, or (Stage 10) the AI extraction item HR accepted.
+BOOKKEEPING_KEYS = ('source_record_id', 'manual', 'extraction_item_id')
+
+
 def comparable(value):
     """Value without bookkeeping keys, for change detection."""
-    return {k: v for k, v in value.items() if k not in ('source_record_id', 'manual')}
+    return {k: v for k, v in value.items() if k not in BOOKKEEPING_KEYS}
+
+
+def is_reviewer_entered(value):
+    """Facts HR added (manually or from an AI extraction), which snapshot
+    synchronization must never supersede."""
+    return bool(value.get('manual') or value.get('extraction_item_id'))

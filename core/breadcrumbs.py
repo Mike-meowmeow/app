@@ -55,6 +55,12 @@ def _evaluation(kwargs):
     return InterviewEvaluation.objects.get(pk=kwargs['pk'])
 
 
+def _extraction_item(kwargs):
+    from ai_processing.models import ExtractionItem
+    return ExtractionItem.objects.select_related('extraction').get(
+        pk=kwargs['item_pk'], extraction__job__application_id=kwargs['pk'])
+
+
 def _same_pk(record, kwargs):
     return {'pk': kwargs['pk']}
 
@@ -152,6 +158,10 @@ PAGES = {
     'recruitment:fact_correct': _on_review('Correct fact'),
     'recruitment:qualification_outcome': _on_review('Qualification outcome'),
     'recruitment:application_selection': _on_review('Selection'),
+    'ai_processing:extraction': _on_review('AI extraction'),
+    'ai_processing:item_edit': Page(
+        'Edit extracted item', 'ai_processing:extraction', load=_extraction_item,
+        parent_kwargs=lambda item, kw: {'pk': kw['pk'], 'job_pk': item.extraction.job_id}),
     'recruitment:decision_new': _on_selection('Record decision'),
     'recruitment:decision_correct': _on_selection('Correct decision'),
     'recruitment:decision_release': _on_selection('Release decision'),

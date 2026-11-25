@@ -41,6 +41,7 @@ NO_TRAIL = {
     'committee:conflict_declare', 'committee:evaluation_discard',
     'notifications:open', 'notifications:mark_all_read', 'notifications:retry',
     'analytics:report_download',
+    'ai_processing:run', 'ai_processing:retry', 'ai_processing:item_action',
 }
 
 

@@ -19,6 +19,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core import mail
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -42,6 +43,7 @@ S, T, O = ApplicationStatus, DecisionType, DecisionOutcome
 
 
 class NonAIAcceptanceScenario(RosterTestCase):
+    @override_settings(AI_EXTRACTION_ENABLED=False)
     def test_complete_manual_workflow(self):
         c = self.client
 
@@ -160,10 +162,12 @@ class NonAIAcceptanceScenario(RosterTestCase):
         response = c.get(reverse('documents:download', args=[first.pk]))
         self.assertEqual(response.status_code, 200)
 
-        # 7. No AI component is installed or needed.
-        self.assertNotIn('ai_processing', ' '.join(settings.INSTALLED_APPS))
-        for module in ('ai_processing', 'spacy', 'sentence_transformers', 'celery'):
-            self.assertIsNone(importlib.util.find_spec(module), module)
+        # 7. The whole manual workflow ran with AI extraction switched off: no AI
+        # job was created, and no queue service (Celery) is needed.
+        from ai_processing.models import AIJob
+        self.assertFalse(settings.AI_EXTRACTION_ENABLED)
+        self.assertFalse(AIJob.objects.exists())
+        self.assertIsNone(importlib.util.find_spec('celery'))
 
     def make_psb(self):
         from accounts import roles

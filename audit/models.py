@@ -8,12 +8,14 @@ from core.models import AppendOnlyModel
 class AuditLog(AppendOnlyModel):
     """Protected business event history.
 
-    The optional job link to ai_jobs is added in Stage 10 by an additive
-    migration; manual events keep it null.
+    The optional job link to ai_jobs (Stage 10) marks events caused by or about
+    an AI job; manual events keep it null.
     """
 
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                               null=True, blank=True, related_name='audit_events')
+    job = models.ForeignKey('ai_processing.AIJob', on_delete=models.PROTECT, null=True,
+                            blank=True, related_name='audit_events')
     action = models.CharField(max_length=64)
     entity_type = models.CharField(max_length=100)
     entity_id = models.CharField(max_length=64)

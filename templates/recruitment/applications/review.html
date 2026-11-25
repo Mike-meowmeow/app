@@ -119,8 +119,22 @@
     <div class="card shadow-sm mb-3" id="qualifications"><div class="card-body">
       <h2 class="h5">Qualification review</h2>
       <p class="small text-muted">Human-entered outcome per published standard (requirement version {{ snapshot.requirement_version.version }}). Outcomes never change shortlisting or roster inclusion by themselves.</p>
+      {% if show_checks %}
+        <div class="d-flex flex-wrap align-items-center gap-2 small border rounded p-2 mb-2">
+          <span class="text-muted">Advisory check:</span>
+          {% if check %}
+            {% include "ai_processing/includes/result_badge.html" with result=check.overall_status label=check.get_overall_status_display %}
+            <span class="text-muted">{{ check.screened_at|date:"M j, Y g:i A" }}</span>
+            {% if not check_current %}<span class="badge text-bg-light border text-warning-emphasis">Out of date</span>{% endif %}
+            <a href="{% url 'ai_processing:screening' application.pk check.pk %}">Details and reasoning</a>
+          {% else %}<span class="text-muted">not run yet</span>{% endif %}
+          {% if can_run_checks and not check_current %}
+            <form class="ms-auto" method="post" action="{% url 'ai_processing:run_checks' application.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">{% if check %}Run checks again{% else %}Run qualification checks{% endif %}</button></form>
+          {% endif %}
+        </div>
+      {% endif %}
       <ul class="list-group">
-        {% for standard, outcome in standards %}
+        {% for standard, outcome, check_result in standards %}
           <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
             <div class="small">
               <span class="badge text-bg-light border">{{ standard.get_criterion_type_display }}</span> {{ standard.description }}
@@ -131,6 +145,9 @@
                   {% if outcome.value.reason %}<div class="text-muted">{{ outcome.value.reason }}</div>{% endif %}
                 {% else %}<span class="badge text-bg-secondary">Not assessed</span>{% endif %}
               </div>
+              {% if check_result %}
+                <div class="mt-1 text-muted">Check suggests: {% include "ai_processing/includes/result_badge.html" with result=check_result.result label=check_result.get_result_display %}{% if outcome and outcome.value.outcome != check_result.result %} <span class="text-warning-emphasis">differs from the recorded outcome</span>{% endif %}</div>
+              {% endif %}
             </div>
             {% if can_review %}<a class="btn btn-sm btn-outline-primary flex-shrink-0" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}">Record outcome</a>{% endif %}
           </li>

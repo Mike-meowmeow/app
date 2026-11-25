@@ -319,14 +319,21 @@ def review(request, pk):
         v.ai_can_run = (settings.AI_EXTRACTION_ENABLED and can_review
                         and (v.ai_job is None or v.ai_job.is_invalidated)
                         and not ai.eligibility_problems(v))
+    from ai_processing import screening as checks
+    check = checks.latest(application)
+    check_results = checks.results_by_standard(check)
     return render(request, 'recruitment/applications/review.html', {
+        'check': check, 'check_current': check is not None and checks.is_current(check),
+        'can_run_checks': can_review and not checks.problems(application),
+        'show_checks': checks.enabled() or check is not None,
         'show_ai': settings.AI_EXTRACTION_ENABLED or bool(ai_jobs),
         'application': application, 'can_review': can_review,
         'snapshot': snapshot, 'snapshot_view': _snapshot_view(snapshot.data if snapshot else None),
         'checklist': services.document_checklist(application),
         'facts': [(f, fact_schema.display_items(f.fact_type, f.value)) for f in current],
         'superseded_count': sum(1 for f in facts if not f.is_current),
-        'standards': [(s, outcomes.get(str(s.pk))) for s in standards],
+        'standards': [(s, outcomes.get(str(s.pk)), check_results.get(str(s.pk)))
+                      for s in standards],
         'outcome_labels': fact_schema.OUTCOME_LABELS,
         'versions': versions,
         'corrections_requested': application.correction_requests.select_related('requested_by'),
@@ -571,20 +578,33 @@ def qualification_outcome(request, pk, standard_pk):
     current = services.qualification_outcomes(application).get(str(standard.pk))
     initial = {'outcome': current.value['outcome'], 'reason': current.value.get('reason', ''),
                'supporting_facts': current.value.get('supporting_fact_ids', [])} if current else {}
+    # "Record outcome starting from this check": the advisory result fills the
+    # form; HR still reads, edits, and submits it.
+    from ai_processing import screening as checks
+    check_result = checks.usable_result(application, standard, request.GET.get('check'))
+    intro = f'{standard.get_criterion_type_display()}: {standard.description}'
+    if check_result:
+        accepted_ids = {str(f.pk) for f in accepted}
+        initial = {'outcome': check_result.result,
+                   'reason': 'Advisory check: ' + ' '.join(check_result.explanation_lines),
+                   'supporting_facts': [i for i in check_result.evidence_fact_ids
+                                        if i in accepted_ids]}
+        intro += (f'. Filled in from the advisory check ({check_result.get_result_display()}); '
+                  'review and edit before recording.')
     form = OutcomeForm(request.POST or None, facts=labelled, initial=initial)
     if request.method == 'POST' and form.is_valid():
         chosen = [f for f in accepted if str(f.pk) in form.cleaned_data['supporting_facts']]
         try:
             services.record_qualification_outcome(
                 request.user, application, standard, outcome=form.cleaned_data['outcome'],
-                reason=form.cleaned_data['reason'], supporting_facts=chosen)
+                reason=form.cleaned_data['reason'], supporting_facts=chosen,
+                check_result=check_result)
         except ValidationError as exc:
             form.add_error(None, exc)
         else:
             messages.success(request, 'Qualification outcome recorded.')
             return redirect(f"{redirect('recruitment:application_review', pk=pk).url}#qualifications")
     return render(request, 'form_page.html', {
-        'form': form, 'title': 'Qualification outcome',
-        'intro': f'{standard.get_criterion_type_display()}: {standard.description}',
+        'form': form, 'title': 'Qualification outcome', 'intro': intro,
         'submit_label': 'Record outcome', 'cancel_url': 'recruitment:application_review',
         'cancel_arg': pk})

@@ -17,6 +17,7 @@ from core.models import BaseModel
 
 class JobType(models.TextChoices):
     DOCUMENT_EXTRACTION = 'document_extraction', 'Document text extraction'
+    QUALIFICATION_CHECK = 'qualification_check', 'Qualification check'
 
 
 class JobStatus(models.TextChoices):
@@ -160,3 +161,49 @@ class ExtractionItem(BaseModel):
 
     def __str__(self):
         return f'{self.item_type} item {self.pk}'
+
+
+class QualificationResult(models.TextChoices):
+    """The four outcomes, the same as HR's manual qualification outcomes."""
+    MEETS = 'meets', 'Meets Requirement'
+    DOES_NOT_MEET = 'does_not_meet', 'Does Not Meet Requirement'
+    NEEDS_REVIEW = 'needs_review', 'Needs Review'
+    NOT_REQUIRED = 'not_required', 'Not Required'
+
+
+class AIScreening(BaseModel):
+    """One advisory qualification check (13.4): the application's accepted
+    facts compared with its published requirement version by fixed rules.
+    Advisory only; HR records the official outcome separately."""
+
+    job = models.OneToOneField(AIJob, on_delete=models.PROTECT, related_name='screening')
+    input_snapshot = models.ForeignKey('recruitment.ApplicationSnapshot',
+                                       on_delete=models.PROTECT, related_name='ai_screenings')
+    overall_status = models.CharField(max_length=20, choices=QualificationResult.choices)
+    screened_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        db_table = 'ai_screenings'
+        ordering = ['-screened_at']
+
+
+class StandardResult(BaseModel):
+    """The check's result for one qualification standard, with the facts it
+    used and the reasoning, one step per line."""
+
+    screening = models.ForeignKey(AIScreening, on_delete=models.PROTECT, related_name='results')
+    standard = models.ForeignKey('recruitment.QualificationStandard', on_delete=models.PROTECT,
+                                 related_name='ai_results')
+    result = models.CharField(max_length=20, choices=QualificationResult.choices)
+    evidence_fact_ids = models.JSONField(default=list, blank=True)
+    explanation = models.TextField()
+
+    class Meta:
+        db_table = 'qualification_results'
+        ordering = ['screening', 'created_at']
+        constraints = [models.UniqueConstraint(fields=['screening', 'standard'],
+                                               name='qualification_result_unique')]
+
+    @property
+    def explanation_lines(self):
+        return [line for line in self.explanation.splitlines() if line.strip()]

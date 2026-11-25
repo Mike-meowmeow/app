@@ -1,9 +1,13 @@
 """HR pages for AI extraction (13.3): run or retry a job, read the extracted
 text beside the proposed items, and accept, correct, link, or reject each item.
-Everything is advisory and labeled as such."""
+Also the advisory qualification checks (13.4). Everything is advisory and
+labeled as such."""
 
+from django.conf import settings
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -13,12 +17,13 @@ from accounts import roles
 from accounts.access import role_required
 from documents.models import DocumentVersion
 from recruitment import application_selectors as access
+from recruitment import application_services as applications
 from recruitment import fact_schema
 from recruitment.application_forms import CorrectionReasonForm
 from recruitment.models import Application, FactType
 
-from . import services
-from .models import AIJob, ExtractionItem, ItemReviewStatus
+from . import screening, services
+from .models import AIJob, AIScreening, ExtractionItem, ItemReviewStatus, JobStatus, JobType
 
 STAFF_ROLES = (roles.HR, roles.APPROVER, roles.DEPARTMENT_HEAD)
 
@@ -192,3 +197,88 @@ def item_edit(request, pk, item_pk):
         'application': application, 'item': item, 'form': form,
         'label': FactType(item.item_type).label,
         'cancel_url': _job_url(pk, item.extraction.job_id, f'#item-{item.pk}')})
+
+
+# --------------------------------------------------------------------------
+# Advisory qualification checks (13.4)
+# --------------------------------------------------------------------------
+
+@role_required(roles.HR)
+@require_POST
+def run_checks(request, pk):
+    application = _reviewable(request, pk)
+    try:
+        screening_record, created = screening.run_checks(request.user, application)
+    except ValidationError as exc:
+        _flash(request, exc)
+        return redirect(reverse('recruitment:application_review', args=[pk]) + '#qualifications')
+    messages.success(request, 'Qualification checks done. They are advisory: record the '
+                              'official outcome yourself.' if created else
+                     'Nothing changed since the last check; showing it again.')
+    return redirect('ai_processing:screening', pk=pk, screening_pk=screening_record.pk)
+
+
+@role_required(*STAFF_ROLES)
+def screening_detail(request, pk, screening_pk):
+    application = _visible(request.user, pk)
+    record = get_object_or_404(AIScreening.objects.select_related(
+        'job__requested_by', 'input_snapshot__requirement_version'), pk=screening_pk,
+        job__application=application)
+    outcomes = applications.qualification_outcomes(application)
+    rows = []
+    for result in record.results.select_related('standard').order_by('created_at'):
+        rows.append({
+            'result': result,
+            'facts': [(f, fact_schema.display_items(f.fact_type, f.value))
+                      for f in screening.evidence_facts(application, result)],
+            'official': outcomes.get(str(result.standard_id)),
+        })
+    return render(request, 'ai_processing/screening.html', {
+        'application': application, 'screening': record, 'rows': rows,
+        'current': not record.job.is_invalidated and screening.is_current(record),
+        'can_review': access.can_review(request.user, application),
+        'can_run': access.can_review(request.user, application)
+        and not screening.problems(application),
+        'outcome_labels': fact_schema.OUTCOME_LABELS,
+    })
+
+
+# --------------------------------------------------------------------------
+# HR workspace: extraction results across the HR officer's vacancies
+# --------------------------------------------------------------------------
+
+_LIVE = Q(invalidated_at__isnull=True)
+_FINISHED = Q(status__in=[JobStatus.COMPLETED, JobStatus.NEEDS_REVIEW])
+RESULT_TABS = [
+    # (key, label, filter on the annotated job queryset)
+    ('review', 'Waiting for HR review', _LIVE & _FINISHED & Q(pending_items__gt=0)),
+    ('running', 'Queued or processing',
+     _LIVE & Q(status__in=[JobStatus.QUEUED, JobStatus.PROCESSING])),
+    ('failed', 'Failed', _LIVE & Q(status=JobStatus.FAILED)),
+    ('done', 'Reviewed', _LIVE & _FINISHED & Q(pending_items=0)),
+    ('all', 'All, including invalidated', Q()),
+]
+
+
+@role_required(roles.HR)
+def results(request):
+    jobs = (AIJob.objects.filter(job_type=JobType.DOCUMENT_EXTRACTION,
+                                 application__in=access.visible_applications(request.user)
+                                 .values('pk'))
+            .select_related('application__applicant__user', 'application__vacancy',
+                            'document_version__document__document_type')
+            .annotate(item_count=Count('extraction__items', distinct=True),
+                      pending_items=Count('extraction__items', distinct=True,
+                                          filter=Q(extraction__items__review_status=
+                                                   ItemReviewStatus.PENDING))))
+    tabs = [(key, label, jobs.filter(condition).count()) for key, label, condition in RESULT_TABS]
+    show = request.GET.get('show')
+    if show not in dict((k, c) for k, _, c in RESULT_TABS):
+        show = 'review'
+    condition = next(c for k, _, c in RESULT_TABS if k == show)
+    page = Paginator(jobs.filter(condition).order_by('-queued_at'), 25) \
+        .get_page(request.GET.get('page'))
+    return render(request, 'ai_processing/results.html', {
+        'tabs': tabs, 'show': show, 'page': page,
+        'enabled': settings.AI_EXTRACTION_ENABLED,
+    })

@@ -449,3 +449,32 @@ class ParserTests(SimpleTestCase):
     def test_unknown_type_and_empty_text_give_warnings(self):
         self.assertEqual(parsers.propose('LETTER', fake_pages('Dear Sir'))[0], [])
         self.assertTrue(parsers.propose('TOR', fake_pages(''))[1])
+
+
+class ResultsPageTests(AITestCase):
+    def test_workspace_lists_jobs_waiting_for_review(self):
+        self.client.force_login(self.hr)
+        workspace = self.client.get(reverse('core:workspace_hr'))
+        self.assertContains(workspace, reverse('ai_processing:results'))
+        url = reverse('ai_processing:results')
+        self.assertContains(self.client.get(url), 'Nothing is waiting for review.')
+
+        self.verify()  # queued, not yet read
+        self.assertContains(self.client.get(url + '?show=running'), 'pds.pdf')
+        self.run_job()
+        page = self.client.get(url)
+        self.assertContains(page, 'pds.pdf')
+        self.assertContains(page, '1 of 1 waiting')
+        item = ExtractionItem.objects.get()
+        services.reject_item(self.hr, item, reason='Not on the document.')
+        self.assertNotContains(self.client.get(url), 'pds.pdf')
+        self.assertContains(self.client.get(url + '?show=done'), 'pds.pdf')
+
+    def test_only_hr_with_access_sees_results(self):
+        self.verify()
+        self.run_job()
+        outsider = make_user('hr_other', roles.HR)  # not assigned to the vacancy
+        self.client.force_login(outsider)
+        self.assertNotContains(self.client.get(reverse('ai_processing:results')), 'pds.pdf')
+        self.client.force_login(self.applicant)
+        self.assertNotEqual(self.client.get(reverse('ai_processing:results')).status_code, 200)

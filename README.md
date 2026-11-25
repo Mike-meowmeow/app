@@ -229,7 +229,13 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   never changes statuses, shortlists, decisions, or rosters. Off unless `AI_EXTRACTION_ENABLED=True`;
   failures leave manual review untouched. `manage.py make_ai_samples` writes made-up test documents,
   and `manage.py ai_extract_file` shows what would be proposed for one file. The AI packages
-  (`requirements-ai.txt`) are installed only on the server; the AI features arrive in Stage 10.
+  (`requirements-ai.txt`) are installed only on the server.
+- **Qualification checks (Stage 10, advisory):** on an application's Qualification review, HR
+  presses **Run qualification checks**. Fixed rules compare the accepted facts with each published
+  standard and suggest Meets / Does Not Meet / Needs Review / Not Required, with the reasoning and
+  the facts used (overlapping work counted once, relevance required, incomplete degrees and missing
+  hours sent to HR). HR records the official outcome, optionally starting from the suggestion. No
+  AI packages needed; `AI_QUALIFICATION_CHECKS_ENABLED` (on by default) turns it off.
 - **Audit trail:** HR Head / Approver and System Administrator can search and export it from the
   account menu, **Audit trail**.
 

@@ -278,6 +278,9 @@ AI_MAX_PAGES = int(env('AI_MAX_PAGES', '30'))
 # A PDF page with less digital text than this is read with OCR instead.
 AI_MIN_PAGE_CHARACTERS = int(env('AI_MIN_PAGE_CHARACTERS', '40'))
 SPACY_MODEL = env('SPACY_MODEL', 'en_core_web_sm')
+# Advisory qualification checks (13.4): fixed rules comparing HR-accepted facts
+# with the published standards. No AI runtime needed, so they work anywhere.
+AI_QUALIFICATION_CHECKS_ENABLED = env_bool('AI_QUALIFICATION_CHECKS_ENABLED', True)
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

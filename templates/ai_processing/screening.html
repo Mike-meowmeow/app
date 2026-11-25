@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Qualification check · {{ application.reference }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Qualification check</h1>
+    <div class="small text-muted">{{ application.reference }} · requirement version {{ screening.input_snapshot.requirement_version.version }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if can_run and not current %}
+      <form method="post" action="{% url 'ai_processing:run_checks' application.pk %}">{% csrf_token %}<button class="btn btn-primary btn-sm" type="submit">Run checks again</button></form>
+    {% endif %}
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'recruitment:application_review' application.pk %}#qualifications">Back to the application</a>
+  </div>
+</div>
+
+<div class="alert alert-info small">
+  <strong>Advisory.</strong> Fixed rules compared the facts HR accepted with each published standard. This is not the official outcome: it never changes the application's status, shortlist, decisions, or the official roster. Use it to check your own review, then record the outcome for each standard yourself.
+</div>
+
+{% if screening.job.is_invalidated %}
+  <div class="alert alert-secondary small">Replaced {{ screening.job.invalidated_at|date:"M j, Y g:i A" }}: {{ screening.job.invalidation_reason }}</div>
+{% elif not current %}
+  <div class="alert alert-warning small">Facts, reviews, or requirements changed after this check. {% if can_run %}Run the checks again for an up-to-date result.{% endif %}</div>
+{% endif %}
+
+<div class="card shadow-sm mb-3"><div class="card-body small">
+  <div class="d-flex flex-wrap gap-3 align-items-center">
+    <div><span class="text-muted">Overall:</span> {% include "ai_processing/includes/result_badge.html" with result=screening.overall_status label=screening.get_overall_status_display %}</div>
+    <div><span class="text-muted">Checked:</span> {{ screening.screened_at|date:"M j, Y g:i A" }}{% if screening.job.requested_by %} by {{ screening.job.requested_by.full_name|default:screening.job.requested_by.username }}{% endif %}</div>
+    <div><span class="text-muted">Rules:</span> {{ screening.job.model_version }}</div>
+    <div><span class="text-muted">Counted up to:</span> {{ screening.job.input_manifest.as_of }} (submission date)</div>
+  </div>
+  <div class="mt-2 text-muted">Uses accepted facts only. Experience and training count only when marked relevant. Names, contact details, birthdate, and sex are not part of the inputs.</div>
+</div></div>
+
+{% for row in rows %}{% with r=row.result %}
+  <div class="card shadow-sm mb-3" id="standard-{{ r.standard_id }}"><div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+      <div>
+        <span class="badge text-bg-light border">{{ r.standard.get_criterion_type_display }}</span>
+        <strong class="small">{{ r.standard.description }}</strong>
+      </div>
+      {% include "ai_processing/includes/result_badge.html" with result=r.result label=r.get_result_display %}
+    </div>
+    <h2 class="h6 mt-3 mb-1">Reasoning</h2>
+    <ol class="small mb-2">{% for line in r.explanation_lines %}<li>{{ line }}</li>{% endfor %}</ol>
+    <h2 class="h6 mb-1">Facts used</h2>
+    {% if row.facts %}
+      <ul class="small mb-2">
+        {% for fact, items in row.facts %}
+          <li>
+            {{ fact.get_fact_type_display }}: {% for label, value in items %}{{ value }}{% if not forloop.last %} · {% endif %}{% endfor %}
+            <span class="text-muted">({{ fact.get_review_status_display|lower }}{% if fact.fact_type == 'experience' or fact.fact_type == 'training' %}, {{ fact.get_relevance_status_display|lower }}{% endif %})</span>
+            {% for link in fact.evidence.all %}<a class="ms-1" href="{% url 'documents:download' link.document_version.pk %}?inline=1" target="_blank" rel="noopener">{{ link.document_version.document.document_type.name }} v{{ link.document_version.version }}</a>{% empty %}<span class="text-muted ms-1">no evidence linked</span>{% endfor %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}<p class="small text-muted mb-2">None.</p>{% endif %}
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 border-top pt-2 small">
+      <div>
+        <span class="text-muted">Official outcome:</span>
+        {% if row.official %}{% with o=row.official.value.outcome %}{% for key, label in outcome_labels.items %}{% if key == o %}{% include "ai_processing/includes/result_badge.html" with result=o label=label %}{% endif %}{% endfor %}{% endwith %}
+          <span class="text-muted">by {{ row.official.reviewed_by.full_name|default:row.official.reviewed_by.username }}</span>
+          {% if row.official.value.outcome != r.result %}<span class="text-warning-emphasis ms-1">Differs from the check.</span>{% endif %}
+        {% else %}<span class="badge text-bg-secondary">Not recorded</span>{% endif %}
+      </div>
+      {% if can_review and current %}<a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:qualification_outcome' application.pk r.standard_id %}?check={{ r.pk }}">Record outcome starting from this check</a>{% endif %}
+    </div>
+  </div></div>
+{% endwith %}{% endfor %}
+{% endblock %}

@@ -424,7 +424,7 @@ def qualification_outcomes(application):
 
 @transaction.atomic
 def record_qualification_outcome(actor, application, standard, *, outcome, reason='',
-                                 supporting_facts=()):
+                                 supporting_facts=(), check_result=None):
     """Human-entered outcome per standard: Meets / Does Not Meet / Needs Review
     / Not Required, with the requirement and supporting evidence recorded."""
     application = _lock(application)
@@ -441,6 +441,9 @@ def record_qualification_outcome(actor, application, standard, *, outcome, reaso
     value = {'standard_id': str(standard.pk), 'criterion_type': standard.criterion_type,
              'requirement': standard.description, 'outcome': outcome, 'reason': reason,
              'supporting_fact_ids': [str(f.pk) for f in supporting]}
+    if check_result is not None:  # HR started from the advisory check (13.4)
+        value['advisory_check'] = {'result_id': str(check_result.pk),
+                                   'result': check_result.result}
     fact = ApplicationFact.objects.create(
         application=application, fact_type=FactType.QUALIFICATION_ASSESSMENT, value=value,
         review_status=FactReviewStatus.ACCEPTED, supersedes=previous, reviewed_by=actor,
@@ -450,7 +453,9 @@ def record_qualification_outcome(actor, application, standard, *, outcome, reaso
     _bump_revision(application)
     audit.record('qualification.assessed', entity=fact, actor=actor, reason=reason,
                  changes={'standard': standard.description, 'outcome': outcome,
-                          'previous': previous.value.get('outcome') if previous else None})
+                          'previous': previous.value.get('outcome') if previous else None,
+                          'advisory_check': value.get('advisory_check')},
+                 job=check_result.screening.job if check_result is not None else None)
     return fact
 
 

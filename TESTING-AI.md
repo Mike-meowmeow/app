@@ -1,4 +1,4 @@
-# Testing guide: AI document extraction (Stage 10, first round)
+# Testing guide: AI document extraction and qualification checks (Stage 10)
 
 This guide tests the new AI features:
 
@@ -6,7 +6,8 @@ This guide tests the new AI features:
 - the AI proposes education, experience, training, eligibility, and license items;
 - HR reviews each item: accept, edit and accept, link to an existing fact, or reject;
 - jobs are cancelled when a document is replaced or its verification is withdrawn;
-- failures are retried, and manual review always keeps working.
+- failures are retried, and manual review always keeps working;
+- advisory qualification checks compare the facts HR accepted with the vacancy's standards (Part C).
 
 **Everything the AI produces is a suggestion.** It must never change an application's status,
 shortlist, decisions, or the official roster. If you ever see that happen, report it as a failure.
@@ -17,6 +18,7 @@ There are two parts:
 | --- | --- | --- | --- |
 | **A** | Your own computer | Everyone | About 30 minutes |
 | **B** | The AI server's development copy, `http://192.168.1.107:8000` | Someone on the same home network as the server, with help from the person who manages it | About 1 hour |
+| **C** | Your own computer or the server | Everyone (needs no AI packages) | About 40 minutes |
 
 Part A uses no AI packages: it checks the automated tests and what happens when the AI runtime is
 missing. Part B uses the real OCR and models on the server.
@@ -222,6 +224,96 @@ ssh admin-mike@192.168.1.107 "cd /srv/evsu-recruitment && sudo -u evsu .venv/bin
 
 ---
 
+## Part C. Advisory qualification checks
+
+The checks compare the facts HR **accepted** with each published qualification standard, using
+fixed written rules. They need no AI packages, so they also work on your own computer
+(`python manage.py runserver`, then `http://127.0.0.1:8000`). For each standard they suggest one of
+the four outcomes HR already uses, with the reasoning and the facts used. HR still records the
+official outcome.
+
+Rules to keep in mind while testing:
+
+- Only accepted facts count. Pending facts are not used, but they make a "Does Not Meet" into
+  "Needs Review".
+- Experience and training count only when HR marked them **Relevant**.
+- Overlapping work periods count once. Ongoing work counts up to the submission date.
+- A repeated training (same title and start date) counts once. A training without hours is
+  reported, not guessed.
+- An ongoing degree is "Needs Review", not "Meets".
+- An expired license card is "Needs Review": HR confirms the registration.
+- Names, contact details, birthdate, and sex are never part of the check.
+
+### C1. A vacancy with several standards (HR)
+
+| # | Step | Expected |
+| --- | --- | --- |
+| C1.1 | New vacancy, opening now, with a **Personal Data Sheet** requirement (required, 1 file) | Draft created |
+| C1.2 | Add these qualification standards: **Education**: Master's degree, field `Mathematics`. **Work experience**: at least `4` years. **Training**: at least `16` hours. **Professional license**: `Professional Teacher`. **Other**: `Willing to teach Saturday classes` | Five standards listed |
+| C1.3 | Add a competency and **Publish** | Published |
+
+### C2. The test applicant
+
+Register a new applicant (for example `qctest`, `qctest@example.com`) and enter exactly these
+made-up entries in **My profile**:
+
+| Section | Entry |
+| --- | --- |
+| Education | Master's degree, `Master of Arts in Mathematics`, `Sample State University`, completed, `2016-04-01` |
+| Work experience | `Instructor`, `Sample College`, start `2020-06-01`, end `2023-05-31` |
+| Work experience | `Tutor`, `Sample Learning Center`, start `2021-06-01`, end `2022-05-31` (inside the first period) |
+| Training | `Classroom Assessment Seminar`, `8` hours, start `2024-01-10` |
+| Training | `Research Writing Workshop`, hours **left blank**, start `2024-03-05` |
+| Professional license | `Professional Teacher`, number `0000001`, issuing body `PRC`, expires `2025-01-01` |
+
+| # | Step | Expected |
+| --- | --- | --- |
+| C2.1 | Apply to the C1 vacancy, upload any PDF as the Personal Data Sheet, **Submit** | Submitted |
+
+### C3. Checks before any review (HR)
+
+| # | Step | Expected |
+| --- | --- | --- |
+| C3.1 | Open the application. Under **Qualification review** there is an **Advisory check** bar | "not run yet" and a **Run qualification checks** button |
+| C3.2 | Press **Run qualification checks** | The check page opens with an **Advisory** notice. The overall result is **Needs Review**, and each standard says its entries were "not yet reviewed by HR" |
+| C3.3 | Go back to the application | Each standard shows "Check suggests: Needs Review". Status, revision, and roster are unchanged |
+
+### C4. Checks after review
+
+| # | Step | Expected |
+| --- | --- | --- |
+| C4.1 | Accept all education, experience, training, and license facts. Mark both work entries and both trainings **Relevant** | Facts accepted |
+| C4.2 | Look at the Advisory check bar | **Out of date** badge, and a **Run checks again** button |
+| C4.3 | Press **Run checks again** | A new check opens. The old one is marked replaced |
+| C4.4 | **Education** | **Meets Requirement**: "the program matches Mathematics" |
+| C4.5 | **Work experience (4 years)** | **Does Not Meet Requirement**: "Overlapping periods (365 days) are counted once", total **3.0 years** (not 4.0) |
+| C4.6 | **Training (16 hours)** | **Needs Review**: the seminar is counted (8 hours), and the workshop is "Not counted, hours not recorded" |
+| C4.7 | **Professional license** | **Needs Review**: "the card shows it expired on 2025-01-01" |
+| C4.8 | **Other** | **Needs Review**: "HR judges it against the evidence" |
+| C4.9 | Overall | **Does Not Meet Requirement** (because of experience) |
+| C4.10 | Each standard lists the **Facts used**, with links to the evidence documents where linked | Shown |
+
+### C5. HR records the official outcome
+
+| # | Step | Expected |
+| --- | --- | --- |
+| C5.1 | On the check page, under Training, press **Record outcome starting from this check** | The outcome form opens with "Needs Review", the reasoning as the reason, and the counted facts ticked |
+| C5.2 | Change the outcome to **Meets Requirement**, write your own reason, and submit | Outcome recorded |
+| C5.3 | Back on the application | Training shows the official outcome **Meets** and "Check suggests: Needs Review ... differs from the recorded outcome" |
+| C5.4 | Change any fact (for example mark a training **Not relevant**), then open the check page from the bar | A yellow notice says facts changed after this check. There are no **Record outcome starting from this check** links until the checks run again |
+
+### C6. Nothing else changes
+
+| # | Step | Expected |
+| --- | --- | --- |
+| C6.1 | Run the checks, then change nothing and go back to the application | The bar has no run button and no **Out of date** badge: the check is current, so running it again would give the same result |
+| C6.2 | Compare the application's status, shortlist, decisions, and the roster before and after the checks | Identical. Only HR's recorded outcomes appear on the roster review |
+| C6.3 | Sign in as an approver and open the application | The check details can be viewed, but there is no run button and no Record outcome link |
+| C6.4 | (Person who manages the server) set `AI_QUALIFICATION_CHECKS_ENABLED=False` in `.env` and restart | The Advisory check bar disappears. Manual qualification review still works |
+
+
+---
+
 ## Results checklist
 
 Copy this table into your report and fill in **Pass** or **Fail** for each row.
@@ -241,6 +333,12 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | B7 Replacing or withdrawing a document (B7.1-B7.6) | | |
 | B8 Worker stopped (B8.1-B8.3) | | |
 | B9 Command line (optional) | | |
+| C1 Vacancy with five standards | | |
+| C2 Test applicant | | |
+| C3 Checks before review (C3.1-C3.3) | | |
+| C4 Checks after review (C4.1-C4.10; list any differing results) | | |
+| C5 Official outcome from a check (C5.1-C5.4) | | |
+| C6 Nothing else changes (C6.1-C6.4) | | |
 
 **For each failure, include:**
 - the step number;

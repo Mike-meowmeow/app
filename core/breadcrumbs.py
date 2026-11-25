@@ -158,7 +158,9 @@ PAGES = {
     'recruitment:fact_correct': _on_review('Correct fact'),
     'recruitment:qualification_outcome': _on_review('Qualification outcome'),
     'recruitment:application_selection': _on_review('Selection'),
+    'ai_processing:results': Page('AI extraction results'),
     'ai_processing:extraction': _on_review('AI extraction'),
+    'ai_processing:screening': _on_review('Qualification check'),
     'ai_processing:item_edit': Page(
         'Edit extracted item', 'ai_processing:extraction', load=_extraction_item,
         parent_kwargs=lambda item, kw: {'pk': kw['pk'], 'job_pk': item.extraction.job_id}),
@@ -228,6 +230,7 @@ WORKSPACE_ROLES = {
     'analytics:dashboard': _RECRUITMENT,
     'recruitment:position_list': (roles.HR,),
     'recruitment:verification_queue': (roles.HR,),
+    'ai_processing:results': (roles.HR,),
     'recruitment:decisions_pending': (roles.HR, roles.APPROVER),
     'matrix:pending': (roles.APPROVER,),
     'matrix:templates': (roles.APPROVER, roles.SYSTEM_ADMIN),

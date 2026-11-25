@@ -226,7 +226,8 @@ def claim_next(worker=None):
     now = timezone.now()
     with transaction.atomic():
         job = (AIJob.objects.select_for_update(skip_locked=True)
-               .filter(status=JobStatus.QUEUED, invalidated_at__isnull=True, available_at__lte=now)
+               .filter(job_type=JobType.DOCUMENT_EXTRACTION, status=JobStatus.QUEUED,
+                       invalidated_at__isnull=True, available_at__lte=now)
                .order_by('available_at', 'queued_at').first())
         if job is None:
             return None
@@ -532,6 +533,6 @@ def reject_item(actor, item, *, reason):
 def jobs_by_version(application):
     """{document_version_id: job} with the latest job of each version."""
     found = {}
-    for job in application.ai_jobs.order_by('queued_at'):
+    for job in application.ai_jobs.filter(job_type=JobType.DOCUMENT_EXTRACTION)             .order_by('queued_at'):
         found[job.document_version_id] = job
     return found

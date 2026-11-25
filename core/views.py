@@ -18,6 +18,8 @@ WORKSPACE_PLAN = {
         ('Vacancies and requirements', 'Stage 4', 'recruitment:vacancy_list'),
         ('Position catalog (reusable vacancy defaults)', 'Stage 4', 'recruitment:position_list'),
         ('Document verification queue', 'Stage 5', 'recruitment:verification_queue'),
+        ('AI extraction results (items waiting for review, failures)', 'Stage 10',
+         'ai_processing:results'),
         ('Applications: fact review and corrections', 'Stage 5', 'recruitment:vacancy_list'),
         ('Official roster preparation (open a vacancy, then Official roster)', 'Stage 6',
          'recruitment:vacancy_list'),

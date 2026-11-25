@@ -242,6 +242,10 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   the model revision. Not a score or ranking; names, contact details, schools, and employers are
   never inputs. Off unless `AI_COMPETENCY_MATCHING_ENABLED=True` on a computer with the model.
   `manage.py evaluate_competency_matching pairs.csv` compares the model with HR's judgments.
+- **AI review summary:** the HR workspace's **AI extraction results** page (and
+  `manage.py ai_review_report`) shows per document type how many proposed items HR accepted,
+  corrected, linked, or rejected, with the fields corrected most. `ai_processing/test_acceptance.py`
+  runs every AI feature end to end with AI on.
 - **Audit trail:** HR Head / Approver and System Administrator can search and export it from the
   account menu, **Audit trail**.
 

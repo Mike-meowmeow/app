@@ -549,3 +549,44 @@ def jobs_by_version(application):
     for job in application.ai_jobs.filter(job_type=JobType.DOCUMENT_EXTRACTION)             .order_by('queued_at'):
         found[job.document_version_id] = job
     return found
+
+
+# --------------------------------------------------------------------------
+# Review summary (13.3 gate: correction rate per document type)
+# --------------------------------------------------------------------------
+
+def review_summary(jobs):
+    """Per document type: how HR handled the proposed items of the given
+    (live) extraction jobs, and which fields HR corrected. Returns a list of
+    dicts sorted by document type name, plus a totals dict."""
+    items = (ExtractionItem.objects.filter(extraction__job__in=jobs,
+                                           extraction__job__invalidated_at__isnull=True)
+             .select_related('extraction__document_version__document__document_type',
+                             'resulting_fact'))
+    rows = {}
+    for item in items:
+        doc_type = item.extraction.document_version.document.document_type
+        row = rows.setdefault(doc_type.pk, {
+            'document_type': doc_type.name, 'proposed': 0, 'pending': 0,
+            'accepted': 0, 'corrected': 0, 'linked': 0, 'rejected': 0, 'fields': {}})
+        row['proposed'] += 1
+        row[item.review_status] += 1
+        if item.review_status == ItemReviewStatus.CORRECTED and item.resulting_fact:
+            proposed = schema_value(item.item_type, item.proposed_value)
+            final = fact_schema.comparable(item.resulting_fact.value)
+            labels = {name: label for name, label, *_ in
+                      fact_schema.FACT_FIELDS.get(item.item_type, [])}
+            for field in audit.diff(proposed, {k: final.get(k) for k in proposed}):
+                label = labels.get(field, field)
+                row['fields'][label] = row['fields'].get(label, 0) + 1
+    result = sorted(rows.values(), key=lambda r: r['document_type'])
+    totals = {k: sum(r[k] for r in result)
+              for k in ('proposed', 'pending', 'accepted', 'corrected', 'linked', 'rejected')}
+    for row in result + [totals]:
+        decided = row['accepted'] + row['corrected'] + row['linked'] + row['rejected']
+        row['decided'] = decided
+        row['correction_rate'] = row['corrected'] / decided if decided else None
+        row['rejection_rate'] = row['rejected'] / decided if decided else None
+        if 'fields' in row:
+            row['fields'] = sorted(row['fields'].items(), key=lambda kv: -kv[1])
+    return result, totals

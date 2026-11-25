@@ -478,3 +478,26 @@ class ResultsPageTests(AITestCase):
         self.assertNotContains(self.client.get(reverse('ai_processing:results')), 'pds.pdf')
         self.client.force_login(self.applicant)
         self.assertNotEqual(self.client.get(reverse('ai_processing:results')).status_code, 200)
+
+
+class ReviewSummaryTests(AITestCase):
+    def test_counts_decisions_and_corrected_fields(self):
+        item = self.extracted()
+        services.accept_item(self.hr, item, value=dict(item.proposed_value,
+                                                       institution='Corrected Campus'),
+                             reason='Name as printed.')
+        jobs = AIJob.objects.filter(invalidated_at__isnull=True).values('pk')
+        rows, totals = services.review_summary(jobs)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((totals['proposed'], totals['corrected'], totals['decided']), (1, 1, 1))
+        self.assertEqual(totals['correction_rate'], 1.0)
+        self.assertEqual(rows[0]['fields'], [('Institution', 1)])
+        self.client.force_login(self.hr)
+        page = self.client.get(reverse('ai_processing:results'))
+        self.assertContains(page, 'How HR handled the proposed items')
+        self.assertContains(page, 'Institution (1)')
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('ai_review_report', stdout=out)
+        self.assertIn('Institution (1)', out.getvalue())

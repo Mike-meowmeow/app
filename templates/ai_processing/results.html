@@ -45,4 +45,34 @@
     {% if page.has_next %}<li class="page-item"><a class="page-link" href="?show={{ show }}&page={{ page.next_page_number }}">Next</a></li>{% endif %}
   </ul>
 {% endif %}
+
+{% if summary %}
+<h2 class="h5 mt-4">How HR handled the proposed items</h2>
+<p class="small text-muted">Current (not invalidated) results only. The correction rate is the share of decided items that HR had to edit before accepting; together with the rejection rate it shows where the reading rules need work. These are figures for your vacancies, not a tested accuracy.</p>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-sm align-middle mb-0 small">
+  <thead class="table-light"><tr><th>Document type</th><th class="text-end">Proposed</th><th class="text-end">Pending</th><th class="text-end">Accepted as is</th><th class="text-end">Corrected</th><th class="text-end">Linked</th><th class="text-end">Rejected</th><th class="text-end">Correction rate</th><th class="text-end">Rejection rate</th><th>Fields corrected most</th></tr></thead>
+  <tbody>
+    {% for row in summary %}
+      <tr>
+        <td>{{ row.document_type }}</td>
+        <td class="text-end">{{ row.proposed }}</td><td class="text-end">{{ row.pending }}</td>
+        <td class="text-end">{{ row.accepted }}</td><td class="text-end">{{ row.corrected }}</td>
+        <td class="text-end">{{ row.linked }}</td><td class="text-end">{{ row.rejected }}</td>
+        <td class="text-end">{% if row.correction_rate is not None %}{% widthratio row.corrected row.decided 100 %}%{% else %}–{% endif %}</td>
+        <td class="text-end">{% if row.rejection_rate is not None %}{% widthratio row.rejected row.decided 100 %}%{% else %}–{% endif %}</td>
+        <td>{% for field, count in row.fields %}{{ field }} ({{ count }}){% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">none</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot class="table-light"><tr>
+    <th>All</th><th class="text-end">{{ totals.proposed }}</th><th class="text-end">{{ totals.pending }}</th>
+    <th class="text-end">{{ totals.accepted }}</th><th class="text-end">{{ totals.corrected }}</th>
+    <th class="text-end">{{ totals.linked }}</th><th class="text-end">{{ totals.rejected }}</th>
+    <th class="text-end">{% if totals.decided %}{% widthratio totals.corrected totals.decided 100 %}%{% else %}–{% endif %}</th>
+    <th class="text-end">{% if totals.decided %}{% widthratio totals.rejected totals.decided 100 %}%{% else %}–{% endif %}</th><th></th>
+  </tr></tfoot>
+</table>
+</div></div>
+{% endif %}
 {% endblock %}

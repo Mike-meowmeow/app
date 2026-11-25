@@ -278,8 +278,9 @@ def results(request):
     condition = next(c for k, _, c in RESULT_TABS if k == show)
     page = Paginator(jobs.filter(condition).order_by('-queued_at'), 25) \
         .get_page(request.GET.get('page'))
+    summary, totals = services.review_summary(jobs.filter(_LIVE).values('pk'))
     return render(request, 'ai_processing/results.html', {
-        'tabs': tabs, 'show': show, 'page': page,
+        'tabs': tabs, 'show': show, 'page': page, 'summary': summary, 'totals': totals,
         'enabled': settings.AI_EXTRACTION_ENABLED,
     })
 

@@ -197,6 +197,8 @@ on the right, with the source lines highlighted. Compare with this table:
 | B6.9 | Accept the rest (PRC license, eligibility, training certificate, employment) | Facts created; experience and training facts show **Not assessed** relevance, which HR sets as before |
 | B6.10 | Check the application's status and **Selection & decisions** | Unchanged by any AI step: still **Under review**, nothing shortlisted |
 | B6.11 | **System Admin → Audit trail**, enter `ai.` in **Action starts with**, search | Entries such as `ai.job_queued`, `ai.extraction_completed`, `ai.item_accepted`, `ai.item_corrected`, `ai.item_linked`, `ai.item_rejected`, with your name where you acted |
+| B6.12 | **HR workspace → AI extraction results**. Open the **Reviewed** tab, then scroll to **How HR handled the proposed items** | Each reviewed document is listed. The summary shows, per document type, how many items were accepted as is, corrected, linked, or rejected, plus the correction rate and the fields you corrected (for example "Institution (1)") |
+| B6.13 | (Person who manages the server) `sudo -u evsu .venv/bin/python manage.py ai_review_report` | The same table in the terminal |
 
 ### B7. Replacing or withdrawing a document
 
@@ -404,7 +406,7 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | B3 Test applicant and application | | |
 | B4 Verification starts the AI (B4.1-B4.3) | | |
 | B5 What the AI read (B5.1-B5.3; list any differing values) | | |
-| B6 HR review (B6.1-B6.11) | | |
+| B6 HR review (B6.1-B6.13) | | |
 | B7 Replacing or withdrawing a document (B7.1-B7.6) | | |
 | B8 Worker stopped (B8.1-B8.3) | | |
 | B9 Command line (optional) | | |

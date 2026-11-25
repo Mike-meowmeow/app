@@ -236,6 +236,12 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   the facts used (overlapping work counted once, relevance required, incomplete degrees and missing
   hours sent to HR). HR records the official outcome, optionally starting from the suggestion. No
   AI packages needed; `AI_QUALIFICATION_CHECKS_ENABLED` (on by default) turns it off.
+- **Competency matching (Stage 10, advisory):** **Run competency matching** on an application
+  queues an AI worker job that compares each vacancy competency with the accepted qualification
+  wording using SBERT (`SBERT_MODEL`) and shows the cosine similarity (-1 to 1) of every pair, with
+  the model revision. Not a score or ranking; names, contact details, schools, and employers are
+  never inputs. Off unless `AI_COMPETENCY_MATCHING_ENABLED=True` on a computer with the model.
+  `manage.py evaluate_competency_matching pairs.csv` compares the model with HR's judgments.
 - **Audit trail:** HR Head / Approver and System Administrator can search and export it from the
   account menu, **Audit trail**.
 

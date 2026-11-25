@@ -178,6 +178,10 @@ def on_document_replaced(actor, document, new_version):
 # Worker (13.1, 13.2)
 # --------------------------------------------------------------------------
 
+# Job types the worker runs; qualification checks run in the HR request.
+WORKER_JOB_TYPES = (JobType.DOCUMENT_EXTRACTION, JobType.COMPETENCY_MATCH)
+
+
 def worker_reference():
     return f'{socket.gethostname()}:{os.getpid()}'
 
@@ -226,7 +230,7 @@ def claim_next(worker=None):
     now = timezone.now()
     with transaction.atomic():
         job = (AIJob.objects.select_for_update(skip_locked=True)
-               .filter(job_type=JobType.DOCUMENT_EXTRACTION, status=JobStatus.QUEUED,
+               .filter(job_type__in=WORKER_JOB_TYPES, status=JobStatus.QUEUED,
                        invalidated_at__isnull=True, available_at__lte=now)
                .order_by('available_at', 'queued_at').first())
         if job is None:
@@ -320,6 +324,11 @@ def _store(attempt, pages, items, warnings, tool_versions):
 
 def process(attempt):
     """Run one claimed attempt to completion (success, retry, or failure)."""
+    job_type = AIJob.objects.values_list('job_type', flat=True).get(pk=attempt.job_id)
+    if job_type == JobType.COMPETENCY_MATCH:
+        from . import matching
+        return matching.process(attempt, AIJob.objects.select_related('application')
+                                .get(pk=attempt.job_id))
     job = AIJob.objects.select_related('document_version__document__document_type',
                                        'document_version__document__application').get(
         pk=attempt.job_id)
@@ -368,10 +377,14 @@ def retry(actor, job):
     if not access.can_review(actor, job.application):
         raise PermissionDenied('You are not assigned to review this vacancy.')
     if job.invalidated_at:
-        raise ValidationError('This job was invalidated; run a new extraction instead.')
+        raise ValidationError('This job was invalidated; start a new run instead.')
     if job.status != JobStatus.FAILED:
         raise ValidationError('Only failed jobs can be retried.')
-    problems = eligibility_problems(job.document_version)
+    if job.job_type == JobType.COMPETENCY_MATCH:
+        from . import matching
+        problems = matching.problems(job.application)
+    else:
+        problems = eligibility_problems(job.document_version)
     if problems:
         raise ValidationError(problems)
     job.status = JobStatus.QUEUED

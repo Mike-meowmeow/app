@@ -119,3 +119,56 @@ def extract_pages(path, mime_type, config=None, heartbeat=lambda: None):
     else:
         raise ExtractionError(f'Unsupported file type: {mime_type}')
     return pages
+
+
+# --------------------------------------------------------------------------
+# SBERT sentence embeddings (13.5)
+# --------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def load_sbert():
+    """The SBERT model, loaded once per worker on the CPU. Models load from the
+    server's disk (HF_HOME, offline), so applicant text never leaves it."""
+    _require('sentence_transformers')
+    from sentence_transformers import SentenceTransformer
+    try:
+        return SentenceTransformer(settings.SBERT_MODEL, device='cpu')
+    except OSError as exc:  # not downloaded, or offline without the files
+        raise EngineUnavailable(f'The SBERT model {settings.SBERT_MODEL} is not available here '
+                                f'({exc}). See deploy/AI-SERVER.md step 5.5.') from exc
+
+
+def embed(texts):
+    """One unit-length vector per text (lists of floats)."""
+    model = load_sbert()
+    vectors = model.encode(list(texts), normalize_embeddings=True, convert_to_numpy=True,
+                           show_progress_bar=False)
+    return [list(map(float, v)) for v in vectors]
+
+
+def _model_revision(name):
+    """The downloaded model's commit (its snapshot folder in HF_HOME), or None
+    for a model loaded from a local folder."""
+    try:
+        from pathlib import Path
+
+        from huggingface_hub import snapshot_download
+        return Path(snapshot_download(name, local_files_only=True)).name
+    except Exception:  # not a Hub model, or not in the cache
+        return None
+
+
+def sbert_identity():
+    """Exact model and library versions, recorded with each matching result."""
+    from importlib.metadata import PackageNotFoundError, version
+    model = load_sbert()
+    found = {'model': settings.SBERT_MODEL}
+    found['revision'] = _model_revision(settings.SBERT_MODEL)
+    found['dimensions'] = model.get_sentence_embedding_dimension()
+    found['max_tokens'] = getattr(model, 'max_seq_length', None)
+    for name in ('sentence-transformers', 'transformers', 'torch'):
+        try:
+            found[name] = version(name)
+        except PackageNotFoundError:
+            found[name] = None
+    return found

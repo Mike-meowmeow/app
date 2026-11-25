@@ -319,10 +319,18 @@ def review(request, pk):
         v.ai_can_run = (settings.AI_EXTRACTION_ENABLED and can_review
                         and (v.ai_job is None or v.ai_job.is_invalidated)
                         and not ai.eligibility_problems(v))
+    from ai_processing import matching
     from ai_processing import screening as checks
     check = checks.latest(application)
     check_results = checks.results_by_standard(check)
+    match_job = matching.latest(application)
     return render(request, 'recruitment/applications/review.html', {
+        'match_job': match_job,
+        'match_current': match_job is not None and matching.is_current(match_job),
+        'match_groups': matching.by_competency(match_job, top=3)
+        if match_job and match_job.status == 'completed' else [],
+        'can_run_matching': can_review and not matching.problems(application),
+        'show_matching': matching.enabled() or match_job is not None,
         'check': check, 'check_current': check is not None and checks.is_current(check),
         'can_run_checks': can_review and not checks.problems(application),
         'show_checks': checks.enabled() or check is not None,

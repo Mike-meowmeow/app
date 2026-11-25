@@ -11,7 +11,7 @@ That one machine runs everything: both websites, MySQL, the private files, and t
 - The recruitment system itself is installed with `deploy/DEPLOY.md` (step 4 points there).
 - The AI features inside the application are built in **Stage 10**. The first part exists: the
   background worker, document text extraction with OCR, and HR review of the proposed items
-  (step 8). Qualification checks and SBERT competency matching come next.
+  (step 8), rule-based qualification checks, and SBERT competency matching (step 8.1).
 
 Allow about half a day. Commands run on the server unless marked **(your Windows computer)**.
 
@@ -369,6 +369,33 @@ sudo -u evsu .venv/bin/python manage.py ai_extract_file /tmp/samples/TOR_transcr
 
 `ai_extract_file` prints what the AI would propose for one file, without touching the database.
 Upload the same files as a test applicant to try the whole flow.
+
+### 8.1 SBERT competency matching
+
+Matching runs in the same worker and uses the model downloaded in step 5.5. Set in `.env`:
+
+```ini
+AI_COMPETENCY_MATCHING_ENABLED=True
+```
+
+Then restart both services: `sudo systemctl restart evsu-dev evsu-ai-worker` on the development
+copy, or the production services. The worker loads the model on its first matching job, which
+takes about 4 seconds (the step 7 check, with OCR, spaCy, and this model loaded, peaked at
+about 570 MB of memory). Each result records the
+model, its downloaded revision (folder name under `/srv/evsu-models/hub/.../snapshots/`), and
+the library versions.
+
+**Compare the model with HR's judgments** (the Development Guide's gate for 13.5): HR writes
+pairs of a competency and a qualification, each marked `related` or `not_related`, in a CSV like
+`deploy/competency-pairs-example.csv` (made-up pairs). Then:
+
+```bash
+sudo -u evsu .venv/bin/python manage.py evaluate_competency_matching pairs.csv --out /tmp/results.csv
+```
+
+It prints each pair's similarity, the average for each judgment, and how often a related pair
+scores above a not-related one (50% = chance). To compare another model, set `SBERT_MODEL`,
+download it as in step 5.5, and run the command again.
 
 ---
 

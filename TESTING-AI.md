@@ -1,4 +1,4 @@
-# Testing guide: AI document extraction and qualification checks (Stage 10)
+# Testing guide: AI extraction, qualification checks, and competency matching (Stage 10)
 
 This guide tests the new AI features:
 
@@ -7,7 +7,9 @@ This guide tests the new AI features:
 - HR reviews each item: accept, edit and accept, link to an existing fact, or reject;
 - jobs are cancelled when a document is replaced or its verification is withdrawn;
 - failures are retried, and manual review always keeps working;
-- advisory qualification checks compare the facts HR accepted with the vacancy's standards (Part C).
+- advisory qualification checks compare the facts HR accepted with the vacancy's standards (Part C);
+- SBERT competency matching shows how close in meaning each competency is to the accepted
+  qualifications (Part D).
 
 **Everything the AI produces is a suggestion.** It must never change an application's status,
 shortlist, decisions, or the official roster. If you ever see that happen, report it as a failure.
@@ -19,6 +21,7 @@ There are two parts:
 | **A** | Your own computer | Everyone | About 30 minutes |
 | **B** | The AI server's development copy, `http://192.168.1.107:8000` | Someone on the same home network as the server, with help from the person who manages it | About 1 hour |
 | **C** | Your own computer or the server | Everyone (needs no AI packages) | About 40 minutes |
+| **D** | The AI server's development copy | Same as Part B | About 30 minutes |
 
 Part A uses no AI packages: it checks the automated tests and what happens when the AI runtime is
 missing. Part B uses the real OCR and models on the server.
@@ -314,6 +317,78 @@ made-up entries in **My profile**:
 
 ---
 
+## Part D. SBERT competency matching (server)
+
+Matching compares each vacancy **competency** with the qualification wording HR accepted, using
+the SBERT language model on the server. It shows the model's **cosine similarity** for each pair,
+from -1 to 1, where higher means closer in meaning. It is **not** a score, a percentage, a
+probability, or a ranking, and no cut-off has been agreed with HR.
+
+What is compared:
+- **Education:** degree and program, for example "Master's degree in Mathematics".
+- **Experience:** position and duties.
+- **Training:** title.
+- **Eligibility:** name.
+- **License:** profession.
+
+Only **accepted** facts are used, and experience or training marked **Not relevant** is left out.
+Names, contact details, birthdate, sex, and the names of schools and employers are never sent to
+the model. Matching runs in the AI worker, so the page shows "Queued" for a few seconds first.
+
+Use the C1 vacancy and the C2 applicant from Part C, on the server. Before publishing C1, give
+the vacancy these two competencies:
+
+| Competency | Description |
+| --- | --- |
+| `Teaches college mathematics` | `Plans and delivers mathematics lessons for undergraduate students` |
+| `Conducts research` | `Writes and publishes research in the field` |
+
+If C1 is already published, create a copy of it with these competencies.
+
+### D1. Running it
+
+| # | Step | Expected |
+| --- | --- | --- |
+| D1.1 | Open the application before accepting any facts | The **Competency matching** card says "Not run yet. Accept the qualification facts first." There is no run button |
+| D1.2 | Accept the facts (C4.1) | A **Run competency matching** button appears |
+| D1.3 | Press it | The matching page opens, showing **Queued** and "Waiting for the AI worker" |
+| D1.4 | Refresh after a few seconds | **Completed**. The model line shows `all-MiniLM-L6-v2 @ 1110a243fdf4` and the library versions |
+| D1.5 | Under **Teaches college mathematics** | The **Master's degree in Mathematics** is among the top entries. Write down the order you see |
+| D1.6 | Under **Conducts research** | The **Research Writing Workshop** is at the top |
+| D1.7 | Read any row | It shows the exact two texts compared and the similarity. No names, schools, or employers appear |
+| D1.8 | Back on the application | The card shows the top 3 per competency with a link to all results |
+
+### D2. Changes and failures
+
+| # | Step | Expected |
+| --- | --- | --- |
+| D2.1 | Mark the Research Writing Workshop **Not relevant** | The card shows **Out of date** and **Run matching again** |
+| D2.2 | Run again | A new run completes without the workshop. The old run is marked replaced |
+| D2.3 | Mark it **Relevant** again without running | Out of date again. Relevance itself is not compared; only which entries are included |
+| D2.4 | (Person who manages the server) stop the worker, run matching, then start the worker | The run waits as Queued, then completes once the worker is back |
+| D2.5 | Compare the application's status, shortlist, decisions, and roster before and after | Unchanged |
+| D2.6 | Sign in as an approver | The results can be viewed, but there is no run button |
+
+### D3. Comparing with HR's judgment (person who manages the server)
+
+This is the check the Development Guide asks for. Ask HR to write pairs of a competency and a
+qualification and mark each **related** or **not_related**, in a file like
+`deploy/competency-pairs-example.csv`. The example file contains made-up pairs and judgments only.
+Then run:
+
+```bash
+cd /srv/evsu-recruitment
+sudo -u evsu .venv/bin/python manage.py evaluate_competency_matching deploy/competency-pairs-example.csv
+```
+
+| # | Step | Expected |
+| --- | --- | --- |
+| D3.1 | Run it on the example file | Each pair with its similarity. Then the average for related and not-related pairs, and how often a related pair scores above a not-related one. On 26 November 2026 the example gave averages of 0.51 and 0.10, and 100% |
+| D3.2 | Run it on HR's own file | Record the figures in the report. They describe that sample only |
+
+
+---
+
 ## Results checklist
 
 Copy this table into your report and fill in **Pass** or **Fail** for each row.
@@ -339,6 +414,9 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | C4 Checks after review (C4.1-C4.10; list any differing results) | | |
 | C5 Official outcome from a check (C5.1-C5.4) | | |
 | C6 Nothing else changes (C6.1-C6.4) | | |
+| D1 Running competency matching (D1.1-D1.8) | | |
+| D2 Changes and failures (D2.1-D2.6) | | |
+| D3 Comparison with HR judgments (figures: ___) | | |
 
 **For each failure, include:**
 - the step number;

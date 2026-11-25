@@ -18,6 +18,7 @@ from core.models import BaseModel
 class JobType(models.TextChoices):
     DOCUMENT_EXTRACTION = 'document_extraction', 'Document text extraction'
     QUALIFICATION_CHECK = 'qualification_check', 'Qualification check'
+    COMPETENCY_MATCH = 'competency_match', 'Competency matching'
 
 
 class JobStatus(models.TextChoices):
@@ -207,3 +208,33 @@ class StandardResult(BaseModel):
     @property
     def explanation_lines(self):
         return [line for line in self.explanation.splitlines() if line.strip()]
+
+
+class CompetencyMatch(BaseModel):
+    """SBERT similarity between one vacancy competency and one reviewed
+    qualification fact (13.5). `similarity` is the raw cosine similarity, from
+    -1 to 1, of the model recorded on the job. Advisory: it is not a hiring
+    score or a probability and never orders the official roster."""
+
+    job = models.ForeignKey(AIJob, on_delete=models.PROTECT, related_name='competency_matches')
+    vacancy_competency = models.ForeignKey('recruitment.VacancyCompetency',
+                                           on_delete=models.PROTECT, related_name='ai_matches')
+    application_fact = models.ForeignKey('recruitment.ApplicationFact', on_delete=models.PROTECT,
+                                         related_name='competency_matches')
+    similarity = models.DecimalField(max_digits=5, decimal_places=4)
+    explanation = models.TextField()
+
+    class Meta:
+        db_table = 'competency_matches'
+        ordering = ['job', 'vacancy_competency', '-similarity']
+        constraints = [
+            models.UniqueConstraint(fields=['job', 'vacancy_competency', 'application_fact'],
+                                    name='competency_match_unique'),
+            models.CheckConstraint(condition=Q(similarity__gte=-1) & Q(similarity__lte=1),
+                                   name='competency_match_similarity_range'),
+        ]
+
+    @property
+    def scale_percent(self):
+        """Position on the -1..1 scale as 0..100, for the bar on the page."""
+        return round((float(self.similarity) + 1) * 50)

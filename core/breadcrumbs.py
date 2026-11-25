@@ -161,6 +161,7 @@ PAGES = {
     'ai_processing:results': Page('AI extraction results'),
     'ai_processing:extraction': _on_review('AI extraction'),
     'ai_processing:screening': _on_review('Qualification check'),
+    'ai_processing:matches': _on_review('Competency matching'),
     'ai_processing:item_edit': Page(
         'Edit extracted item', 'ai_processing:extraction', load=_extraction_item,
         parent_kwargs=lambda item, kw: {'pk': kw['pk'], 'job_pk': item.extraction.job_id}),

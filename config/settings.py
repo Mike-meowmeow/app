@@ -281,6 +281,11 @@ SPACY_MODEL = env('SPACY_MODEL', 'en_core_web_sm')
 # Advisory qualification checks (13.4): fixed rules comparing HR-accepted facts
 # with the published standards. No AI runtime needed, so they work anywhere.
 AI_QUALIFICATION_CHECKS_ENABLED = env_bool('AI_QUALIFICATION_CHECKS_ENABLED', True)
+# SBERT competency matching (13.5): runs in the AI worker and needs the model
+# downloaded on that computer (deploy/AI-SERVER.md step 5.5), so it is off by
+# default. SBERT_MODEL is a model name in HF_HOME or a local folder.
+AI_COMPETENCY_MATCHING_ENABLED = env_bool('AI_COMPETENCY_MATCHING_ENABLED', False)
+SBERT_MODEL = env('SBERT_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

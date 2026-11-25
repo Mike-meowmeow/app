@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Competency matching · {{ application.reference }}{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mt-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Competency matching</h1>
+    <div class="small text-muted">{{ application.reference }}</div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if can_run and not current and not job.is_active %}
+      <form method="post" action="{% url 'ai_processing:run_matching' application.pk %}">{% csrf_token %}<button class="btn btn-primary btn-sm" type="submit">Run matching again</button></form>
+    {% endif %}
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'recruitment:application_review' application.pk %}#competencies">Back to the application</a>
+  </div>
+</div>
+
+<div class="alert alert-info small">
+  <strong>Advisory.</strong> An SBERT language model measured how close in meaning each vacancy competency is to each qualification entry HR accepted. The number is the model's cosine similarity, from -1 to 1. It is <strong>not</strong> a hiring score, a percentage, or a probability. No cut-off has been agreed with HR, so compare values within this application only. Matching never changes the application, the shortlist, decisions, or the official roster, and it does not rank applicants.
+</div>
+
+{% if job.is_invalidated %}
+  <div class="alert alert-secondary small">Invalidated {{ job.invalidated_at|date:"M j, Y g:i A" }}: {{ job.invalidation_reason }}</div>
+{% elif job.status == 'completed' and not current %}
+  <div class="alert alert-warning small">Facts, reviews, or competencies changed after this run. {% if can_run %}Run matching again for an up-to-date result.{% endif %}</div>
+{% endif %}
+
+<div class="card shadow-sm mb-3"><div class="card-body small">
+  <div class="d-flex flex-wrap gap-3 align-items-center">
+    <div><span class="text-muted">Status:</span>
+      <span class="badge {% if job.is_invalidated %}text-bg-dark{% elif job.status == 'completed' %}text-bg-success{% elif job.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ job.display_status }}</span></div>
+    <div><span class="text-muted">Queued:</span> {{ job.queued_at|date:"M j, Y g:i A" }}{% if job.requested_by %} by {{ job.requested_by.full_name|default:job.requested_by.username }}{% endif %}</div>
+    {% if job.completed_at %}<div><span class="text-muted">Finished:</span> {{ job.completed_at|date:"M j, Y g:i A" }}</div>{% endif %}
+    {% if can_review and job.status == 'failed' and not job.is_invalidated %}
+      <form method="post" action="{% url 'ai_processing:retry_matching' application.pk job.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">Retry</button></form>
+    {% endif %}
+  </div>
+  <div class="mt-2"><span class="text-muted">Model:</span> {{ job.model_version }}</div>
+  {% if runtime %}<div class="text-muted">{{ runtime.dimensions }}-dimension embeddings{% if runtime.max_tokens %}; reads up to {{ runtime.max_tokens }} word pieces per text{% endif %}{% if runtime.revision %}; revision {{ runtime.revision }}{% endif %}</div>{% endif %}
+  <div class="mt-1 text-muted">Inputs: accepted facts only, without experience or training marked not relevant. Only qualification wording is compared: no names, contact details, birthdate, sex, or school and employer names.</div>
+  {% if job.last_error %}<div class="mt-2 text-danger">Last error: {{ job.last_error }}</div>{% endif %}
+  {% if attempts %}
+    <details class="mt-2"><summary>Attempts ({{ attempts|length }})</summary>
+      <ul class="mb-0">{% for a in attempts %}<li>#{{ a.attempt_number }} {{ a.get_status_display }} · {{ a.started_at|date:"M j g:i:s A" }} · {{ a.worker_reference }}{% if a.error_message %} · <span class="text-danger">{{ a.error_message }}</span>{% endif %}</li>{% endfor %}</ul>
+    </details>
+  {% endif %}
+</div></div>
+
+{% if job.status == 'queued' or job.status == 'processing' %}
+  <p class="text-muted">Waiting for the AI worker. Refresh this page in a moment.</p>
+{% endif %}
+
+{% for competency, items in groups %}
+  <div class="card shadow-sm mb-3"><div class="card-body">
+    <h2 class="h6 mb-1">{{ competency.name }}</h2>
+    {% if competency.description %}<p class="small text-muted mb-2">{{ competency.description }}</p>{% endif %}
+    <table class="table table-sm align-middle small mb-0">
+      <thead><tr><th style="width: 9rem">Similarity</th><th>Qualification compared</th></tr></thead>
+      <tbody>
+        {% for m in items %}
+          <tr>
+            <td>{% include "ai_processing/includes/similarity.html" with value=m.similarity percent=m.scale_percent %}</td>
+            <td><span class="badge text-bg-light border">{{ m.application_fact.get_fact_type_display }}</span> {{ m.explanation }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+{% empty %}
+  {% if job.status == 'completed' %}<p class="text-muted">No results.</p>{% endif %}
+{% endfor %}
+{% endblock %}

@@ -22,7 +22,7 @@ from recruitment import fact_schema
 from recruitment.application_forms import CorrectionReasonForm
 from recruitment.models import Application, FactType
 
-from . import screening, services
+from . import matching, screening, services
 from .models import AIJob, AIScreening, ExtractionItem, ItemReviewStatus, JobStatus, JobType
 
 STAFF_ROLES = (roles.HR, roles.APPROVER, roles.DEPARTMENT_HEAD)
@@ -281,4 +281,57 @@ def results(request):
     return render(request, 'ai_processing/results.html', {
         'tabs': tabs, 'show': show, 'page': page,
         'enabled': settings.AI_EXTRACTION_ENABLED,
+    })
+
+
+# --------------------------------------------------------------------------
+# SBERT competency matching (13.5)
+# --------------------------------------------------------------------------
+
+def _matching_url(pk, job_pk):
+    return reverse('ai_processing:matches', args=[pk, job_pk])
+
+
+@role_required(roles.HR)
+@require_POST
+def run_matching(request, pk):
+    application = _reviewable(request, pk)
+    try:
+        job, created = matching.queue_matching(request.user, application)
+    except ValidationError as exc:
+        _flash(request, exc)
+        return redirect(reverse('recruitment:application_review', args=[pk]) + '#competencies')
+    messages.success(request, 'Competency matching queued; the AI worker runs it shortly.'
+                     if created else 'Nothing changed since the last matching run.')
+    return redirect(_matching_url(pk, job.pk))
+
+
+@role_required(roles.HR)
+@require_POST
+def retry_matching(request, pk, job_pk):
+    application = _reviewable(request, pk)
+    job = get_object_or_404(AIJob, pk=job_pk, application=application,
+                            job_type=JobType.COMPETENCY_MATCH)
+    try:
+        services.retry(request.user, job)
+    except ValidationError as exc:
+        _flash(request, exc)
+    else:
+        messages.success(request, 'Competency matching queued again.')
+    return redirect(_matching_url(pk, job_pk))
+
+
+@role_required(*STAFF_ROLES)
+def matches(request, pk, job_pk):
+    application = _visible(request.user, pk)
+    job = get_object_or_404(AIJob.objects.select_related('requested_by'), pk=job_pk,
+                            application=application, job_type=JobType.COMPETENCY_MATCH)
+    can_review = access.can_review(request.user, application)
+    return render(request, 'ai_processing/matches.html', {
+        'application': application, 'job': job, 'groups': matching.by_competency(job),
+        'current': not job.is_invalidated and matching.is_current(job),
+        'attempts': job.attempts.order_by('attempt_number'),
+        'can_review': can_review,
+        'can_run': can_review and not matching.problems(application),
+        'runtime': (job.configuration or {}).get('runtime') or {},
     })

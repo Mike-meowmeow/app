@@ -154,6 +154,35 @@
         {% empty %}<li class="list-group-item small text-muted">No qualification standards.</li>{% endfor %}
       </ul>
     </div></div>
+
+    {% if show_matching %}
+    {# Competency matching (advisory, 13.5) #}
+    <div class="card shadow-sm mb-3" id="competencies"><div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <h2 class="h5 mb-0">Competency matching <span class="badge text-bg-light border align-middle">Advisory</span></h2>
+        {% if can_run_matching and not match_current and not match_job.is_active %}
+          <form method="post" action="{% url 'ai_processing:run_matching' application.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">{% if match_job %}Run matching again{% else %}Run competency matching{% endif %}</button></form>
+        {% endif %}
+      </div>
+      <p class="small text-muted mt-1">How close in meaning each competency is to the accepted qualifications (SBERT cosine similarity, -1 to 1). Not a score or ranking; it never changes shortlisting or the roster.</p>
+      {% if match_job %}
+        <div class="small mb-2">
+          <span class="badge {% if match_job.status == 'completed' %}text-bg-success{% elif match_job.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ match_job.display_status }}</span>
+          <span class="text-muted">{{ match_job.queued_at|date:"M j, Y g:i A" }}</span>
+          {% if match_job.status == 'completed' and not match_current %}<span class="badge text-bg-light border text-warning-emphasis">Out of date</span>{% endif %}
+          <a href="{% url 'ai_processing:matches' application.pk match_job.pk %}">All results and details</a>
+        </div>
+        {% for competency, items in match_groups %}
+          <div class="small mb-2">
+            <strong>{{ competency.name }}</strong>
+            <ul class="list-unstyled mb-0 ms-2">
+              {% for m in items %}<li class="d-flex gap-2 align-items-center"><span style="width: 8rem">{% include "ai_processing/includes/similarity.html" with value=m.similarity percent=m.scale_percent %}</span><span class="text-truncate">{{ m.application_fact.get_fact_type_display }}: {{ m.text }}</span></li>{% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      {% else %}<p class="small text-muted mb-0">Not run yet.{% if not can_run_matching and can_review %} Accept the qualification facts first.{% endif %}</p>{% endif %}
+    </div></div>
+    {% endif %}
   </div>
 
   <div class="col-lg-5">

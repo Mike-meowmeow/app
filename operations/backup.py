@@ -62,6 +62,18 @@ LINKS = (
      'applications'),
     ('roster exports -> rosters', 'roster_exports', 'roster_id', 'applicant_rosters'),
     ('decisions -> applications', 'recruitment_decisions', 'application_id', 'applications'),
+    # Stage 10 AI records and their optional links from older tables.
+    ('AI jobs -> applications', 'ai_jobs', 'application_id', 'applications'),
+    ('AI extractions -> AI jobs', 'ai_extractions', 'job_id', 'ai_jobs'),
+    ('extraction items -> AI extractions', 'extraction_items', 'extraction_id', 'ai_extractions'),
+    ('evidence -> extraction items', 'fact_evidence', 'extraction_item_id', 'extraction_items'),
+    ('audit entries -> AI jobs', 'audit_logs', 'job_id', 'ai_jobs'),
+    ('qualification checks -> AI jobs', 'ai_screenings', 'job_id', 'ai_jobs'),
+    ('qualification results -> checks', 'qualification_results', 'screening_id', 'ai_screenings'),
+    ('competency matches -> AI jobs', 'competency_matches', 'job_id', 'ai_jobs'),
+    ('competency matches -> facts', 'competency_matches', 'application_fact_id',
+     'application_facts'),
+    ('documents -> profile files', 'documents', 'profile_document_id', 'profile_documents'),
 )
 
 

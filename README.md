@@ -213,6 +213,10 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   isolated `<DB_NAME>_restore` database, never the live one. System Administrators see the results
   under the account menu, **Backups and restore checks**. The recovery procedure is in
   `deploy/RECOVERY.md`.
+- **Releases:** `deploy/RELEASE.md` is the release checklist (tests, backup and restore check,
+  migrate, smoke test), the **upgrade check** that upgrades a database filled by the previous
+  version and compares it (`deploy/upgrade-check/`), and the rollback plan. AI features can be
+  switched off in `.env` without a rollback.
 - **Internet server:** follow `deploy/DEPLOY.md` (two sites on one server, Nginx, Gunicorn,
   Let's Encrypt certificates, firewall, systemd timers for backups and email retries). These steps have not yet been run on a real
   server. Production settings are in `.env.production.example` and `deploy/*.env.example`. With
@@ -372,7 +376,8 @@ app/
   notifications/  In-app notifications and email delivery attempts (retry with send_notifications)
   analytics/      Recruitment metrics, snapshots, Excel/PDF reports
   operations/     Backup sets, restore checks, monitoring; orphan-file sweep
-  deploy/         Linux server files: Nginx, Gunicorn, systemd units, DEPLOY.md, RECOVERY.md
+  deploy/         Linux server files: Nginx, Gunicorn, systemd units, DEPLOY.md, RECOVERY.md,
+                  RELEASE.md, upgrade-check/
   templates/      Django templates (Bootstrap 5, served locally from static/vendor)
   setup.ps1 / setup.sh / setup_dev.py   Machine setup
   setup_db.py     Database provisioning, time zones, migrations, seeding

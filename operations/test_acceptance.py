@@ -8,7 +8,10 @@ automated walk-through on MySQL:
 5. A committee interviews and records assessments; an authorized person records
    the decision and appointment.
 6. Notifications, metrics, history, and downloads work.
-7. The same scenario runs with no AI package, queue, or model installed.
+7. The same scenario runs twice: with every AI feature off (no AI record is
+   created, and no AI package, queue, or model is needed), and with every AI
+   feature on (Stage 11): the outcome is identical, AI results wait for HR,
+   and the released roster is not changed by them.
 
 This automated run does not replace the HR walkthrough the guide requires.
 """
@@ -42,9 +45,55 @@ from recruitment.test_applications import pdf
 S, T, O = ApplicationStatus, DecisionType, DecisionOutcome
 
 
-class NonAIAcceptanceScenario(RosterTestCase):
-    @override_settings(AI_EXTRACTION_ENABLED=False)
+AI_OFF = dict(AI_EXTRACTION_ENABLED=False, AI_QUALIFICATION_CHECKS_ENABLED=False,
+              AI_COMPETENCY_MATCHING_ENABLED=False)
+AI_ON = dict(AI_EXTRACTION_ENABLED=True, AI_QUALIFICATION_CHECKS_ENABLED=True,
+             AI_COMPETENCY_MATCHING_ENABLED=True, AI_RETRY_SECONDS=0)
+
+
+class AcceptanceScenario(RosterTestCase):
+    @override_settings(**AI_OFF)
     def test_complete_manual_workflow(self):
+        application, roster = self.manual_workflow()
+        # The whole manual workflow ran with AI switched off: no AI job was
+        # created, and no queue service (Celery) is needed.
+        from ai_processing.models import AIJob
+        self.assertFalse(settings.AI_EXTRACTION_ENABLED)
+        self.assertFalse(AIJob.objects.exists())
+        self.assertIsNone(importlib.util.find_spec('celery'))
+
+    @override_settings(**AI_ON)
+    def test_complete_manual_workflow_with_ai_on(self):
+        from ai_processing import matching, screening, services as ai
+        from ai_processing.models import AIJob, ExtractionItem, ItemReviewStatus, JobType
+        from ai_processing.test_matching import FakeSBERT
+        from ai_processing.tests import FakeEngine
+        with FakeEngine(), FakeSBERT():
+            application, roster = self.manual_workflow()
+            exported = list(roster.entries.values_list('exported_values', flat=True))
+            while ai.run_once('acceptance-worker'):  # the worker catches up afterwards
+                pass
+            # Every verified current document was read; results wait for HR.
+            jobs = AIJob.objects.filter(job_type=JobType.DOCUMENT_EXTRACTION,
+                                        invalidated_at__isnull=True)
+            self.assertTrue(jobs.exists())
+            self.assertTrue(ExtractionItem.objects.filter(
+                review_status=ItemReviewStatus.PENDING).exists())
+            # Advisory checks and matching run on the finished application.
+            screening.run_checks(self.hr, application)
+            matching.queue_matching(self.hr, application)
+            while ai.run_once('acceptance-worker'):
+                pass
+        application.refresh_from_db()
+        roster.refresh_from_db()
+        self.assertEqual(application.status, S.HIRED)
+        self.assertEqual(roster.status, RosterStatus.APPROVED)
+        self.assertFalse(roster.requires_regeneration)  # AI results changed nothing
+        self.assertEqual(list(roster.entries.values_list('exported_values', flat=True)),
+                         exported)
+
+    def manual_workflow(self):
+        """Steps 1-6; returns the hired application and the released roster."""
         c = self.client
 
         # 1. Registration, email verification, profile, submission (through the screens).
@@ -161,13 +210,8 @@ class NonAIAcceptanceScenario(RosterTestCase):
         self.assertContains(response, 'APPT-2026-007')
         response = c.get(reverse('documents:download', args=[first.pk]))
         self.assertEqual(response.status_code, 200)
-
-        # 7. The whole manual workflow ran with AI extraction switched off: no AI
-        # job was created, and no queue service (Celery) is needed.
-        from ai_processing.models import AIJob
-        self.assertFalse(settings.AI_EXTRACTION_ENABLED)
-        self.assertFalse(AIJob.objects.exists())
-        self.assertIsNone(importlib.util.find_spec('celery'))
+        roster.refresh_from_db()
+        return application, roster
 
     def make_psb(self):
         from accounts import roles

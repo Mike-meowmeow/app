@@ -92,6 +92,7 @@ PAGES = {
     # Account
     'accounts:account': Page('My account'),
     'accounts:password_change': Page('Change password', 'accounts:account'),
+    'accounts:two_factor_recovery_codes': Page('New recovery codes', 'accounts:account'),
     'accounts:privacy': Page('Privacy notice'),
     'accounts:user_list': Page('System Admin'),
     'accounts:staff_create': Page('New staff account', 'accounts:user_list'),

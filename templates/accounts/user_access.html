@@ -24,6 +24,25 @@
         </form>
       </div></div>
     {% endif %}
+    {% if two_factor %}
+      <div class="card shadow-sm mt-3"><div class="card-body">
+        <h2 class="h6">Two-factor sign-in</h2>
+        {% if two_factor.enrolled %}
+          <p class="small mb-2"><span class="badge text-bg-success">On</span> since {{ two_factor.since|date:"M j, Y" }} · {{ two_factor.recovery_codes_left }} recovery code{{ two_factor.recovery_codes_left|pluralize }} left</p>
+        {% else %}
+          <p class="small mb-2"><span class="badge text-bg-secondary">Not set up</span>{% if two_factor.required %} · set up at their next sign-in{% endif %}</p>
+        {% endif %}
+        {% if two_factor.enrolled and not is_self %}
+          <p class="small text-muted">Reset only after confirming the person's identity, for example a lost or replaced phone. Their authenticator and recovery codes stop working.</p>
+          <form method="post" action="{% url 'accounts:two_factor_reset' target.pk %}" novalidate>{% csrf_token %}
+            {% for field in reset_form %}{% include "includes/field.html" %}{% endfor %}
+            <button class="btn btn-outline-danger btn-sm" type="submit">Reset two-factor sign-in</button>
+          </form>
+        {% elif two_factor.enrolled %}
+          <p class="small text-muted mb-0">Another System Administrator must reset your own two-factor sign-in.</p>
+        {% endif %}
+      </div></div>
+    {% endif %}
     <div class="card shadow-sm mt-3"><div class="card-body small">
       <h2 class="h6">Role responsibilities</h2>
       <dl class="mb-0">{% for role, text in descriptions.items %}<dt>{{ role }}</dt><dd class="text-muted">{{ text }}</dd>{% endfor %}</dl>

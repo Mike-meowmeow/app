@@ -7,22 +7,25 @@ a server administrator with `sudo`. Paths below use `/srv/evsu-recruitment`.
 The steps describe the intended setup; they have not yet been run on a server. Record the versions
 you actually install in the project's Development Logs.
 
-## Layout: one server at school, two sites
+## Layout: one internet server, two sites
 
 | | Public applicant site | Staff site |
 | --- | --- | --- |
 | Example address | `https://apply.example.edu.ph` | `https://recruit-staff.example.edu.ph` |
-| Reachable from | The internet | The school network only |
+| Reachable from | The internet | The internet (no address restriction) |
 | Service | `evsu-recruitment@public` | `evsu-recruitment@staff` |
-| Nginx ports on this server | 8080, 8443 | school-network address, 80 and 443 |
+| Nginx ports | 80, 443 (by host name) | 80, 443 (by host name) |
 | Accounts | Applicants only | Staff only |
 
 Both sites use the same code, MySQL database, and private files, so there is nothing to synchronize.
+They stay separate by host name: applicant accounts cannot sign in on the staff site, staff accounts
+cannot sign in on the applicant site, and each site answers 404 for the other's pages.
 
-**You need from school IT before starting:** a fixed public IP (or a tunnel), a public DNS name for
-the applicant site, an internal DNS name for the staff site, a fixed school-network address for the
-server, the school network range, and router access for the two port forwards in section 6. The
-school's Data Privacy Officer should review the public site before launch.
+The server can be a rented cloud server (used for testing and the defense) or a school server with a
+public address. **You need before starting:** a server with a fixed public IP, at least 8 GB of RAM
+(ClamAV, MySQL, both sites, and later the AI worker), a domain with two DNS `A` records (applicant
+and staff host names) pointing to that IP, and an SMTP account. Use synthetic test data only on a
+rented server until the school's Data Privacy Officer approves where real applicant data is stored.
 
 ## 1. Server packages
 
@@ -142,45 +145,46 @@ sudo cp deploy/nginx-proxy-snippet.conf /etc/nginx/snippets/evsu-proxy.conf
 sudo cp deploy/nginx-public.conf /etc/nginx/sites-available/evsu-public
 sudo cp deploy/nginx-staff.conf /etc/nginx/sites-available/evsu-staff
 sudo nano /etc/nginx/sites-available/evsu-public   # host name, certificate paths
-sudo nano /etc/nginx/sites-available/evsu-staff    # addresses, network range, host name, certificate
+sudo nano /etc/nginx/sites-available/evsu-staff    # host name, certificate paths
 sudo ln -s /etc/nginx/sites-available/evsu-public /etc/nginx/sites-available/evsu-staff \
     /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**Router (only these two forwards):**
-
-| Internet port | Goes to this server's port |
-| --- | --- |
-| 80 | 8080 |
-| 443 | 8443 |
-
-Never forward this server's ports 80, 443, 22, or 3306. If IT uses a tunnel instead of port
-forwarding, point it only at the public site on port 8443.
-
-**Firewall** (replace the range with the school network):
+**Firewall.** Only web traffic and SSH are open. MySQL (3306) is never reachable from outside.
+Use SSH keys and turn off password sign-in for SSH (`PasswordAuthentication no` in
+`/etc/ssh/sshd_config`).
 
 ```bash
 sudo ufw default deny incoming
-sudo ufw allow 8080/tcp
-sudo ufw allow 8443/tcp
-sudo ufw allow from 192.0.2.0/24 to any port 80,443 proto tcp
-sudo ufw allow from 192.0.2.0/24 to any port 22 proto tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow OpenSSH
 sudo ufw enable
 ```
 
-**Certificates.** Public site: temporarily comment out its `listen 8443` server blocks if Nginx will
-not start without the certificate, then run
-`sudo certbot certonly --webroot -w /var/www/certbot -d apply.example.edu.ph`, restore the blocks, and
-reload Nginx. Staff site: use a certificate from the institution, or a Let's Encrypt DNS challenge
-for a real subdomain that resolves only inside the school.
+**Certificates (Let's Encrypt, free).** Install `certbot`. Nginx will not start while a site's
+certificate file is missing, so first comment out the two `listen 443 ssl` site blocks (not the
+catch-all), reload Nginx, then run:
 
-If the router rewrites the source address of forwarded traffic, every applicant appears to come from
-the router, which breaks per-address sign-in limits and audit addresses. Ask IT to preserve it.
+```bash
+sudo certbot certonly --webroot -w /var/www/certbot -d apply.example.edu.ph
+sudo certbot certonly --webroot -w /var/www/certbot -d recruit-staff.example.edu.ph
+```
+
+Restore the blocks and reload Nginx. Certbot renews certificates automatically (`systemctl list-timers` shows `certbot.timer`).
+
+**Shared addresses.** Staff now sign in from anywhere, so set `STAFF_LOGIN_MAX_FAILURES_PER_IP` to
+20 (as in `.env.production.example`). Raise it only if many staff share one network address and get
+locked out together.
+
+**Restricting the staff site later.** To make the staff site reachable from one network only (for
+example the school's), add `allow <network range>; deny all;` where `nginx-staff.conf` shows it, and
+reload Nginx. No application change is needed.
 
 ## 7. Verify the deployment
 
-**From outside the school** (a phone on mobile data, Wi-Fi off):
+**Applicant site** (any internet connection, for example a phone on mobile data):
 
 1. `https://<public host>/` loads; `http://` redirects to HTTPS. Register, verify the email link, and
    sign in as an applicant.
@@ -189,15 +193,16 @@ the router, which breaks per-address sign-in limits and audit addresses. Ask IT 
 3. These return 404: `/admin/`, `/accounts/staff/login/`, `/recruitment/manage/vacancies/`, `/audit/`,
    and `/protected/documents/anything`.
 4. A staff username and password are refused on the applicant sign-in page.
-5. The staff host name does not open. Also confirm with
-   `curl -k --resolve <staff host>:443:<public IP> https://<staff host>/`, which must not return the
-   staff sign-in page.
+5. `https://<public IP>/` (the bare address, no host name) does not open either site.
 
-**From a computer on the school network:**
+**Staff site** (any internet connection):
 
 6. `https://<staff host>/` shows **Staff sign in**; staff can sign in; an applicant account cannot.
+   `https://<staff host>/accounts/register/` goes to the staff sign-in page.
 7. As System Administrator, open **System Admin → New staff account**. The emailed link opens the
-   staff site and sets the password.
+   staff site and sets the password. The first sign-in asks the person to scan a QR code with an
+   authenticator app and shows ten recovery codes; later sign-ins ask for a 6-digit code after the
+   password. `https://<staff host>/admin/login/` goes to the staff sign-in page.
 8. Five wrong passwords for one account show the "Too many failed sign-in attempts" message, on each
    site separately.
 

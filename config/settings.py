@@ -68,6 +68,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'accounts.portal.PortalMiddleware',
+    'accounts.middleware.TwoFactorMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'audit.middleware.AuditContextMiddleware',
@@ -135,13 +136,18 @@ LOGIN_REDIRECT_URL = 'core:dashboard'
 LOGOUT_REDIRECT_URL = 'accounts:login'
 CSRF_FAILURE_VIEW = 'accounts.views.csrf_failure'
 
-# Which site this process serves (see accounts/portal.py): "public" (applicants,
-# internet), "staff" (school network), or "all" (development and tests only).
+# Which site this process serves (see accounts/portal.py): "public" (applicants),
+# "staff" (staff accounts only), or "all" (development and tests only).
 SITE_PORTAL = (env('SITE_PORTAL') or 'all').strip().lower()
 if SITE_PORTAL not in ('all', 'public', 'staff'):
     raise ImproperlyConfigured('SITE_PORTAL must be "all", "public", or "staff".')
 # A production web process refuses to start without a specific portal.
 PORTAL_ENFORCED = not DEBUG
+# Staff two-factor sign-in (accounts/two_factor.py). On by default in
+# production; in development and tests it applies only to staff who set it up.
+STAFF_TWO_FACTOR_REQUIRED = env_bool('STAFF_TWO_FACTOR_REQUIRED', PORTAL_ENFORCED)
+# Name shown for this system in the authenticator app.
+TWO_FACTOR_ISSUER = env('TWO_FACTOR_ISSUER') or 'EVSU Recruitment'
 if SITE_PORTAL != 'all':
     SESSION_COOKIE_NAME = f'evsu_{SITE_PORTAL}_session'
     CSRF_COOKIE_NAME = f'evsu_{SITE_PORTAL}_csrf'
@@ -289,7 +295,8 @@ LOGIN_MAX_FAILURES = int(env('LOGIN_MAX_FAILURES') or 5)
 LOGIN_LOCKOUT_MINUTES = int(env('LOGIN_LOCKOUT_MINUTES') or 15)
 # Higher per-address limit: many users may share one campus network address.
 LOGIN_MAX_FAILURES_PER_IP = int(env('LOGIN_MAX_FAILURES_PER_IP') or 20)
-# Staff computers may share one school address, so their limit is separate.
+# Separate per-address limit for the staff site (production example sets 20;
+# raise it when many staff computers share one network address).
 STAFF_LOGIN_MAX_FAILURES_PER_IP = int(env('STAFF_LOGIN_MAX_FAILURES_PER_IP') or 100)
 
 # Private downloads: 'django' streams files from the app; 'nginx' returns an

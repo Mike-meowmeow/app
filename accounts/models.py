@@ -69,3 +69,39 @@ class PrivacyAcknowledgment(AppendOnlyModel):
 
     def __str__(self):
         return f'{self.user} - notice {self.notice_version}'
+
+
+class StaffTwoFactor(BaseModel):
+    """A staff member's authenticator app (accounts/two_factor.py). Unconfirmed
+    until the first correct code; removed only by a System Administrator reset."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                                related_name='two_factor')
+    secret = models.CharField(max_length=64)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Last accepted 30-second step, so one code cannot be used twice.
+    last_used_step = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'staff_two_factor'
+        verbose_name = 'staff two-factor authenticator'
+
+    def __str__(self):
+        return f'{self.user} - {"on" if self.confirmed_at else "being set up"}'
+
+
+class StaffRecoveryCode(BaseModel):
+    """Single-use backup code for staff two-factor sign-in. Only a SHA-256 hash
+    is stored; the codes are shown once."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
+                             related_name='recovery_codes')
+    code_hash = models.CharField(max_length=64)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'staff_recovery_codes'
+        indexes = [models.Index(fields=['user', 'code_hash'])]
+
+    def __str__(self):
+        return f'{self.user} - recovery code{" (used)" if self.used_at else ""}'

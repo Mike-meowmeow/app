@@ -6,7 +6,8 @@ This guide walks through testing the system on your own computer. It covers the 
 - staff accounts created by a System Administrator;
 - the position catalog;
 - automatic committee creation and naming;
-- breadcrumb navigation.
+- breadcrumb navigation;
+- two-factor sign-in for staff.
 
 It takes about 1 to 1.5 hours. Do the parts in order, because later parts use the accounts and
 records you create earlier. Record each result in the checklist at the end.
@@ -195,7 +196,7 @@ Use the staff site (8001), signed in as `hrtest` or your administrator account.
 
 ---
 
-## Part 10. Password reset and sign-in limits
+## Part 10. Password reset, sign-in limits, and two-factor sign-in
 
 | # | Step | Expected |
 | --- | --- | --- |
@@ -205,6 +206,18 @@ Use the staff site (8001), signed in as `hrtest` or your administrator account.
 | 10.4 | 8000, sign in as `psbtest` with a wrong password five times, then once more | "Too many failed sign-in attempts" |
 | 10.5 | 8001, sign in as `psbtest` with the correct password | **Works**: failures on the applicant site do not lock staff out |
 | 10.6 | Open the staff sign-in page in two tabs, sign in on the first, then submit the second | Goes to the dashboard; no "403 Forbidden" error |
+
+Steps 10.7 to 10.11 need an authenticator app on your phone (Google Authenticator, Microsoft
+Authenticator, or similar). Two-factor sign-in is required on the real server; in development you
+turn it on yourself.
+
+| # | Step | Expected |
+| --- | --- | --- |
+| 10.7 | 8001, as `hrtest`: **My account → Set up two-factor sign-in**. Scan the QR code, enter the 6-digit code | "Two-factor sign-in is on" and ten recovery codes. Write one down |
+| 10.8 | Sign out, sign in as `hrtest` with the password | A page asks for the authentication code; you are not signed in yet |
+| 10.9 | Enter `000000` | "That code is not correct"; still not signed in |
+| 10.10 | Enter the code the app shows now | Signed in. Sign out, sign in again, and use the recovery code from 10.7: works once, with a message saying how many are left |
+| 10.11 | As your administrator: **System Admin**, open `hrtest`, **Reset two-factor sign-in** with a reason. Then sign in as `hrtest` | Reset message; `hrtest` signs in with only the password again (in development) |
 
 If you lock yourself out, wait 15 minutes.
 
@@ -239,7 +252,7 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | 7 Applicant registration and application (7.1-7.6) | | |
 | 8 Applicant and staff together (8.1-8.3) | | |
 | 9 Breadcrumbs (9.1-9.8) | | |
-| 10 Password reset and limits (10.1-10.6) | | |
+| 10 Password reset, limits, two-factor (10.1-10.11) | | |
 | 11 Backups | | |
 
 **For each failure, include:**

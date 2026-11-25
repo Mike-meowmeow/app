@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Recovery codes{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-8 col-lg-6">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4 mb-2">{% if first_time %}Two-factor sign-in is on{% else %}New recovery codes{% endif %}</h1>
+    <p>Save these recovery codes somewhere safe, such as printed or in a password manager. Each one works <strong>once</strong>, in place of an app code, if you lose your phone.</p>
+    <div class="alert alert-warning small">They are shown only now. {% if not first_time %}Your earlier recovery codes no longer work.{% endif %}</div>
+    <ul class="list-unstyled row row-cols-2 font-monospace fs-5 mb-3">
+      {% for code in codes %}<li class="col mb-1">{{ code }}</li>{% endfor %}
+    </ul>
+    <a class="btn btn-primary" href="{{ next_url }}">I have saved my codes, continue</a>
+  </div></div>
+</div></div>
+{% endblock %}

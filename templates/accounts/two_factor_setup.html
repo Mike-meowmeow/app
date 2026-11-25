@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Set up two-factor sign-in{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-lg-8">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4 mb-2">Set up two-factor sign-in</h1>
+    <p class="text-muted">
+      {% if signing_in and required %}Staff accounts need a code from an authenticator app at every sign-in. Set it up once now to finish signing in.
+      {% else %}After this, every sign-in asks for a code from your authenticator app as well as your password.{% endif %}
+    </p>
+    <div class="row g-4 align-items-start">
+      <div class="col-md-5 text-center">
+        <img src="{{ qr }}" alt="QR code for setting up the authenticator app" class="img-fluid border rounded" width="246" height="246">
+      </div>
+      <div class="col-md-7">
+        <ol class="small ps-3">
+          <li class="mb-2">Install an authenticator app on your phone if you do not have one, for example Google Authenticator, Microsoft Authenticator, or another app that supports time-based codes.</li>
+          <li class="mb-2">In the app, add an account and scan the QR code.
+            <div class="text-muted mt-1">Cannot scan? Enter this key instead (time-based):<br>
+              <code class="user-select-all fs-6">{{ secret }}</code><br>
+              Account: {{ issuer }} ({{ account_name }})</div></li>
+          <li>Enter the 6-digit code the app now shows.</li>
+        </ol>
+        {% include "includes/form_errors.html" %}
+        <form method="post" novalidate>{% csrf_token %}
+          {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+          <button class="btn btn-primary" type="submit">Turn on two-factor sign-in</button>
+          {% if signing_in %}<a class="btn btn-link" href="{% url 'accounts:staff_login' %}">Cancel</a>
+          {% else %}<a class="btn btn-link" href="{% url 'accounts:account' %}">Cancel</a>{% endif %}
+        </form>
+      </div>
+    </div>
+    <p class="small text-muted mt-3 mb-0">Keep this key private. Anyone who has it can create your sign-in codes.</p>
+  </div></div>
+</div></div>
+{% endblock %}

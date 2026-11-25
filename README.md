@@ -180,6 +180,7 @@ After pulling changes, run `py setup_db.py` (or the full setup if `requirements.
 | `SITE_URL` | Base address for email links in development | `http://127.0.0.1:8000` |
 | `PUBLIC_SITE_URL`, `STAFF_SITE_URL` | Addresses used in applicant and staff email links | `SITE_URL` |
 | `STAFF_LOGIN_MAX_FAILURES_PER_IP` | Failed staff sign-ins allowed per address | `100` |
+| `STAFF_TWO_FACTOR_REQUIRED`, `TWO_FACTOR_ISSUER` | Require an authenticator app code at every staff sign-in; the name shown in the app | on when `DJANGO_DEBUG=False`, `EVSU Recruitment` |
 | `MALWARE_SCAN_REQUIRED` | Refuse uploads that could not be scanned | on for the production public site |
 | `BACKUP_ROOT`, `MYSQL_BIN_DIR`, `BACKUP_MAX_AGE_HOURS` | Where backup sets go, where `mysqldump`/`mysql` are (if not found automatically), and when the last backup counts as overdue | `backups/`, auto, `26` |
 | `LOGIN_MAX_FAILURES`, `LOGIN_MAX_FAILURES_PER_IP`, `LOGIN_LOCKOUT_MINUTES` | Sign-in throttling per account identifier and per address | `5`, `20`, `15` |
@@ -212,20 +213,31 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   isolated `<DB_NAME>_restore` database, never the live one. System Administrators see the results
   under the account menu, **Backups and restore checks**. The recovery procedure is in
   `deploy/RECOVERY.md`.
-- **School server:** follow `deploy/DEPLOY.md` (two sites, Nginx, Gunicorn, router and firewall
-  rules, systemd timers for backups and email retries). These steps have not yet been run on a real
+- **Internet server:** follow `deploy/DEPLOY.md` (two sites on one server, Nginx, Gunicorn,
+  Let's Encrypt certificates, firewall, systemd timers for backups and email retries). These steps have not yet been run on a real
   server. Production settings are in `.env.production.example` and `deploy/*.env.example`. With
   `DJANGO_DEBUG=False`, HTTPS, secure cookies, and HSTS turn on; each site must pass
   `manage.py check --deploy`.
+- **AI server:** `deploy/AI-SERVER.md` sets up one headless Ubuntu server for the sites, MySQL, and
+  the AI runtime (OCR, spaCy, SBERT); `deploy/SERVER-INSTALL.md` walks a first-timer through the
+  Ubuntu installation; `deploy/ai_check.py` proves the runtime works. The AI packages
+  (`requirements-ai.txt`) are installed only on the server; the AI features arrive in Stage 10.
 - **Audit trail:** HR Head / Approver and System Administrator can search and export it from the
   account menu, **Audit trail**.
 
 ## 5b. Applicant and staff sites
 
 Applicants and staff use separate accounts and separate sign-in pages. In production they are two
-sites served from one server at school: the applicant site is public, and the staff site works only
-on the school network (`deploy/DEPLOY.md`). Staff accounts are created by a System Administrator at
+sites on one internet server, each with its own address and no network restriction
+(`deploy/DEPLOY.md`). Staff accounts are created by a System Administrator at
 **System Admin → New staff account**; the person sets a password through an emailed link.
+
+Staff sign-in has a second step: a 6-digit code from an authenticator app (Google Authenticator,
+Microsoft Authenticator, or similar). It is required in production; in development it is off
+unless `STAFF_TWO_FACTOR_REQUIRED=True`, but a staff member can turn it on at **My account → Set
+up two-factor sign-in**. The first sign-in shows a QR code to scan and ten single-use recovery
+codes. A System Administrator can reset it for someone who lost their phone, from that person's
+page under **System Admin**.
 
 ### Option 1: one server (everyday development)
 
@@ -370,6 +382,6 @@ roster conventions (row order, missing-value labels, remark wording, signatories
 unverified values at release). Seeded document types and the privacy notice are development
 placeholders until then.
 
-Before the public launch: school IT details (public address or tunnel, domain names, network range,
-router access, certificates, SMTP account), Data Privacy Officer review, and an HR rule for deadlines
+Before the public launch: a server with a public address, a domain with the two site names,
+certificates, an SMTP account, Data Privacy Officer review, and an HR rule for deadlines
 after an internet or power outage.

@@ -18,6 +18,21 @@
       </dl>
     </div></div>
     <a class="btn btn-outline-primary mt-3" href="{% url 'accounts:password_change' %}">Change password</a>
+    {% if two_factor %}
+      <div class="card shadow-sm mt-3"><div class="card-body">
+        <h2 class="h6">Two-factor sign-in</h2>
+        {% if two_factor.enrolled %}
+          <p class="small mb-2"><span class="badge text-bg-success">On</span> since {{ two_factor.since|date:"M j, Y" }} ·
+            {{ two_factor.recovery_codes_left }} recovery code{{ two_factor.recovery_codes_left|pluralize }} left</p>
+          <a class="btn btn-outline-secondary btn-sm" href="{% url 'accounts:two_factor_recovery_codes' %}">Generate new recovery codes</a>
+          <p class="small text-muted mt-2 mb-0">New phone? Ask a System Administrator to reset two-factor sign-in, then set it up again at your next sign-in.</p>
+        {% else %}
+          <p class="small mb-2"><span class="badge text-bg-secondary">Off</span>
+            {% if two_factor.required %}Required for staff; you will set it up at your next sign-in.{% else %}Protect your account with a code from an authenticator app.{% endif %}</p>
+          <a class="btn btn-outline-primary btn-sm" href="{% url 'accounts:two_factor_setup' %}">Set up two-factor sign-in</a>
+        {% endif %}
+      </div></div>
+    {% endif %}
   </div>
   <div class="col-lg-5">
     <div class="card shadow-sm"><div class="card-body">

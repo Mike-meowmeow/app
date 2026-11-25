@@ -22,6 +22,7 @@ NO_TRAIL = {
     'accounts:verify_email', 'accounts:resend_verification', 'accounts:password_reset',
     'accounts:password_reset_done', 'accounts:password_reset_confirm',
     'accounts:password_reset_complete', 'accounts:staff_invite',
+    'accounts:two_factor_verify', 'accounts:two_factor_setup', 'accounts:two_factor_reset',
     'applicants:delete_record', 'documents:download',
     'recruitment:apply', 'recruitment:upload_document', 'recruitment:remove_document',
     'recruitment:submit_application', 'recruitment:resubmit_corrections',
@@ -49,7 +50,7 @@ def url_names(patterns=None, namespace=''):
             if entry.namespace != 'admin':
                 inner = f'{entry.namespace}:' if entry.namespace else namespace
                 yield from url_names(entry.url_patterns, inner)
-        else:
+        elif entry.name:  # unnamed redirects (the admin sign-in) cannot be linked to
             yield namespace + entry.name
 
 

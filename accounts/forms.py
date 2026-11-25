@@ -173,3 +173,25 @@ class UserAccessForm(BootstrapFormMixin, forms.Form):
 
 class UserSearchForm(forms.Form):
     q = forms.CharField(required=False, label='Search')
+
+
+class TwoFactorCodeForm(BootstrapFormMixin, forms.Form):
+    code = forms.CharField(
+        label='Authentication code', max_length=20,
+        widget=forms.TextInput(attrs={'autofocus': True, 'autocomplete': 'one-time-code',
+                                      'inputmode': 'numeric', 'spellcheck': 'false'}))
+
+    def __init__(self, *args, allow_recovery=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if allow_recovery:
+            self.fields['code'].help_text = ('The 6-digit code in your authenticator app, or '
+                                             'one of your recovery codes.')
+            self.fields['code'].widget.attrs['inputmode'] = 'text'
+        else:
+            self.fields['code'].help_text = 'The 6-digit code your authenticator app shows now.'
+
+
+class TwoFactorResetForm(BootstrapFormMixin, forms.Form):
+    reason = forms.CharField(max_length=500, widget=forms.Textarea(attrs={'rows': 2}),
+                             help_text='For example: lost or replaced phone. Recorded in the '
+                                       'audit trail.')

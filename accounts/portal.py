@@ -1,12 +1,13 @@
-"""Separation of the public applicant site and the school-only staff site.
+"""Separation of the public applicant site and the staff site.
 
 Both sites are the same code and database, run as two server processes that
 differ only in SITE_PORTAL:
 
 - ``public``: reachable from the internet. Only the pages in PUBLIC_VIEWS exist
   (anything else is a 404) and only applicant accounts may be signed in.
-- ``staff``: reachable from the school network only. Everything requires a
-  staff sign-in, and applicant-only pages do not exist.
+- ``staff``: a separate host name. Everything requires a staff sign-in, and
+  applicant-only pages do not exist. Network restriction, if any, is done in
+  Nginx (deploy/nginx-staff.conf).
 - ``all``: development and tests. Every page exists on one address; each sign-in
   page still accepts only its own kind of account.
 
@@ -59,7 +60,11 @@ PUBLIC_VIEWS = APPLICANT_ONLY_VIEWS | PASSWORD_RESET_VIEWS | frozenset({
     'notifications:list', 'notifications:open', 'notifications:mark_all_read',
 })
 
-STAFF_ANONYMOUS_VIEWS = PASSWORD_RESET_VIEWS | {'accounts:staff_login'}
+# Sign-in steps before a staff session exists. The two-factor pages work only
+# after a correct staff password in the same browser session.
+STAFF_SIGN_IN_VIEWS = frozenset({'accounts:staff_login', 'accounts:two_factor_verify',
+                                 'accounts:two_factor_setup'})
+STAFF_ANONYMOUS_VIEWS = PASSWORD_RESET_VIEWS | STAFF_SIGN_IN_VIEWS
 
 
 def login_url_name():
@@ -68,7 +73,7 @@ def login_url_name():
 
 def site_url_for(user):
     """Base address for links emailed to this user: staff links point to the
-    school-only site, applicant links to the public site."""
+    staff site, applicant links to the public site."""
     url = settings.STAFF_SITE_URL if is_staff_account(user) else settings.PUBLIC_SITE_URL
     return url.rstrip('/')
 

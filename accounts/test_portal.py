@@ -1,4 +1,4 @@
-"""Separate applicant (public) and staff (school-only) sites and accounts."""
+"""Separate applicant (public) and staff sites and accounts."""
 
 import re
 import sys

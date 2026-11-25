@@ -31,7 +31,8 @@ def audit_login_failed(sender, credentials, request=None, **kwargs):
     # Django masks the password in `credentials`; only the identifier is kept.
     identifier = str(credentials.get('username', ''))[:150]
     match = getattr(request, 'resolver_match', None)
-    audience = 'staff' if match and match.view_name == 'accounts:staff_login' else 'applicant'
+    from .portal import STAFF_SIGN_IN_VIEWS
+    audience = 'staff' if match and match.view_name in STAFF_SIGN_IN_VIEWS else 'applicant'
     audit.record('auth.login_failed', entity_type='auth', entity_id='', actor=None,
                  changes={'identifier': identifier, 'audience': audience},
                  ip_address=client_ip(request))

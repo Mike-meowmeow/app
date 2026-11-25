@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Staff sign in{% endblock %}
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h4 mb-2">Enter your authentication code</h1>
+    <p class="text-muted small">Open your authenticator app and enter the 6-digit code shown for this system.</p>
+    {% include "includes/form_errors.html" %}
+    <form method="post" novalidate>{% csrf_token %}
+      {% for field in form %}{% include "includes/field.html" %}{% endfor %}
+      <button class="btn btn-primary w-100" type="submit">Verify and sign in</button>
+    </form>
+    <div class="small mt-3">
+      Lost your phone and your recovery codes? Ask a System Administrator to reset two-factor sign-in.
+      <div class="mt-2"><a href="{% url 'accounts:staff_login' %}">Cancel and sign in again</a></div>
+    </div>
+  </div></div>
+</div></div>
+{% endblock %}

@@ -12,6 +12,8 @@ This guide walks through testing the system on your own computer. It covers the 
 It takes about 1 to 1.5 hours. Do the parts in order, because later parts use the accounts and
 records you create earlier. Record each result in the checklist at the end.
 
+The AI document extraction (Stage 10) has its own guide, **TESTING-AI.md**. Do this guide first.
+
 Commands are for Windows PowerShell, run from the `app` folder. On macOS/Linux, replace
 `.\.venv\Scripts\python.exe` with `.venv/bin/python` and `py` with `python3`.
 
@@ -39,7 +41,7 @@ before continuing.
 
 ---
 
-## Part 1. Automated tests (about 10 minutes)
+## Part 1. Automated tests (about 20 minutes)
 
 Open a fresh terminal in the `app` folder and run:
 
@@ -47,7 +49,7 @@ Open a fresh terminal in the `app` folder and run:
 .\.venv\Scripts\python.exe manage.py test --noinput
 ```
 
-**Expected:** a final line `OK`, after about 294 tests. Write down the number shown.
+**Expected:** a final line `OK`, after about 356 tests. Write down the number shown.
 
 If many tests fail with 404 errors or redirects, that terminal has `SITE_PORTAL` set; open a new
 one. For any other failure, copy the whole failure text into your report.

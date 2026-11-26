@@ -9,7 +9,9 @@ import multiprocessing
 import os
 
 portal = os.environ['SITE_PORTAL']
-bind = f'unix:/run/evsu-recruitment-{portal}/gunicorn.sock'
+# GUNICORN_BIND lets another installation on the same server use its own socket
+# (deploy/tunnel/systemd/evsu-prod@.service).
+bind = os.environ.get('GUNICORN_BIND') or f'unix:/run/evsu-recruitment-{portal}/gunicorn.sock'
 workers = int(os.environ.get('GUNICORN_WORKERS') or min(multiprocessing.cpu_count() + 1, 5))
 timeout = 120          # roster PDF/Excel and report generation can take a while
 graceful_timeout = 30

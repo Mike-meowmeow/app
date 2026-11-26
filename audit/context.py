@@ -29,14 +29,20 @@ def client_ip(request):
     """The client's address. X-Forwarded-For is trusted only when the direct
     peer is a configured proxy (TRUSTED_PROXIES); then the right-most address
     that is not itself a trusted proxy is the client (it cannot be spoofed by
-    adding entries on the left)."""
+    adding entries on the left).
+
+    Gunicorn bound to a Unix socket (deploy/gunicorn.conf.py) reports an empty
+    REMOTE_ADDR, because a socket file has no address. The value 'unix' in
+    TRUSTED_PROXIES means such requests come from the local proxy (Nginx), the
+    only process that can reach the socket."""
     if request is None:
         return None
     from django.conf import settings
     remote = request.META.get('REMOTE_ADDR') or None
     trusted = set(getattr(settings, 'TRUSTED_PROXIES', ()))
     forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
-    if remote in trusted and forwarded:
+    from_proxy = remote in trusted or (remote is None and 'unix' in trusted)
+    if from_proxy and forwarded:
         import ipaddress
         for address in reversed([a.strip() for a in forwarded.split(',') if a.strip()]):
             if address not in trusted:

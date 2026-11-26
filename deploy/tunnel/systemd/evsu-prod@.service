@@ -1,0 +1,21 @@
+[Unit]
+Description=EVSU recruitment production %i site (Gunicorn, behind the Cloudflare Tunnel)
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=evsuprod
+Group=www-data
+WorkingDirectory=/srv/evsu-prod
+RuntimeDirectory=evsu-prod-%i
+Environment=SITE_PORTAL=%i
+Environment=GUNICORN_BIND=unix:/run/evsu-prod-%i/gunicorn.sock
+# Values here take priority over the shared /srv/evsu-prod/.env
+EnvironmentFile=/etc/evsu-prod/%i.env
+ExecStart=/srv/evsu-prod/.venv/bin/gunicorn config.wsgi:application -c deploy/gunicorn.conf.py
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+UMask=0007
+
+[Install]
+WantedBy=multi-user.target

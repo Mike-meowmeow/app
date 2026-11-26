@@ -342,6 +342,8 @@ SILENCED_SYSTEM_CHECKS = ['security.W021']
 
 # Client IP for audit and login throttling: X-Forwarded-For is used only when
 # the direct peer is one of these proxy addresses (e.g. 127.0.0.1 for Nginx).
+# 'unix' trusts requests that arrive over Gunicorn's Unix socket, which have no
+# address (audit/context.py).
 TRUSTED_PROXIES = env_list('TRUSTED_PROXIES', '')
 
 # Login throttling (FR-001): failed sign-ins per identifier or per IP address

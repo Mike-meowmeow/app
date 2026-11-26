@@ -1,0 +1,8 @@
+[Unit]
+Description=EVSU recruitment production: send owed notification emails
+
+[Service]
+Type=oneshot
+User=evsuprod
+WorkingDirectory=/srv/evsu-prod
+ExecStart=/srv/evsu-prod/.venv/bin/python manage.py send_notifications

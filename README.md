@@ -222,6 +222,9 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   server. Production settings are in `.env.production.example` and `deploy/*.env.example`. With
   `DJANGO_DEBUG=False`, HTTPS, secure cookies, and HSTS turn on; each site must pass
   `manage.py check --deploy`.
+- **Home server through a Cloudflare Tunnel:** follow `deploy/TUNNEL.md` (production beside the
+  development copy, `apply.` and `staff.evsuocc-recruitment.online`, no open web ports; files in
+  `deploy/tunnel/`).
 - **AI server:** `deploy/AI-SERVER.md` sets up one headless Ubuntu server for the sites, MySQL, and
   the AI runtime (OCR, spaCy, SBERT); `deploy/SERVER-INSTALL.md` walks a first-timer through the
   Ubuntu installation; `deploy/ai_check.py` proves the runtime works; `deploy/DEV-SERVER.md`
@@ -392,7 +395,7 @@ app/
   analytics/      Recruitment metrics, snapshots, Excel/PDF reports
   operations/     Backup sets, restore checks, monitoring; orphan-file sweep
   deploy/         Linux server files: Nginx, Gunicorn, systemd units, DEPLOY.md, RECOVERY.md,
-                  RELEASE.md, upgrade-check/
+                  RELEASE.md, upgrade-check/; tunnel/ and TUNNEL.md for the Cloudflare Tunnel
   templates/      Django templates (Bootstrap 5, served locally from static/vendor)
   setup.ps1 / setup.sh / setup_dev.py   Machine setup
   setup_db.py     Database provisioning, time zones, migrations, seeding

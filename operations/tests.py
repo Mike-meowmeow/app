@@ -263,6 +263,14 @@ class ClientAddressTests(TestCase):
                          '198.51.100.2')
         self.assertEqual(client_ip(self.request('127.0.0.1', 'not-an-ip')), '127.0.0.1')
 
+    def test_unix_socket_requests_trust_the_proxy_only_when_configured(self):
+        # Gunicorn on a Unix socket gives an empty REMOTE_ADDR.
+        with override_settings(TRUSTED_PROXIES=['127.0.0.1', 'unix']):
+            self.assertEqual(client_ip(self.request('', '203.0.113.7')), '203.0.113.7')
+            self.assertEqual(client_ip(self.request('', '1.1.1.1, 203.0.113.7')), '203.0.113.7')
+        with override_settings(TRUSTED_PROXIES=['127.0.0.1']):
+            self.assertIsNone(client_ip(self.request('', '203.0.113.7')))
+
     def test_without_trusted_proxies_header_is_ignored(self):
         self.assertEqual(client_ip(self.request('198.51.100.2', '203.0.113.7')),
                          '198.51.100.2')

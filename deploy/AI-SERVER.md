@@ -522,10 +522,10 @@ The applicant site must be public, and both sites need HTTPS certificates. Choos
 - If they differ, or the router's address starts with `100.64` to `100.127`, you are behind CGNAT.
   Use option A or C, or ask your provider for a public IP.
 
-**Option C needs changes.** With Cloudflare Tunnel, visitors' addresses arrive through Cloudflare.
-The Nginx files and `TRUSTED_PROXIES` must then take the real address from Cloudflare's header, or
-sign-in limits and the audit trail would see one address for everyone. Ask for the Nginx files to be
-adapted before you start.
+**Option C is in [TUNNEL.md](TUNNEL.md)** (prepared 26 November 2026 for
+`evsuocc-recruitment.online`). Its Nginx file takes each visitor's real address from Cloudflare's
+`CF-Connecting-IP` header. Without that, sign-in limits and the audit trail would see one address for
+everyone.
 
 **Power and internet at home:** a small UPS keeps the server running through short outages, and
 "Restore on AC power loss" (step 1) brings it back after long ones. For the defense, also keep the

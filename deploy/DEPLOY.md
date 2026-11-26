@@ -7,6 +7,14 @@ a server administrator with `sudo`. Paths below use `/srv/evsu-recruitment`.
 The steps describe the intended setup; they have not yet been run on a server. Record the versions
 you actually install in the project's Development Logs.
 
+**Home server behind a Cloudflare Tunnel** (no public IP, no certificates on the server, beside the
+development copy): follow [TUNNEL.md](TUNNEL.md). It uses the files in `deploy/tunnel/` and replaces
+the certificate, port-forwarding, and firewall parts of this guide.
+
+**Client addresses:** Gunicorn on a Unix socket reports no client address, so `TRUSTED_PROXIES` must
+include `unix` (as in `.env.production.example`). Otherwise the audit trail records no address and
+the per-address sign-in limits do not apply.
+
 ## Layout: one internet server, two sites
 
 | | Public applicant site | Staff site |

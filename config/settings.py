@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'analytics.apps.AnalyticsConfig',
     'operations.apps.OperationsConfig',
     'ai_processing.apps.AiProcessingConfig',
+    'assistant.apps.AssistantConfig',
 ]
 
 MIDDLEWARE = [
@@ -90,6 +91,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'accounts.context_processors.workspaces',
                 'notifications.context_processors.unread',
+                'assistant.context_processors.assistant',
             ],
         },
     },
@@ -286,6 +288,19 @@ AI_QUALIFICATION_CHECKS_ENABLED = env_bool('AI_QUALIFICATION_CHECKS_ENABLED', Tr
 # default. SBERT_MODEL is a model name in HF_HOME or a local folder.
 AI_COMPETENCY_MATCHING_ENABLED = env_bool('AI_COMPETENCY_MATCHING_ENABLED', False)
 SBERT_MODEL = env('SBERT_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
+
+# Staff help assistant (floating button for HR and System Administrators).
+# Answers only from assistant/help_guide.md, using models in a local Ollama
+# service (deploy/AI-SERVER.md step 8.2); never reads applicant data. Off by
+# default; without Ollama it falls back to a word search of the guide.
+ASSISTANT_ENABLED = env_bool('ASSISTANT_ENABLED', False)
+ASSISTANT_OLLAMA_URL = env('ASSISTANT_OLLAMA_URL', 'http://127.0.0.1:11434')
+ASSISTANT_CHAT_MODEL = env('ASSISTANT_CHAT_MODEL', 'qwen2.5:3b')
+ASSISTANT_EMBED_MODEL = env('ASSISTANT_EMBED_MODEL', 'all-minilm')
+# Articles less similar than this to the question are not used (0-1 scale).
+ASSISTANT_MIN_SIMILARITY = float(env('ASSISTANT_MIN_SIMILARITY', '0.35'))
+ASSISTANT_TIMEOUT_SECONDS = int(env('ASSISTANT_TIMEOUT_SECONDS', '90'))
+ASSISTANT_MAX_QUESTIONS_PER_10_MINUTES = int(env('ASSISTANT_MAX_QUESTIONS_PER_10_MINUTES', '30'))
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

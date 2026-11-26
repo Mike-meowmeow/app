@@ -21,5 +21,6 @@ urlpatterns = [
     path('audit/', include('audit.urls')),
     path('operations/', include('operations.urls')),
     path('ai/', include('ai_processing.urls')),
+    path('assistant/', include('assistant.urls')),
     path('', include('core.urls')),
 ]

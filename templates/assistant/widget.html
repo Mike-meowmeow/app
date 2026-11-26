@@ -1,0 +1,23 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'assistant/assistant.css' %}">
+<div id="assistant" class="assistant" data-url="{% url 'assistant:ask' %}">
+  <button type="button" class="assistant-toggle btn btn-primary rounded-circle shadow" aria-controls="assistant-panel" aria-expanded="false" title="Help assistant">
+    <span class="assistant-icon" aria-hidden="true">?</span><span class="visually-hidden">Open the help assistant</span>
+  </button>
+  <section id="assistant-panel" class="assistant-panel card shadow" role="dialog" aria-label="Help assistant" hidden>
+    <header class="card-header d-flex justify-content-between align-items-center py-2">
+      <div><strong>Help assistant</strong> <span class="badge text-bg-light border">Staff</span></div>
+      <button type="button" class="btn-close assistant-close" aria-label="Close the help assistant"></button>
+    </header>
+    <div class="assistant-messages card-body small" aria-live="polite">
+      <div class="assistant-msg assistant-bot">Ask how to do something in the system, for example <em>"How do I request a correction?"</em> or <em>"How do I create a staff account?"</em>. I answer from the staff help guide only and cannot see any applicant or application.</div>
+    </div>
+    <form class="assistant-form card-footer d-flex gap-2 py-2" autocomplete="off">
+      {% csrf_token %}
+      <label for="assistant-input" class="visually-hidden">Your question</label>
+      <input id="assistant-input" class="form-control form-control-sm" name="question" maxlength="500" placeholder="Type a question" required>
+      <button class="btn btn-sm btn-primary" type="submit">Ask</button>
+    </form>
+  </section>
+</div>
+<script src="{% static 'assistant/assistant.js' %}" defer></script>

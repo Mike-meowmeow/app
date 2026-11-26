@@ -397,6 +397,78 @@ It prints each pair's similarity, the average for each judgment, and how often a
 scores above a not-related one (50% = chance). To compare another model, set `SBERT_MODEL`,
 download it as in step 5.5, and run the command again.
 
+### 8.2 Staff help assistant (Ollama)
+
+The floating **?** button for HR and System Administrators answers how-to questions from
+`assistant/help_guide.md`, and from nothing else. It never reads applicant or application data.
+Two models run in **Ollama**, a separate service on this machine that is reachable only from the
+machine itself:
+
+- `all-minilm` (45 MB) finds the closest help articles;
+- `qwen2.5:3b` (1.9 GB) writes a short answer from those articles.
+
+The answer always shows the articles it used.
+
+**Install** (done on the development server on 26 November 2026, Ollama 0.40.18):
+
+```bash
+curl -fsSL https://ollama.com/install.sh -o /tmp/ollama-install.sh   # read it first
+sudo sh /tmp/ollama-install.sh && rm /tmp/ollama-install.sh
+sudo mkdir -p /etc/systemd/system/ollama.service.d
+sudo tee /etc/systemd/system/ollama.service.d/evsu-limits.conf > /dev/null <<'CONF'
+[Service]
+Environment=OLLAMA_HOST=127.0.0.1:11434
+Environment=OLLAMA_NUM_PARALLEL=1
+Environment=OLLAMA_MAX_LOADED_MODELS=2
+Environment=OLLAMA_KEEP_ALIVE=10m
+MemoryMax=6G
+Nice=10
+CPUWeight=50
+CONF
+sudo systemctl daemon-reload && sudo systemctl restart ollama
+sudo ollama pull all-minilm
+sudo ollama pull qwen2.5:3b
+```
+
+Then set `ASSISTANT_ENABLED=True` in `.env` and restart the sites. The other settings have working
+defaults: `ASSISTANT_CHAT_MODEL`, `ASSISTANT_EMBED_MODEL`, `ASSISTANT_MIN_SIMILARITY` (0.35),
+`ASSISTANT_TIMEOUT_SECONDS`, and `ASSISTANT_MAX_QUESTIONS_PER_10_MINUTES`.
+
+**Measured on this server (26 November 2026, CPU only):**
+
+- answers in about 4-9 s, at about 16 tokens/s;
+- refusals in under 1 s, because the model is not asked;
+- memory up to the 6 GB cap, which includes reclaimable file cache. No out-of-memory events
+  occurred, and the sites and the AI worker stayed responsive.
+
+**Questions tested:**
+
+- The right article ranked first for all 10 test questions. How-to questions scored 0.45-0.61.
+- A question about a named applicant's status scored 0.28 and was not answered, which is the
+  intended privacy behaviour.
+- An unrelated question scored 0.02, and was not answered either.
+
+**The model can still mix two articles into a slightly wrong flow, so staff must check the source
+articles under each answer.** Raise `ASSISTANT_MIN_SIMILARITY` if the assistant answers questions
+the guide does not cover.
+
+**When Ollama is stopped or missing,** the assistant still works as a word search of the help guide
+and says so. The rest of the system does not use Ollama.
+
+**Remove Ollama completely** (about a minute; nothing else changes):
+
+```bash
+sudo systemctl disable --now ollama
+sudo rm -f /etc/systemd/system/ollama.service
+sudo rm -rf /etc/systemd/system/ollama.service.d
+sudo rm -f /usr/local/bin/ollama
+sudo rm -rf /usr/local/lib/ollama /usr/share/ollama
+sudo gpasswd -d root ollama 2>/dev/null; sudo userdel ollama; sudo groupdel ollama 2>/dev/null
+sudo systemctl daemon-reload
+```
+
+Set `ASSISTANT_ENABLED=False` as well, or leave it on to keep the word-search help.
+
 ---
 
 ## 9. Reaching the internet

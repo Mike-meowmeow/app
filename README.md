@@ -246,6 +246,12 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   the model revision. Not a score or ranking; names, contact details, schools, and employers are
   never inputs. Off unless `AI_COMPETENCY_MATCHING_ENABLED=True` on a computer with the model.
   `manage.py evaluate_competency_matching pairs.csv` compares the model with HR's judgments.
+- **Staff help assistant:** HR and System Administrators get a floating **?** button that answers
+  how-to questions from `assistant/help_guide.md` only, with the source articles shown under each
+  answer. It uses a local Ollama service (`all-minilm` to find articles, `qwen2.5:3b` to write the
+  answer; `deploy/AI-SERVER.md` step 8.2), never reads applicant data, and does not store
+  questions. Off unless `ASSISTANT_ENABLED=True`; without Ollama it falls back to word search. Edit
+  the help guide to change what it can answer.
 - **AI review summary:** the HR workspace's **AI extraction results** page (and
   `manage.py ai_review_report`) shows per document type how many proposed items HR accepted,
   corrected, linked, or rejected, with the fields corrected most. `ai_processing/test_acceptance.py`

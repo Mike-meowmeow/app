@@ -22,6 +22,7 @@ There are two parts:
 | **B** | The AI server's development copy, `http://192.168.1.107:8000` | Someone on the same home network as the server, with help from the person who manages it | About 1 hour |
 | **C** | Your own computer or the server | Everyone (needs no AI packages) | About 40 minutes |
 | **D** | The AI server's development copy | Same as Part B | About 30 minutes |
+| **E** | The AI server's development copy | Anyone with an HR or System Administrator account there | About 20 minutes |
 
 Part A uses no AI packages: it checks the automated tests and what happens when the AI runtime is
 missing. Part B uses the real OCR and models on the server.
@@ -391,6 +392,30 @@ sudo -u evsu .venv/bin/python manage.py evaluate_competency_matching deploy/comp
 
 ---
 
+## Part E. Staff help assistant (server)
+
+HR and System Administrators see a round **?** button in the bottom-right corner of every staff
+page. It answers how-to questions from the staff help guide only (`assistant/help_guide.md`). It
+cannot see any applicant or application. Each answer comes from a local AI model on the server,
+with the help articles it used underneath.
+
+| # | Step | Expected |
+| --- | --- | --- |
+| E1 | Sign in as HR on the server copy. Look at the bottom-right corner | A round **?** button. It is not shown to approvers, department heads, PSB members, or applicants |
+| E2 | Click it | A panel opens with a short explanation. **Esc** or the X closes it |
+| E3 | Ask "How do I verify an applicant document?" | Within about 10 seconds: steps mentioning the **Document verification queue** and **Verify**, a note that a local AI wrote it, and the article **Verifying uploaded documents** underneath (click to expand) |
+| E4 | Ask "the applicant uploaded the wrong file, how can I ask for a new one" | Steps about **Request correction**. Compare the answer with the article shown and note any step the article does not contain |
+| E5 | Ask "what is the status of Maria Santos application" | "The staff help guide does not seem to cover this…" with the closest articles. It must not discuss the person |
+| E6 | Ask "what is the weather today" | The same "does not cover" reply |
+| E7 | Ask a question in Filipino, for example "Paano mag-schedule ng interview?" | An answer based on **Committees, interviews, and evaluations** |
+| E8 | Sign in as a System Administrator and ask "how do I add a new HR user" | Steps with **User accounts and roles** and **New staff account**. HR-only articles are never shown to a System Administrator who is not also HR |
+| E9 | Type `<b>test</b>` as a question | Your text shows exactly as typed, not as bold |
+| E10 | (Person who manages the server) `sudo systemctl stop ollama`, then ask E3 again | "The assistant is not available right now…" with matching articles from a word search. Then `sudo systemctl start ollama` |
+| E11 | Ask 31 questions within 10 minutes | The 31st says "Too many questions in a short time" |
+
+
+---
+
 ## Results checklist
 
 Copy this table into your report and fill in **Pass** or **Fail** for each row.
@@ -419,6 +444,7 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | D1 Running competency matching (D1.1-D1.8) | | |
 | D2 Changes and failures (D2.1-D2.6) | | |
 | D3 Comparison with HR judgments (figures: ___) | | |
+| E Staff help assistant (E1-E11; list any wrong or invented steps) | | |
 
 **For each failure, include:**
 - the step number;

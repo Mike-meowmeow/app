@@ -105,7 +105,7 @@ class QualificationStandardForm(BootstrapFormMixin, forms.Form):
     name = forms.CharField(required=False, max_length=200,
                            label='Required eligibility or license name',
                            widget=CredentialNameInput(CREDENTIAL_KINDS, switch='criterion_type'),
-                           help_text='Choose from the suggestions, or type it if it is not listed.')
+                           help_text='Choose from the list, or choose Other and type it if it is not listed.')
     field = forms.CharField(required=False, max_length=200,
                             label='Field or specialization (optional)')
     description = forms.CharField(widget=forms.Textarea(attrs={'rows': 2}),

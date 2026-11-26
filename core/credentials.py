@@ -89,16 +89,30 @@ class CredentialNameInput(forms.TextInput):
         return context
 
     def render(self, name, value, attrs=None, renderer=None):
+        """The text box (the real form field), a datalist per kind for typing,
+        and a dropdown per kind ("Choose", the listed names, "Other (not in
+        the list)"). The dropdowns start hidden; static/core/credentials.js
+        shows the one for the current kind and fills the text box from it.
+        Without JavaScript the text box with suggestions still works."""
         html = super().render(name, value, attrs, renderer)
-        base = (attrs or {}).get('id') or self.attrs.get('id') or f'id_{name}'
-        lists = []
+        base = escape((attrs or {}).get('id') or self.attrs.get('id') or f'id_{name}')
+        parts = [html]
         for kind in self.kinds:
-            options = format_html_join('', '<option value="{}"></option>',
-                                       ((n,) for n in names(kind)))
-            lists.append(f'<datalist id="{escape(base)}-{kind}-names">{options}</datalist>')
-        script = (f'<script src="{escape(static("core/credentials.js"))}" defer></script>'
-                  if self.switch else '')
-        return mark_safe(html + ''.join(lists) + script)
+            listed = names(kind)
+            options = format_html_join('', '<option value="{}"></option>', ((n,) for n in listed))
+            parts.append(f'<datalist id="{base}-{kind}-names">{options}</datalist>')
+            choices = format_html_join('', '<option value="{}">{}</option>',
+                                       ((n, n) for n in listed))
+            label = 'eligibility' if kind == CredentialKind.ELIGIBILITY else 'license'
+            parts.append(
+                f'<select class="form-select mb-2 credential-picker" hidden '
+                f'data-credential-picker="{base}" data-credential-kind="{kind}" '
+                f'aria-label="Choose the {label}">'
+                f'<option value="">Choose the {label}...</option>{choices}'
+                f'<option value="__other__">Other (not in the list): type it below</option>'
+                f'</select>')
+        parts.append(f'<script src="{escape(static("core/credentials.js"))}" defer></script>')
+        return mark_safe(''.join(parts))
 
 
 KINDS = (CredentialKind.LICENSE, CredentialKind.ELIGIBILITY)

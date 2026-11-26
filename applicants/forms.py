@@ -70,7 +70,7 @@ class EligibilityForm(RecordForm):
         fields = ('eligibility_type', 'rating', 'date_obtained')
         widgets = {'date_obtained': DATE_WIDGET,
                    'eligibility_type': CredentialNameInput(CredentialKind.ELIGIBILITY)}
-        help_texts = {'eligibility_type': 'Choose from the suggestions, or type it if it is not '
+        help_texts = {'eligibility_type': 'Choose from the list, or choose Other and type it if it is not '
                                           'listed.'}
 
 
@@ -80,7 +80,7 @@ class LicenseForm(RecordForm):
         fields = ('profession', 'license_number', 'issuing_body', 'issued_on', 'expires_on')
         widgets = {'issued_on': DATE_WIDGET, 'expires_on': DATE_WIDGET,
                    'profession': CredentialNameInput(CredentialKind.LICENSE)}
-        help_texts = {'profession': 'Choose from the suggestions, or type it if it is not listed.'}
+        help_texts = {'profession': 'Choose from the list, or choose Other and type it if it is not listed.'}
 
 
 RECORD_FORMS = {

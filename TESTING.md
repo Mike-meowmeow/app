@@ -157,9 +157,9 @@ Use the staff site (8001), signed in as `hrtest` or your administrator account.
 | 6.7 | Open **Committees & interviews** | One committee named `PSB - Part-Time Instructor - Test - VAC-...`; there is no name field |
 | 6.8 | Add `psbtest` as a member | Member listed |
 | 6.9 | Edit the catalog position's description | The vacancy you created does **not** change |
-| 6.10 | On a draft vacancy, **+ Qualification standard**, choose **Professional license**, and type `teach` in the name box | Suggestions appear, including **Professional Teacher**. Switch to **Eligibility**: the suggestions change to eligibilities such as **Career Service Professional**. Typing a name that is not listed still saves |
+| 6.10 | On a draft vacancy, **+ Qualification standard**, choose **Professional license** as the criterion | A dropdown appears under "Required eligibility or license name" listing licenses such as **Professional Teacher**. Switch the criterion to **Eligibility**: the dropdown lists eligibilities such as **Career Service Professional**. Choose **Other (not in the list)**: a text box appears; a typed name saves. Switch to **Education**: the dropdown disappears |
 | 6.11 | As your administrator: account menu → **Licenses and eligibilities** | The list of licenses and eligibilities with their other spellings. Add a made-up name, then edit it and uncheck **Suggest this name**: it shows as retired and is no longer suggested |
-| 6.12 | As `appltest`, **My profile → add a license** | The profession box suggests the listed licenses. Choose **Professional Teacher**, or type `LET passer` |
+| 6.12 | As `appltest`, **My profile → add a license** | A dropdown lists the licenses. Choose **Professional Teacher**; or choose **Other (not in the list)** and type a name. Editing the entry later shows the chosen name selected |
 
 ---
 

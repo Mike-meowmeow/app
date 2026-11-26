@@ -94,11 +94,20 @@ class CredentialListTests(TestCase):
         self.assertIn('<option value="Professional Teacher">', html)
         self.assertIn('data-credential-switch="criterion_type"', html)
         self.assertIn('core/credentials.js', html)
+        # A real dropdown per kind, with "Other" for names not in the list.
+        self.assertIn('data-credential-picker="id_name" data-credential-kind="license"', html)
+        self.assertIn('data-credential-picker="id_name" data-credential-kind="eligibility"', html)
+        self.assertIn('<option value="Professional Teacher">Professional Teacher</option>', html)
+        self.assertIn('<option value="__other__">Other (not in the list)', html)
+        self.assertIn('<option value="Career Service Professional">Career Service Professional'
+                      '</option>', html)
         applicant = make_user('appl2', roles.APPLICANT)
         self.client.force_login(applicant)
         page = self.client.get(reverse('applicants:add_record', args=['license']))
         self.assertContains(page, 'list="id_profession-license-names"')
         self.assertContains(page, '<option value="Registered Nurse">')
+        self.assertContains(page, 'data-credential-picker="id_profession"')
+        self.assertContains(page, 'core/credentials.js')
         page = self.client.get(reverse('applicants:add_record', args=['eligibility']))
         self.assertContains(page, '<option value="Career Service Professional">')
 

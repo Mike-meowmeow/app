@@ -28,9 +28,12 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from applicants.models import DEGREE_RANK, CompletionStatus, DegreeLevel
+from core import credentials
 from recruitment.models import CriterionType, FactReviewStatus, RelevanceStatus
 
-RULES_VERSION = 'qualification-rules-1'
+# 2: eligibility and license names also match through the reference list
+# (core/credentials.py): a listed name and its aliases are the same credential.
+RULES_VERSION = 'qualification-rules-2'
 
 MEETS = 'meets'
 DOES_NOT_MEET = 'does_not_meet'
@@ -283,20 +286,35 @@ def check_training(standard, facts, as_of):
     return _finish(Outcome(DOES_NOT_MEET, lines, used), pending, rejected, 'training')
 
 
-def _name_matches(name, facts, field):
+def _name_matches(name, facts, field, kind):
+    """(full, partial, listed): full when the words of the required name are
+    all in the entry, or both are the same credential in the reference list
+    (a listed name or one of its aliases); `listed` is that list name."""
+    table = credentials.lookup(kind)
+    listed = credentials.canonical(kind, name, table)
     required = words(name)
-    full = [f for f in facts if required and required <= words(f.value.get(field))]
+    full = [f for f in facts
+            if (listed and credentials.canonical(kind, f.value.get(field), table) == listed)
+            or (required and required <= words(f.value.get(field)))]
     partial = [f for f in facts if f not in full and required & words(f.value.get(field))]
-    return full, partial
+    return full, partial, listed
+
+
+def _listed_note(listed, name, full, field):
+    """A reasoning line when the reference list made the match."""
+    if listed and any(words(f.value.get(field)) != words(name) for f in full):
+        return [f'The reference list treats these names as the same credential: "{listed}".']
+    return []
 
 
 def check_eligibility(standard, facts, as_of):
     name = standard.required_value.get('name') or ''
     accepted, pending, rejected = _split(facts, 'eligibility')
     lines = [f'Requires the eligibility "{name}".']
-    full, partial = _name_matches(name, accepted, 'eligibility_type')
+    full, partial, listed = _name_matches(name, accepted, 'eligibility_type', 'eligibility')
     if full:
         lines += [f'Matches: {describe(f)}.' for f in full]
+        lines += _listed_note(listed, name, full, 'eligibility_type')
         return _finish(Outcome(MEETS, lines, full), pending, rejected, 'eligibility')
     if partial:
         lines += [f'Partly matches: {describe(f)}.' for f in partial]
@@ -311,8 +329,9 @@ def check_license(standard, facts, as_of):
     name = standard.required_value.get('name') or ''
     accepted, pending, rejected = _split(facts, 'license')
     lines = [f'Requires a professional license: "{name}".']
-    full, partial = _name_matches(name, accepted, 'profession')
+    full, partial, listed = _name_matches(name, accepted, 'profession', 'license')
     if full:
+        lines += _listed_note(listed, name, full, 'profession')
         current = []
         for f in full:
             expires = _date(f.value.get('expires_on'))

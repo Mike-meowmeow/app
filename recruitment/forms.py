@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 
 from accounts import roles
 from applicants.models import DegreeLevel
+from core.credentials import KINDS as CREDENTIAL_KINDS, CredentialNameInput
 from core.forms import BootstrapFormMixin
 from core.models import Department, RecruitmentType
 from documents.models import DocumentType
@@ -102,7 +103,9 @@ class QualificationStandardForm(BootstrapFormMixin, forms.Form):
     amount = forms.DecimalField(required=False, min_value=0, max_digits=7, decimal_places=2,
                                 label='Minimum years (experience) or hours (training)')
     name = forms.CharField(required=False, max_length=200,
-                           label='Required eligibility or license name')
+                           label='Required eligibility or license name',
+                           widget=CredentialNameInput(CREDENTIAL_KINDS, switch='criterion_type'),
+                           help_text='Choose from the suggestions, or type it if it is not listed.')
     field = forms.CharField(required=False, max_length=200,
                             label='Field or specialization (optional)')
     description = forms.CharField(widget=forms.Textarea(attrs={'rows': 2}),

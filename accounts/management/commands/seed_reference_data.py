@@ -12,7 +12,8 @@ from django.db import transaction
 from accounts.roles import ROLE_PERMISSIONS
 from audit import services as audit
 from audit.context import audit_reason
-from core.models import Department, RecruitmentType
+from core.credential_list import ELIGIBILITIES, LICENSES
+from core.models import Credential, CredentialKind, Department, RecruitmentType
 from documents.models import DocumentType
 
 # Confirmed capstone scope. Other recruitment types need HR confirmation.
@@ -58,6 +59,7 @@ class Command(BaseCommand):
                 self.ensure(RecruitmentType, code, name)
             for code, name in DOCUMENT_TYPES:
                 self.ensure(DocumentType, code, name)
+            self.seed_credentials()
             if sample_department:
                 self.ensure(Department, *SAMPLE_DEPARTMENT)
         self.stdout.write(self.style.SUCCESS(
@@ -78,6 +80,21 @@ class Command(BaseCommand):
                                                 for p in missing)})
                 self.stdout.write(f'  role {role}: {"created" if created else "updated"}'
                                   f'{f", +{len(missing)} permissions" if missing else ""}')
+
+    def seed_credentials(self):
+        """Add missing license and eligibility names (core/credential_list.py)."""
+        added = 0
+        for kind, entries in ((CredentialKind.LICENSE, LICENSES),
+                              (CredentialKind.ELIGIBILITY, ELIGIBILITIES)):
+            for name, aliases in entries:
+                _, created = Credential.objects.get_or_create(
+                    kind=kind, name=name, defaults={'aliases': '\n'.join(aliases)})
+                added += created
+        if added:
+            self.changed = True
+            audit.record('reference.credentials_seeded', actor=None,
+                         entity_type='credential_names', changes={'added': added})
+            self.stdout.write(f'  licenses and eligibilities: {added} added')
 
     def ensure(self, model, code, name):
         obj, created = model.objects.get_or_create(code=code, defaults={'name': name})

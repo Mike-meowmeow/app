@@ -243,6 +243,12 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   the facts used (overlapping work counted once, relevance required, incomplete degrees and missing
   hours sent to HR). HR records the official outcome, optionally starting from the suggestion. No
   AI packages needed; `AI_QUALIFICATION_CHECKS_ENABLED` (on by default) turns it off.
+- **Licenses and eligibilities list:** a reference list of PRC licenses and CSC eligibilities with
+  other spellings (`core/credential_list.py`, loaded by `seed_reference_data`; kept up to date by
+  System Administrators at **Licenses and eligibilities**). Qualification standards, applicant
+  profiles, and HR's fact forms suggest these names while typing (any name can still be typed),
+  and the qualification check treats a name and its other spellings as the same credential. JSON
+  for signed-in users: `/reference/credential-names/?kind=license|eligibility&q=...`.
 - **Competency matching (Stage 10, advisory):** **Run competency matching** on an application
   queues an AI worker job that compares each vacancy competency with the accepted qualification
   wording using SBERT (`SBERT_MODEL`) and shows the cosine similarity (-1 to 1) of every pair, with

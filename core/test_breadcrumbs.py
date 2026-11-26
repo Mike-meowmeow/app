@@ -44,7 +44,7 @@ NO_TRAIL = {
     'notifications:open', 'notifications:mark_all_read', 'notifications:retry',
     'analytics:report_download',
     'ai_processing:run', 'ai_processing:retry', 'ai_processing:item_action',
-    'ai_processing:run_checks', 'assistant:ask', 'assistant:run', 'assistant:feedback', 'ai_processing:run_matching', 'ai_processing:retry_matching',
+    'ai_processing:run_checks', 'assistant:ask', 'assistant:run', 'assistant:feedback', 'core:credential_names', 'ai_processing:run_matching', 'ai_processing:retry_matching',
 }
 
 

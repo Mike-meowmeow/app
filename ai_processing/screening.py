@@ -17,6 +17,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from audit import services as audit
+from core import credentials
 from recruitment import application_selectors as access
 from recruitment import fact_schema
 from recruitment.models import Application, FactReviewStatus
@@ -54,6 +55,8 @@ def check_inputs(application):
     as_of = timezone.localtime(snapshot.captured_at).date()
     manifest = {
         'rules_version': rules.RULES_VERSION,
+        # The license/eligibility reference list: edits make results out of date.
+        'credential_list': credentials.digest(),
         'snapshot': str(snapshot.pk), 'snapshot_version': snapshot.version,
         'requirement_version': str(requirement.pk),
         'requirement_version_number': requirement.version,

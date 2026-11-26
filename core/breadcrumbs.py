@@ -19,6 +19,7 @@ from accounts import roles
 from accounts.models import User
 from applicants.services import RECORD_KINDS
 from committee.models import CommitteeConflict, Interview, InterviewEvaluation
+from core.models import Credential
 from matrix.models import ApplicantRoster, RosterEntry, RosterTemplate
 from recruitment.models import Application, Position, Vacancy
 
@@ -160,6 +161,9 @@ PAGES = {
     'recruitment:application_selection': _on_review('Selection'),
     'ai_processing:results': Page('AI extraction results'),
     'assistant:unanswered': Page('Help assistant questions'),
+    'core:credential_list': Page('Licenses and eligibilities'),
+    'core:credential_edit': Page(lambda c, kw: c.name, 'core:credential_list',
+                                 load=lambda kw: Credential.objects.get(pk=kw['pk'])),
     'ai_processing:extraction': _on_review('AI extraction'),
     'ai_processing:screening': _on_review('Qualification check'),
     'ai_processing:matches': _on_review('Competency matching'),

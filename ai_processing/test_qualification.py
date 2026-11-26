@@ -5,7 +5,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from recruitment import application_services as applications
@@ -44,7 +44,7 @@ def training(title, hours, start='2024-01-10', relevance=RelevanceStatus.RELEVAN
     return fact('training', relevance=relevance, title=title, hours=hours, start_date=start)
 
 
-class RuleTests(SimpleTestCase):
+class RuleTests(TestCase):  # the name check reads the credential list
     def check(self, std, facts):
         return rules.evaluate(std, facts, AS_OF)
 

@@ -1,7 +1,9 @@
 from django import forms
 from django.utils import timezone
 
+from core.credentials import CredentialNameInput
 from core.forms import BootstrapFormMixin
+from core.models import CredentialKind
 
 from .models import (Applicant, CivilStatus, EducationalRecord, Eligibility, ProfessionalLicense,
                      Sex, Training, WorkExperience, contact_number_validator)
@@ -66,14 +68,19 @@ class EligibilityForm(RecordForm):
     class Meta:
         model = Eligibility
         fields = ('eligibility_type', 'rating', 'date_obtained')
-        widgets = {'date_obtained': DATE_WIDGET}
+        widgets = {'date_obtained': DATE_WIDGET,
+                   'eligibility_type': CredentialNameInput(CredentialKind.ELIGIBILITY)}
+        help_texts = {'eligibility_type': 'Choose from the suggestions, or type it if it is not '
+                                          'listed.'}
 
 
 class LicenseForm(RecordForm):
     class Meta:
         model = ProfessionalLicense
         fields = ('profession', 'license_number', 'issuing_body', 'issued_on', 'expires_on')
-        widgets = {'issued_on': DATE_WIDGET, 'expires_on': DATE_WIDGET}
+        widgets = {'issued_on': DATE_WIDGET, 'expires_on': DATE_WIDGET,
+                   'profession': CredentialNameInput(CredentialKind.LICENSE)}
+        help_texts = {'profession': 'Choose from the suggestions, or type it if it is not listed.'}
 
 
 RECORD_FORMS = {

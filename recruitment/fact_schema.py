@@ -96,6 +96,10 @@ def display_items(fact_type, value):
     return items
 
 
+# Value fields that suggest names from the license/eligibility reference list.
+CREDENTIAL_FIELDS = {'eligibility_type': 'eligibility', 'profession': 'license'}
+
+
 def value_form_class(fact_type):
     """A form with one field per value field of the fact type."""
     attrs = {}
@@ -115,6 +119,10 @@ def value_form_class(fact_type):
         elif kind == 'long':
             field = forms.CharField(label=label, required=is_required,
                                     widget=forms.Textarea(attrs={'rows': 2}))
+        elif name in CREDENTIAL_FIELDS:
+            from core.credentials import CredentialNameInput
+            field = forms.CharField(label=label, required=is_required, max_length=255,
+                                    widget=CredentialNameInput(CREDENTIAL_FIELDS[name]))
         else:
             field = forms.CharField(label=label, required=is_required, max_length=255)
         attrs[name] = field

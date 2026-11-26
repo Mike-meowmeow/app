@@ -41,7 +41,7 @@ On the application, the **Competency matching** card has **Run competency matchi
 
 ## Creating and publishing a vacancy
 Roles: HR
-Open **HR workspace → Vacancies and requirements** and press **New vacancy**. Choose a position from the position catalog: its title, description, document checklist, qualification standards, and competencies are copied into the draft. Set the department, number of positions, opening date, and deadline. Adjust requirements with **+ Document**, **+ Qualification standard**, and **+ Subject / competency**, then press **Publish vacancy**. Publishing freezes that requirement version; later changes go into a new draft version that applicants see only after **Publish version**. A committee is created automatically when the vacancy is first published. **Close applications** ends the application period early.
+Open **HR workspace → Vacancies and requirements** and press **New vacancy**. Choose a position from the position catalog: its title, description, document checklist, qualification standards, and competencies are copied into the draft. Set the department, number of positions, opening date, and deadline. Adjust requirements with **+ Document**, **+ Qualification standard**, and **+ Subject / competency**, then press **Publish vacancy**. For a qualification standard of type **Eligibility** or **Professional license**, the name box suggests names from the licenses and eligibilities list as you type; choose one, or type the name if it is not listed. Using a listed name lets the advisory qualification check recognise other spellings applicants use (for example "LET passer" for **Professional Teacher**). Publishing freezes that requirement version; later changes go into a new draft version that applicants see only after **Publish version**. A committee is created automatically when the vacancy is first published. **Close applications** ends the application period early.
 
 ## Managing the position catalog
 Roles: HR
@@ -86,6 +86,10 @@ Roles: System Administrator
 ## Audit trail
 Roles: System Administrator
 The **Audit trail** (account menu) lists recorded actions: who did what, when, from which address, and why. Filter by action (for example `ai.` for AI events, `fact.` for fact reviews), user, or date, and export the results. Audit entries cannot be edited or deleted. The HR Head / Approver can also open it.
+
+## Licenses and eligibilities list
+Roles: System Administrator
+Open the account menu → **Licenses and eligibilities**. It lists the professional licenses (PRC) and civil service eligibilities (CSC) suggested while typing: to HR in qualification standards, to applicants in their profile, and to HR when adding or correcting a fact. Each name can have **other spellings**, one per line (for example "LET" and "LET passer" for **Professional Teacher**); the advisory qualification check treats them as the same credential. Use **Add a name** for a missing one and **Edit** to change spellings. To stop suggesting a name, uncheck **Suggest this name** instead of deleting it. When renaming, keep the old name as another spelling so existing entries still match. The starting list was drafted from the PRC and CSC lists and should be checked against the official ones.
 
 ## Official roster templates
 Roles: System Administrator

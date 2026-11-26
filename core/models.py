@@ -85,3 +85,34 @@ class RecruitmentType(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class CredentialKind(models.TextChoices):
+    LICENSE = 'license', 'Professional license (PRC)'
+    ELIGIBILITY = 'eligibility', 'Civil service eligibility (CSC)'
+
+
+class Credential(BaseModel):
+    """A name in the reference list of licenses and eligibilities. HR's
+    qualification standards and applicants' profiles suggest these names, and
+    the advisory qualification checks treat a name and its other spellings
+    (aliases, one per line) as the same credential. A name not on the list can
+    still be typed. Kept up to date by System Administrators."""
+
+    kind = models.CharField(max_length=20, choices=CredentialKind.choices)
+    name = models.CharField(max_length=200)
+    aliases = models.TextField(blank=True, help_text='Other spellings or abbreviations, one per line.')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'credential_names'
+        ordering = ['kind', 'name']
+        constraints = [models.UniqueConstraint(
+            fields=['kind', 'name'], name='credential_name_unique_per_kind',
+            violation_error_message='This name is already in the list.')]
+
+    def __str__(self):
+        return self.name
+
+    def alias_list(self):
+        return [a.strip() for a in self.aliases.splitlines() if a.strip()]

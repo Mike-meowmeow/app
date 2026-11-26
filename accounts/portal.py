@@ -60,6 +60,7 @@ PUBLIC_VIEWS = APPLICANT_ONLY_VIEWS | PASSWORD_RESET_VIEWS | frozenset({
     'recruitment:public_list', 'recruitment:public_detail',
     'documents:download',
     'notifications:list', 'notifications:open', 'notifications:mark_all_read',
+    'core:credential_names',
 })
 
 # Sign-in steps before a staff session exists. The two-factor pages work only

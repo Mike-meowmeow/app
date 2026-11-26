@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import credential_views, views
 
 app_name = 'core'
 
@@ -12,4 +12,9 @@ urlpatterns = [
     path('workspace/approver/', views.workspace_approver, name='workspace_approver'),
     path('workspace/department/', views.workspace_department, name='workspace_department'),
     path('workspace/psb/', views.workspace_psb, name='workspace_psb'),
+    path('reference/credential-names/', credential_views.credential_names,
+         name='credential_names'),
+    path('reference/credentials/', credential_views.credential_list, name='credential_list'),
+    path('reference/credentials/<uuid:pk>/', credential_views.credential_edit,
+         name='credential_edit'),
 ]

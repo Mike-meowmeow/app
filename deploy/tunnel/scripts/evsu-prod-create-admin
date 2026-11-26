@@ -1,0 +1,10 @@
+#!/bin/bash
+# Creates the first production administrator (deploy/TUNNEL.md step 5).
+set -euo pipefail
+if [ "$(id -u)" -ne 0 ]; then echo "Run with sudo." >&2; exit 1; fi
+cd /srv/evsu-prod
+read -r -p "Administrator username: " U
+sudo -u evsuprod .venv/bin/python manage.py createsuperuser --username "$U"
+sudo -u evsuprod .venv/bin/python manage.py assign_role "$U" "System Administrator"
+echo "Done. Sign in at https://staff.evsuocc-recruitment.online once the tunnel is up;"
+echo "the first sign-in asks you to set up an authenticator app."

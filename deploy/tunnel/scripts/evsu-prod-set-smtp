@@ -1,0 +1,35 @@
+#!/bin/bash
+# Sets the production SMTP password (deploy/TUNNEL.md step 4) without showing it,
+# restarts the production sites, turns on the email retry timer, and sends a
+# test email to the sending address itself.
+set -euo pipefail
+if [ "$(id -u)" -ne 0 ]; then echo "Run with sudo." >&2; exit 1; fi
+ENV=/srv/evsu-prod/.env
+read -r -s -p "New Gmail app password (16 letters, spaces allowed; not shown): " PW; echo
+PW=$(printf '%s' "$PW" | tr -d ' ')
+if [ ${#PW} -lt 8 ]; then echo "That looks too short; nothing changed." >&2; exit 1; fi
+EVSU_SMTP_PW="$PW" python3 - "$ENV" <<'PY'
+import os, sys
+path = sys.argv[1]
+lines = open(path, encoding='utf-8').read().splitlines(keepends=True)
+out, done = [], False
+for line in lines:
+    if line.startswith('EMAIL_HOST_PASSWORD='):
+        out.append('EMAIL_HOST_PASSWORD=' + os.environ['EVSU_SMTP_PW'] + '\n'); done = True
+    else:
+        out.append(line)
+if not done:
+    out.append('EMAIL_HOST_PASSWORD=' + os.environ['EVSU_SMTP_PW'] + '\n')
+open(path, 'w', encoding='utf-8').writelines(out)
+PY
+unset PW EVSU_SMTP_PW
+systemctl restart evsu-prod@public evsu-prod@staff evsu-prod-ai-worker
+systemctl enable --now evsu-prod-notifications.timer >/dev/null 2>&1
+TO=$(grep '^EMAIL_HOST_USER=' "$ENV" | cut -d= -f2-)
+cd /srv/evsu-prod
+if sudo -u evsuprod .venv/bin/python manage.py sendtestemail "$TO" >/dev/null 2>&1; then
+  echo "Test email sent to the sending address. Check that inbox."
+else
+  echo "The test email could not be sent. Check the app password and run this again." >&2
+  exit 1
+fi

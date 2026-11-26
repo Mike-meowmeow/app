@@ -50,6 +50,22 @@ project owner, because they involve secrets:
 - entering the SMTP app password (step 4);
 - running the Cloudflare tunnel token (step 8).
 
+Helper scripts in `deploy/tunnel/scripts/` do those steps without showing any secret. Install each
+one as root (`sudo install -o root -g root -m 700 <script> /usr/local/sbin/`):
+
+| Script | Step | What it does |
+| --- | --- | --- |
+| `evsu-prod-create-db` | 3 | Generates the two account passwords into `/etc/evsu-prod/db.secrets` (root only) and creates the database; only the MySQL root password is typed |
+| `make_prod_env.py` | 4 | Run as root: writes `/srv/evsu-prod/.env` with a new secret key, the database password, the production paths and addresses, and the sender settings from the development copy (email password left empty) |
+| `evsu-prod-set-smtp` | 4 | Asks for the email app password without showing it, restarts the sites, turns on the email retry timer, and sends a test email |
+| `evsu-prod-create-admin` | 5 | Creates the first administrator and gives it the System Administrator role |
+
+**The production folder is private.** `/srv/evsu-prod` belongs to `evsuprod` (mode 750), so an
+administrator account cannot `cd` into it or expand `*` inside it. Run commands as
+`sudo -u evsuprod bash -c 'cd /srv/evsu-prod && ...'`, and copy files out with
+`sudo bash -c 'cp /srv/evsu-prod/... ...'`. The commands below are written that way where it
+matters.
+
 ## 1. Packages
 
 ```bash
@@ -131,18 +147,27 @@ keep them out of chat and notes. The development database and its account are no
 ## 4. Python environment and settings
 
 ```bash
+sudo systemctl enable --now clamav-daemon     # once freshclam has downloaded the signatures
+sudo -u evsuprod bash -ec '
 cd /srv/evsu-prod
-sudo -u evsuprod python3.12 -m venv .venv
-sudo -u evsuprod .venv/bin/pip install -r requirements-linux.txt
-# AI packages (PyTorch CPU-only, then requirements-ai.txt and the spaCy model): as in
-# AI-SERVER.md steps 5.3-5.4, run in /srv/evsu-prod as evsuprod. The system packages (5.1) and
-# the downloaded SBERT model (5.5) are already on this server.
-sudo -u evsuprod cp .env.production.example .env
-sudo chmod 600 .env
-sudo -u evsuprod nano .env
+python3.12 -m venv .venv
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r requirements-linux.txt
+.venv/bin/pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/pip install -r requirements-ai.txt
+.venv/bin/python -m spacy download en_core_web_sm-3.8.0 --direct
+.venv/bin/python -m pip check
+'
 ```
 
-Values to set in `/srv/evsu-prod/.env`. Everything else stays as in the example:
+The system packages (AI-SERVER.md 5.1) and the downloaded SBERT model (5.5) are already on this
+server. Compare `pip freeze` with the development copy afterwards. On 26 November 2026 only two
+unpinned indirect packages differed by a patch version (`regex`, `typer`).
+
+Then the settings file. `scripts/make_prod_env.py` (run as root) writes it from
+`.env.production.example`; afterwards the project owner runs `evsu-prod-set-smtp` for the email
+password. To write it by hand instead, these are the values to set in `/srv/evsu-prod/.env`;
+everything else stays as in the example:
 
 ```ini
 DJANGO_SECRET_KEY=<new: python3 -c "import secrets; print(secrets.token_urlsafe(64))">
@@ -180,31 +205,36 @@ limits would not work.
 Per-site settings:
 
 ```bash
-sudo cp deploy/tunnel/public.env /etc/evsu-prod/public.env
-sudo cp deploy/tunnel/staff.env /etc/evsu-prod/staff.env
-sudo chown root:evsuprod /etc/evsu-prod/*.env && sudo chmod 640 /etc/evsu-prod/*.env
+sudo cp /srv/evsu-prod/deploy/tunnel/public.env /etc/evsu-prod/public.env
+sudo cp /srv/evsu-prod/deploy/tunnel/staff.env /etc/evsu-prod/staff.env
+sudo chown root:evsuprod /etc/evsu-prod/public.env /etc/evsu-prod/staff.env
+sudo chmod 640 /etc/evsu-prod/public.env /etc/evsu-prod/staff.env
 ```
 
 ## 5. Migrate, seed, static files, checks
 
+As root, so the migration password is read from `/etc/evsu-prod/db.secrets` and never typed:
+
 ```bash
+sudo bash -ec '
+. /etc/evsu-prod/db.secrets
 cd /srv/evsu-prod
-sudo -u evsuprod env DB_USER=evsu_migrate DB_PASSWORD='<migration password>' \
-    .venv/bin/python manage.py migrate
+sudo -u evsuprod env DB_USER=evsu_migrate DB_PASSWORD="$DB_MIGRATE_PASSWORD" \
+    .venv/bin/python manage.py migrate --noinput
 sudo -u evsuprod .venv/bin/python manage.py seed_reference_data
 sudo -u evsuprod .venv/bin/python manage.py collectstatic --noinput
 for site in public staff; do
-  sudo -u evsuprod env SITE_PORTAL=$site $(sudo grep -v '^#' /etc/evsu-prod/$site.env | xargs) \
+  sudo -u evsuprod env SITE_PORTAL=$site $(grep -v "^#" /etc/evsu-prod/$site.env | xargs) \
       .venv/bin/python manage.py check --deploy
 done
+'
 ```
 
-`check --deploy` must report no issues for either site. Then create the administrator. The project
-owner sets the password:
+`check --deploy` must report no issues for either site. Then the project owner creates the
+administrator and sets its password:
 
 ```bash
-sudo -u evsuprod .venv/bin/python manage.py createsuperuser
-sudo -u evsuprod .venv/bin/python manage.py assign_role <admin> "System Administrator"
+sudo /usr/local/sbin/evsu-prod-create-admin
 ```
 
 Use made-up names and data for every other account until the Data Privacy Officer approves. Do
@@ -213,12 +243,15 @@ not register the official roster template with real staff names on this server.
 ## 6. Services and timers
 
 ```bash
-sudo cp deploy/tunnel/systemd/* /etc/systemd/system/
+sudo bash -c 'cp /srv/evsu-prod/deploy/tunnel/systemd/* /etc/systemd/system/'
 sudo systemctl daemon-reload
 sudo systemctl enable --now evsu-prod@public evsu-prod@staff
-sudo systemctl enable --now evsu-prod-ai-worker evsu-prod-notifications.timer evsu-prod-backup.timer
+sudo systemctl enable --now evsu-prod-ai-worker evsu-prod-backup.timer
 systemctl is-active evsu-prod@public evsu-prod@staff evsu-prod-ai-worker
 ```
+
+Leave `evsu-prod-notifications.timer` off until the email password is set. `evsu-prod-set-smtp`
+turns it on; otherwise retries are used up on emails that cannot be sent.
 
 Two AI workers (development and production) each use up to about 600 MB while working. If memory
 is tight, stop the development worker while it is not needed: `sudo systemctl stop evsu-ai-worker`.
@@ -227,10 +260,11 @@ is tight, stop the development worker while it is not needed: `sudo systemctl st
 
 ```bash
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo cp deploy/tunnel/nginx-tunnel-proxy.conf /etc/nginx/snippets/evsu-tunnel-proxy.conf
-sudo cp deploy/tunnel/nginx-tunnel.conf /etc/nginx/sites-available/evsu-tunnel
-sudo ln -s /etc/nginx/sites-available/evsu-tunnel /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+sudo cp /srv/evsu-prod/deploy/tunnel/nginx-tunnel-proxy.conf /etc/nginx/snippets/evsu-tunnel-proxy.conf
+sudo cp /srv/evsu-prod/deploy/tunnel/nginx-tunnel.conf /etc/nginx/sites-available/evsu-tunnel
+sudo ln -sf /etc/nginx/sites-available/evsu-tunnel /etc/nginx/sites-enabled/evsu-tunnel
+# restart, not reload: a reload kept the default site's port 80 socket open
+sudo nginx -t && sudo systemctl restart nginx
 sudo ss -tlnp | grep nginx                      # must show 127.0.0.1:8080 only
 curl -sI -H 'Host: apply.evsuocc-recruitment.online' http://127.0.0.1:8080/ | head -1
 curl -sI -H 'Host: staff.evsuocc-recruitment.online' http://127.0.0.1:8080/ | head -1
@@ -242,10 +276,12 @@ Both requests should answer (200, or a redirect to a sign-in page). Nothing is o
 
 1. Cloudflare dashboard → **Zero Trust** → **Networks** → **Tunnels** → **Create a tunnel** →
    **Cloudflared**. Name it `evsu-server`.
-2. On "Install and run a connector", choose **Debian**. Copy only the command
+2. On "Install and run a connector", choose **Debian**. The first box (installing cloudflared)
+   was already done in step 1; running it again only says "already the newest version". Copy only the command
    `sudo cloudflared service install <token>`, then run it **yourself** on the server over SSH. The
    token is a secret: do not paste it into chat, notes, or the repository.
-3. Back in the dashboard, add **Public hostnames**, each with type **HTTP** and URL
+3. Back in the dashboard, add **Public hostnames** (newer dashboards: **Published application
+   routes**), each with type **HTTP** and URL
    `127.0.0.1:8080`:
    - `apply.evsuocc-recruitment.online`
    - `staff.evsuocc-recruitment.online`
@@ -292,8 +328,16 @@ Use a phone on **mobile data**, not the home Wi-Fi. Then run DEPLOY.md step 7 wi
 3. **Real visitor addresses (step 7.9):** **System Admin → Audit trail** shows the phone's public
    address for its sign-in. It must not show `127.0.0.1` or nothing.
 4. **Sign-in limits:** five wrong passwords show "Too many failed sign-in attempts".
-5. **Backups:** after the first night, **Backups and restore checks** shows a completed backup. Run
-   a restore check (RECOVERY.md) with `/srv/evsu-prod` and `evsuprod`.
+5. **Backups:** run one at once instead of waiting for the night:
+
+   ```bash
+   sudo -u evsuprod bash -c 'cd /srv/evsu-prod && .venv/bin/python manage.py backup_create \
+       && .venv/bin/python manage.py backup_verify \
+       && .venv/bin/python manage.py restore_check --requested-by <admin username>'
+   ```
+
+   It ends with "Restore check of ... passed". **Backups and restore checks** on the staff site
+   shows both.
 6. The development copy still works on `http://192.168.1.107:8000` from the home network, and not
    from mobile data.
 

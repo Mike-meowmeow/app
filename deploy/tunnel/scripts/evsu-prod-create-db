@@ -1,0 +1,29 @@
+#!/bin/bash
+# Creates the production database and its two accounts (deploy/TUNNEL.md step 3).
+# The account passwords are generated here and saved to /etc/evsu-prod/db.secrets
+# (root only); only the MySQL root password is typed, at the prompt.
+set -euo pipefail
+SECRETS=/etc/evsu-prod/db.secrets
+if [ "$(id -u)" -ne 0 ]; then echo "Run with sudo." >&2; exit 1; fi
+if [ ! -f "$SECRETS" ]; then
+  umask 077
+  APP=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+  MIG=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+  printf 'DB_APP_PASSWORD=%s\nDB_MIGRATE_PASSWORD=%s\n' "$APP" "$MIG" > "$SECRETS"
+  chmod 600 "$SECRETS"
+fi
+. "$SECRETS"
+echo "Creating database evsu_recruitment with accounts evsu_app and evsu_migrate."
+echo "Enter the MySQL root password when asked."
+mysql -u root -p <<SQL
+CREATE DATABASE IF NOT EXISTS evsu_recruitment CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER IF NOT EXISTS 'evsu_app'@'localhost' IDENTIFIED BY '${DB_APP_PASSWORD}';
+CREATE USER IF NOT EXISTS 'evsu_app'@'127.0.0.1' IDENTIFIED BY '${DB_APP_PASSWORD}';
+GRANT SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, SHOW VIEW, TRIGGER
+    ON evsu_recruitment.* TO 'evsu_app'@'localhost', 'evsu_app'@'127.0.0.1';
+CREATE USER IF NOT EXISTS 'evsu_migrate'@'localhost' IDENTIFIED BY '${DB_MIGRATE_PASSWORD}';
+CREATE USER IF NOT EXISTS 'evsu_migrate'@'127.0.0.1' IDENTIFIED BY '${DB_MIGRATE_PASSWORD}';
+GRANT ALL PRIVILEGES ON evsu_recruitment.* TO 'evsu_migrate'@'localhost', 'evsu_migrate'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON evsu_recruitment_restore.* TO 'evsu_app'@'localhost', 'evsu_app'@'127.0.0.1';
+SQL
+echo "Done. The account passwords are in $SECRETS (root only)."

@@ -47,13 +47,13 @@ git pull
 and `migrate` applies `ai_processing.0001_initial`, `audit.0002_auditlog_job`, and
 `documents.0004_factevidence_extraction_item` (or says there is nothing to apply).
 
-### A2. Automated tests (about 20 minutes)
+### A2. Automated tests (about 30 minutes)
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py test --noinput
 ```
 
-**Expected:** a final line `OK`, after about 356 tests. To run only the AI tests (about 3 minutes):
+**Expected:** a final line `OK`, after about 406 tests. To run only the AI tests (about 3 minutes):
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py test ai_processing --noinput

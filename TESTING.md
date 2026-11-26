@@ -41,7 +41,7 @@ before continuing.
 
 ---
 
-## Part 1. Automated tests (about 20 minutes)
+## Part 1. Automated tests (about 30 minutes)
 
 Open a fresh terminal in the `app` folder and run:
 
@@ -49,7 +49,7 @@ Open a fresh terminal in the `app` folder and run:
 .\.venv\Scripts\python.exe manage.py test --noinput
 ```
 
-**Expected:** a final line `OK`, after about 356 tests. Write down the number shown.
+**Expected:** a final line `OK`, after about 406 tests. Write down the number shown.
 
 If many tests fail with 404 errors or redirects, that terminal has `SITE_PORTAL` set; open a new
 one. For any other failure, copy the whole failure text into your report.

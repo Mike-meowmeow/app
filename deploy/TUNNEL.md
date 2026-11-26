@@ -10,9 +10,16 @@ The home server keeps its development copy (`/srv/evsu-recruitment`, port 8000, 
 unchanged. Production is a separate installation with its own account, folders, database,
 settings, and services.
 
+**Purpose: testing and the defense only.** This deployment is for groupmate testing, HR
+walkthroughs with sample data, the load test, and the defense demonstration. It holds **made-up
+accounts and applicants only**. Real applicant data is never loaded here, even after the Data
+Privacy Officer approves real data; real use needs the school's own deployment
+([DEPLOY.md](DEPLOY.md)), decided with school IT and the Data Privacy Officer. Below,
+"production" and `evsu-prod` mean this internet-facing test copy, as opposed to the home-network
+development copy.
+
 It replaces the certificate, port-forwarding, and firewall parts of [DEPLOY.md](DEPLOY.md). Every
-other rule there still applies. Until the Data Privacy Officer approves real data, use **made-up
-accounts and applicants only**.
+other rule there still applies.
 
 ## Layout
 
@@ -237,8 +244,8 @@ administrator and sets its password:
 sudo /usr/local/sbin/evsu-prod-create-admin
 ```
 
-Use made-up names and data for every other account until the Data Privacy Officer approves. Do
-not register the official roster template with real staff names on this server.
+Use made-up names and data for every other account. Do not register the official roster template
+with real staff names on this server.
 
 ## 6. Services and timers
 

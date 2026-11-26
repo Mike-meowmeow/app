@@ -1,6 +1,6 @@
 {% load static %}
 <link rel="stylesheet" href="{% static 'assistant/assistant.css' %}">
-<div id="assistant" class="assistant" data-url="{% url 'assistant:ask' %}">
+<div id="assistant" class="assistant" data-url="{% url 'assistant:ask' %}" data-run-url="{% url 'assistant:run' %}">
   <button type="button" class="assistant-toggle btn btn-primary rounded-circle shadow" aria-controls="assistant-panel" aria-expanded="false" title="Help assistant">
     <span class="assistant-icon" aria-hidden="true">?</span><span class="visually-hidden">Open the help assistant</span>
   </button>
@@ -10,7 +10,7 @@
       <button type="button" class="btn-close assistant-close" aria-label="Close the help assistant"></button>
     </header>
     <div class="assistant-messages card-body small" aria-live="polite">
-      <div class="assistant-msg assistant-bot">Ask how to do something in the system, for example <em>"How do I request a correction?"</em> or <em>"How do I create a staff account?"</em>. I answer from the staff help guide only and cannot see any applicant or application.</div>
+      <div class="assistant-msg assistant-bot">Ask how to do something, for example <em>"How do I request a correction?"</em>, or ask me to do it for you: <em>"open the verification queue"</em>, <em>"show my pending work"</em>, <em>"list applications under review for the Math vacancy"</em>, <em>"run qualification checks for APP-1A2B3C4D"</em>. I always show what I will do and wait for you to press <strong>Confirm</strong>. I never make decisions, verify documents, or change the roster.</div>
     </div>
     <form class="assistant-form card-footer d-flex gap-2 py-2" autocomplete="off">
       {% csrf_token %}

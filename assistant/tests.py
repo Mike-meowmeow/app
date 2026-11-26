@@ -17,10 +17,12 @@ from . import guide, services
 
 class FakeOllama:
     def __init__(self, answer='Open the **Document verification queue** and press Verify.',
-                 down=False):
+                 down=False, tool=None):
         self.answer = answer
         self.down = down
-        self.chats = []
+        self.tool = tool  # (name, arguments) the planning call returns, if any
+        self.chats = []  # answer-writing calls only
+        self.plans = []  # planning calls (with tools)
 
     def post(self, path, payload, timeout):
         if self.down:
@@ -29,6 +31,13 @@ class FakeOllama:
             # Articles are embedded as "Title. text"; the fake compares titles
             # only, so its word-count vectors rank articles predictably.
             return {'embeddings': [fake_vector(t.split('.')[0]) for t in payload['input']]}
+        if 'tools' in payload:
+            self.plans.append(payload)
+            if self.tool:
+                name, arguments = self.tool
+                return {'message': {'content': '', 'tool_calls': [
+                    {'function': {'name': name, 'arguments': arguments}}]}}
+            return {'message': {'content': 'HELP'}}
         self.chats.append(payload)
         return {'message': {'content': self.answer}}
 
@@ -46,7 +55,7 @@ class FakeOllama:
 class GuideTests(TestCase):
     def test_every_article_has_a_title_roles_and_text(self):
         articles, digest = guide.articles()
-        self.assertGreaterEqual(len(articles), 20)
+        self.assertGreaterEqual(len(articles), 25)
         self.assertEqual(len({a.title for a in articles}), len(articles))
         for article in articles:
             self.assertTrue(article.roles <= {roles.HR, roles.SYSTEM_ADMIN}, article.title)

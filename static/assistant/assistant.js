@@ -37,6 +37,44 @@
     return '<div class="assistant-sources"><div class="assistant-note">From the help guide:</div>' + items.join('') + '</div>';
   }
 
+  // A confirmation card: nothing runs until Confirm is pressed.
+  function cardElement(card) {
+    const box = document.createElement('div');
+    box.className = 'assistant-card';
+    const text = document.createElement('div');
+    text.innerHTML = card.summary;  // server-escaped
+    const buttons = document.createElement('div');
+    buttons.className = 'd-flex gap-2 mt-2';
+    const ok = document.createElement('button');
+    ok.type = 'button'; ok.className = 'btn btn-sm btn-primary'; ok.textContent = 'Confirm';
+    const no = document.createElement('button');
+    no.type = 'button'; no.className = 'btn btn-sm btn-outline-secondary'; no.textContent = 'Cancel';
+    buttons.append(ok, no);
+    box.append(text, buttons);
+    no.addEventListener('click', () => { buttons.remove(); box.classList.add('assistant-card-done'); text.insertAdjacentText('beforeend', ' (cancelled)'); });
+    ok.addEventListener('click', async () => {
+      ok.disabled = true; no.disabled = true;
+      ok.textContent = 'Working...';
+      try {
+        const response = await fetch(root.dataset.runUrl, {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+          body: JSON.stringify({ token: card.token }),
+        });
+        const data = await response.json().catch(() => ({}));
+        buttons.remove();
+        box.classList.add('assistant-card-done');
+        if (response.ok && data.redirect) { window.location.href = data.redirect; return; }
+        const result = add('assistant-bot');
+        if (response.ok) { result.innerHTML = data.html; } else { result.textContent = data.error || 'That did not work.'; }
+      } catch (err) {
+        ok.disabled = false; no.disabled = false; ok.textContent = 'Confirm';
+        add('assistant-bot').textContent = 'The request could not be sent. Try again.';
+      }
+    });
+    return box;
+  }
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const question = input.value.trim();
@@ -58,6 +96,7 @@
         reply.textContent = data.error || 'Something went wrong. Please try again.';
       } else {
         reply.innerHTML = data.answer + (data.note ? '<div class="assistant-note">' + data.note + '</div>' : '') + sources(data.sources || []);
+        (data.cards || []).forEach((card) => reply.appendChild(cardElement(card)));
       }
     } catch (err) {
       reply.classList.remove('assistant-thinking');

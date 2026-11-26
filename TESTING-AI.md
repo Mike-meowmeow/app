@@ -412,6 +412,16 @@ with the help articles it used underneath.
 | E9 | Type `<b>test</b>` as a question | Your text shows exactly as typed, not as bold |
 | E10 | (Person who manages the server) `sudo systemctl stop ollama`, then ask E3 again | "The assistant is not available right now…" with matching articles from a word search. Then `sudo systemctl start ollama` |
 | E11 | Ask 31 questions within 10 minutes | The 31st says "Too many questions in a short time" |
+| E12 | As HR: "open the verification queue" | A card **Open Document verification queue** with **Confirm** and **Cancel**. Nothing happens until you press Confirm; then the page opens |
+| E13 | "show my pending work", then Confirm | Counts of documents waiting for verification, AI items waiting for review, decisions awaiting release, and applications by status, each with a link |
+| E14 | "list applications under review for the <words from a vacancy title>", then Confirm | Up to 15 applications with links. The counts and names come from the system, not from the AI |
+| E15 | "run qualification checks for <applicant last name>" | One card per matching application you can see. Confirm one: "Qualification checks done ... (advisory)" with a link. The application's status is unchanged |
+| E16 | "queue competency matching for <reference APP-...>", then Confirm | "Competency matching queued" with a link to the results |
+| E17 | "shortlist <applicant name>", "approve the roster", "verify the documents of <name>" | "I cannot do that for you..." followed by help on how to do it on its page. No card |
+| E18 | "How do I generate the roster?" | A help answer, not a card |
+| E19 | Press **Cancel** on a card | The card shows "(cancelled)" and nothing happens |
+| E20 | As a System Administrator: "open the audit trail" | A card that opens the Audit trail. Application operations are not offered to a System Administrator who is not HR |
+| E21 | (Person who manages the server) **System Admin → Audit trail**, action `assistant.` | An `assistant.operation_confirmed` entry for each confirmed check or matching run, with your name. Questions themselves are not recorded |
 
 
 ---
@@ -444,7 +454,7 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | D1 Running competency matching (D1.1-D1.8) | | |
 | D2 Changes and failures (D2.1-D2.6) | | |
 | D3 Comparison with HR judgments (figures: ___) | | |
-| E Staff help assistant (E1-E11; list any wrong or invented steps) | | |
+| E Staff help assistant (E1-E21; list any wrong or invented steps or wrong cards) | | |
 
 **For each failure, include:**
 - the step number;

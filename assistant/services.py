@@ -29,6 +29,8 @@ STOP_WORDS = {
     'ang', 'ng', 'sa', 'na', 'mga', 'ko', 'paano',
 }
 TOP_ARTICLES = 2
+# Questions about how to do something get the help answer, never an operation.
+HOW_TO = re.compile(r'\s*(how\s+(do|can|could|should|would|to|does)|paano)\b', re.I)
 
 _vectors = {}  # (embed model, guide hash) -> {article number: vector}
 
@@ -123,7 +125,79 @@ def chat(question, sources):
     return answer
 
 
-def answer(question, user_roles):
+def plan(question, user_roles):
+    """Ask the model whether the message requests one of the operations.
+    Returns (tool name, arguments) or None. Only the question and the tool
+    descriptions are sent: never any record."""
+    from . import operations
+    tools = operations.tools_for(user_roles)
+    if not tools:
+        return None
+    data = _post('/api/chat', {
+        'model': settings.ASSISTANT_CHAT_MODEL, 'stream': False, 'tools': tools,
+        'options': {'temperature': 0},
+        'messages': [
+            {'role': 'system', 'content': (
+                'You turn a staff request into a tool call for the EVSU-Ormoc recruitment '
+                'system. Call exactly one tool only when the person asks you to open a page, '
+                'show or count their work, list applications, or run qualification checks, '
+                'competency matching, or a retry for an application. Copy exactly the words '
+                'they typed for the vacancy or application (a reference, an applicant name, '
+                'or words from a position title) into the arguments; never invent or complete '
+                'a reference. For a how-to question, or anything else, do not call a tool and '
+                'reply with the single word HELP.')},
+            {'role': 'user', 'content': question}]},
+        timeout=settings.ASSISTANT_TIMEOUT_SECONDS)
+    calls = (data.get('message') or {}).get('tool_calls') or []
+    if not calls:
+        return None
+    function = calls[0].get('function') or {}
+    arguments = function.get('arguments') or {}
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except ValueError:
+            arguments = {}
+    return function.get('name'), arguments if isinstance(arguments, dict) else {}
+
+
+def answer(question, user):
+    """Operation cards for a request, or a help answer.
+
+    Returns a dict with 'mode' ('confirm', 'refused', or a help mode), 'answer',
+    'sources', 'note', and for 'confirm' the 'cards' to confirm."""
+    from django.core.exceptions import PermissionDenied
+
+    from accounts.roles import role_names
+
+    from . import operations
+    user_roles = role_names(user)
+    if operations.forbidden_instruction(question):
+        result = help_answer(question, user_roles)
+        result['answer'] = operations.REFUSAL + ' ' + result['answer']
+        result['mode'] = 'refused'
+        return result
+    if HOW_TO.match(question):  # "how do I ...": always the help answer
+        return help_answer(question, user_roles)
+    try:
+        planned = plan(question, user_roles)
+    except Unavailable:
+        planned = None
+    if planned:
+        name, arguments = planned
+        try:
+            message, cards = operations.prepare(user, name, arguments, question)
+        except operations.NotFound as exc:
+            return {'mode': 'none', 'answer': str(exc), 'sources': [], 'note': '', 'cards': []}
+        except PermissionDenied:
+            pass  # not an operation this person may use: answer from the guide
+        else:
+            return {'mode': 'confirm', 'answer': message, 'sources': [], 'cards': cards,
+                    'note': 'Nothing happens until you press Confirm.'}
+    return help_answer(question, user_roles)
+
+
+def help_answer(question, user_roles):
     """{'mode', 'answer', 'sources': [Article], 'note'}.
 
     mode: 'ai' (model answer from sources), 'none' (no article close enough),

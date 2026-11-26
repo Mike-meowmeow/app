@@ -452,6 +452,16 @@ defaults: `ASSISTANT_CHAT_MODEL`, `ASSISTANT_EMBED_MODEL`, `ASSISTANT_MIN_SIMILA
 articles under each answer.** Raise `ASSISTANT_MIN_SIMILARITY` if the assistant answers questions
 the guide does not cover.
 
+**Operations.** The assistant can also carry out a fixed set of operations, but only after the
+person presses **Confirm** on a card. The model only picks the operation and copies the words
+typed for the vacancy or application. Values the person did not type are discarded. Records are
+found with the person's own permissions.
+
+Real-model test on 26 November 2026: 13 of 14 requests chose the expected operation in 1-3 s. The
+miss was "How do I generate the roster?". Questions starting "how do I" or "paano" now always
+get the help answer. The model once filled in an example reference; values not typed are now
+ignored.
+
 **When Ollama is stopped or missing,** the assistant still works as a word search of the help guide
 and says so. The rest of the system does not use Ollama.
 

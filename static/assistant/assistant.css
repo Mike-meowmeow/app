@@ -13,3 +13,5 @@
 .assistant-sources summary { cursor: pointer; font-weight: 600; }
 .assistant-thinking { font-style: italic; color: var(--bs-secondary-color); }
 @media print { .assistant { display: none; } }
+.assistant-card { margin-top: .5rem; padding: .5rem; border: 1px solid var(--bs-primary-border-subtle); border-radius: .4rem; background: var(--bs-body-bg); }
+.assistant-card-done { opacity: .7; }

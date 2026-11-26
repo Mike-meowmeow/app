@@ -251,7 +251,12 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   answer. It uses a local Ollama service (`all-minilm` to find articles, `qwen2.5:3b` to write the
   answer; `deploy/AI-SERVER.md` step 8.2), never reads applicant data, and does not store
   questions. Off unless `ASSISTANT_ENABLED=True`; without Ollama it falls back to word search. Edit
-  the help guide to change what it can answer.
+  the help guide to change what it can answer. It can also **do** a fixed set of operations after
+  the person presses **Confirm** on a card: open a page, vacancy, or application; show pending work;
+  list applications; run qualification checks or competency matching; retry failed AI jobs. The
+  model only interprets the request; records are found with the person's own permissions and the
+  normal services run (`assistant/operations.py`). Decisions, verification, roster approval, and
+  similar actions are never available through it.
 - **AI review summary:** the HR workspace's **AI extraction results** page (and
   `manage.py ai_review_report`) shows per document type how many proposed items HR accepted,
   corrected, linked, or rejected, with the fields corrected most. `ai_processing/test_acceptance.py`

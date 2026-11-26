@@ -38,7 +38,7 @@
             <ul class="dropdown-menu dropdown-menu-end">
               <li><a class="dropdown-item" href="{% url 'accounts:account' %}">My account</a></li>
               {% if user.is_staff %}<li><a class="dropdown-item" href="{% url 'admin:index' %}">Django admin</a></li>{% endif %}
-              {% if 'System Administrator' in user_roles %}<li><a class="dropdown-item" href="{% url 'notifications:deliveries' %}">Email deliveries</a></li><li><a class="dropdown-item" href="{% url 'operations:overview' %}">Backups and restore checks</a></li>{% endif %}
+              {% if 'System Administrator' in user_roles %}<li><a class="dropdown-item" href="{% url 'notifications:deliveries' %}">Email deliveries</a></li><li><a class="dropdown-item" href="{% url 'operations:overview' %}">Backups and restore checks</a></li><li><a class="dropdown-item" href="{% url 'assistant:unanswered' %}">Help assistant questions</a></li>{% endif %}
               {% if 'System Administrator' in user_roles or 'HR Head / Approver' in user_roles %}<li><a class="dropdown-item" href="{% url 'audit:list' %}">Audit trail</a></li>{% endif %}
               <li><hr class="dropdown-divider"></li>
               <li>

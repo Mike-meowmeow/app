@@ -256,7 +256,11 @@ Setup options: `setup_dev.py --skip-db`, `--recreate-venv`, `--non-interactive`;
   list applications; run qualification checks or competency matching; retry failed AI jobs. The
   model only interprets the request; records are found with the person's own permissions and the
   normal services run (`assistant/operations.py`). Decisions, verification, roster approval, and
-  similar actions are never available through it.
+  similar actions are never available through it. With `ASSISTANT_COLLECT_UNANSWERED=True` (off
+  until the Data Privacy Officer approves) it saves questions it could not answer, masked and
+  without the asker's identity, for the **Help assistant questions** review page; reviewers link
+  them to an article as another way of asking, and `manage.py assistant_check_questions` reports
+  which questions the guide answers (`--file` or `--saved`).
 - **AI review summary:** the HR workspace's **AI extraction results** page (and
   `manage.py ai_review_report`) shows per document type how many proposed items HR accepted,
   corrected, linked, or rejected, with the fields corrected most. `ai_processing/test_acceptance.py`

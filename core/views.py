@@ -28,6 +28,7 @@ WORKSPACE_PLAN = {
         ('Shortlisting decisions awaiting release', 'Stage 7', 'recruitment:decisions_pending'),
         ('Search applications across your vacancies', 'Stage 8', 'recruitment:application_search'),
         ('Recruitment analytics and reports', 'Stage 8', 'analytics:dashboard'),
+        ('Help assistant: questions it could not answer', 'Assistant', 'assistant:unanswered'),
     ]),
     'approver': ('Approver workspace', roles.APPROVER, [
         ('All vacancies (oversight)', 'Stage 4', 'recruitment:vacancy_list'),

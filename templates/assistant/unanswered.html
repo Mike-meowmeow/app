@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Help assistant questions{% endblock %}
+{% block content %}
+<h1 class="h4">Questions the help assistant could not answer</h1>
+<p class="small text-muted">Questions where no help article matched, or where someone pressed <strong>This did not help</strong>. Names of people with an account, references, email addresses, and long numbers are masked before saving, and the asker is not recorded, only their role. Saved questions are deleted after {{ retention_days }} days. If a question still shows personal data, delete it.</p>
+{% if not collecting %}
+<div class="alert alert-secondary small">Saving questions is <strong>off</strong> (<code>ASSISTANT_COLLECT_UNANSWERED</code>). It stays off until the Data Privacy Officer approves. The phrases below still work.</div>
+{% endif %}
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body small">
+    <strong>For each question, choose one:</strong>
+    <ul class="mb-0">
+      <li><strong>Link to article</strong>: an existing article already answers it, but with other words. The phrase is added to that article, and the assistant matches the wording from now on.</li>
+      <li><strong>New article added</strong>: no article covered it; mark it once the help guide (<code>assistant/help_guide.md</code>) has a new article for it.</li>
+      <li><strong>Out of scope</strong>: the assistant should not answer it (a particular applicant's case, a decision, or something outside the system).</li>
+    </ul>
+    To check whether saved questions are now answered: <code>manage.py assistant_check_questions --saved</code>.
+  </div>
+</div>
+
+<h2 class="h5">To review <span class="badge text-bg-secondary">{{ open_count }}</span></h2>
+{% for article, items in groups %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header small">Closest article: <strong>{{ article|default:"none found" }}</strong></div>
+  <ul class="list-group list-group-flush">
+    {% for q in items %}
+    <li class="list-group-item small">
+      <div class="d-flex justify-content-between flex-wrap gap-2">
+        <div><span class="fw-semibold">{{ q.text }}</span>
+          {% if q.count > 1 %}<span class="badge text-bg-light border">asked {{ q.count }} times</span>{% endif %}
+          <div class="text-muted">{{ q.reasons|join:"; " }} · {{ q.roles|join:", " }}{% if q.best is not None %} · closest similarity {{ q.best|floatformat:2 }}{% endif %} · last {{ q.last|date:"M j, Y" }}</div>
+        </div>
+      </div>
+      <form method="post" class="row g-2 align-items-end mt-1">{% csrf_token %}
+        <input type="hidden" name="question" value="{{ q.key }}">
+        <div class="col-md-4">
+          <label class="form-label small mb-0" for="article-{{ q.key }}">Article</label>
+          <select id="article-{{ q.key }}" name="article" class="form-select form-select-sm">
+            {% for a in articles %}<option value="{{ a.title }}"{% if a.title == article %} selected{% endif %}>{{ a.title }} ({{ a.roles }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small mb-0" for="phrase-{{ q.key }}">Phrase to add (edit if needed)</label>
+          <input id="phrase-{{ q.key }}" name="phrase" class="form-control form-control-sm" maxlength="500" value="{{ q.text }}">
+        </div>
+        <div class="col-md-4 d-flex flex-wrap gap-1">
+          <button class="btn btn-sm btn-primary" name="action" value="link">Link to article</button>
+          <button class="btn btn-sm btn-outline-secondary" name="action" value="new_article">New article added</button>
+          <button class="btn btn-sm btn-outline-secondary" name="action" value="out_of_scope">Out of scope</button>
+          <button class="btn btn-sm btn-outline-danger" name="action" value="delete">Delete</button>
+        </div>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% empty %}
+<p class="text-muted small">Nothing to review.</p>
+{% endfor %}
+
+<h2 class="h5 mt-4">Other ways of asking ("also asked as")</h2>
+<div class="card shadow-sm mb-3"><div class="table-responsive">
+<table class="table table-sm align-middle mb-0 small">
+  <thead class="table-light"><tr><th>Article</th><th>Phrase</th><th>Added by</th><th></th></tr></thead>
+  <tbody>
+  {% for phrase, linked in phrases %}
+    <tr><td>{{ phrase.article_title }}{% if not linked %} <span class="badge text-bg-warning">article not in the guide</span>{% endif %}</td>
+      <td>{{ phrase.text }}</td><td>{{ phrase.added_by.username|default:"—" }}<div class="text-muted">{{ phrase.created_at|date:"M j, Y" }}</div></td>
+      <td><form method="post">{% csrf_token %}<input type="hidden" name="phrase" value="{{ phrase.pk }}"><button class="btn btn-sm btn-outline-danger" name="action" value="remove_phrase">Remove</button></form></td></tr>
+  {% empty %}<tr><td colspan="4" class="text-center text-muted py-3">No phrases added yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div></div>
+
+<h2 class="h5 mt-4">Recently reviewed</h2>
+<div class="card shadow-sm"><div class="table-responsive">
+<table class="table table-sm align-middle mb-0 small">
+  <thead class="table-light"><tr><th>Question</th><th>Result</th><th>Reviewed</th></tr></thead>
+  <tbody>
+  {% for q in reviewed %}
+    <tr><td>{{ q.text }}</td><td>{{ q.get_status_display }}</td><td>{{ q.reviewed_by.username|default:"—" }}<div class="text-muted">{{ q.reviewed_at|date:"M j, Y" }}</div></td></tr>
+  {% empty %}<tr><td colspan="3" class="text-center text-muted py-3">None yet.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div></div>
+{% endblock %}

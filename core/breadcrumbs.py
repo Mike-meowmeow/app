@@ -159,6 +159,7 @@ PAGES = {
     'recruitment:qualification_outcome': _on_review('Qualification outcome'),
     'recruitment:application_selection': _on_review('Selection'),
     'ai_processing:results': Page('AI extraction results'),
+    'assistant:unanswered': Page('Help assistant questions'),
     'ai_processing:extraction': _on_review('AI extraction'),
     'ai_processing:screening': _on_review('Qualification check'),
     'ai_processing:matches': _on_review('Competency matching'),

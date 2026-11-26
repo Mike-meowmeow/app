@@ -75,6 +75,33 @@
     return box;
   }
 
+  // "This did not help": saves the question (masked, without the asker's name).
+  function feedbackButton(question, list) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-link btn-sm p-0 assistant-feedback';
+    button.textContent = 'This did not help';
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      const titles = list.map((s) => { const d = document.createElement('div'); d.innerHTML = s.title; return d.textContent; });
+      try {
+        const response = await fetch(root.dataset.feedbackUrl, {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+          body: JSON.stringify({ question, sources: titles }),
+        });
+        const data = await response.json().catch(() => ({}));
+        const note = document.createElement('div');
+        note.className = 'assistant-note';
+        note.textContent = response.ok ? data.message : (data.error || 'That did not work.');
+        button.replaceWith(note);
+      } catch (err) {
+        button.disabled = false;
+      }
+    });
+    return button;
+  }
+
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const question = input.value.trim();
@@ -97,6 +124,7 @@
       } else {
         reply.innerHTML = data.answer + (data.note ? '<div class="assistant-note">' + data.note + '</div>' : '') + sources(data.sources || []);
         (data.cards || []).forEach((card) => reply.appendChild(cardElement(card)));
+        if (data.feedback && root.dataset.feedbackUrl) reply.appendChild(feedbackButton(question, data.sources || []));
       }
     } catch (err) {
       reply.classList.remove('assistant-thinking');

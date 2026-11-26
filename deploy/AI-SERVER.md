@@ -462,6 +462,22 @@ miss was "How do I generate the roster?". Questions starting "how do I" or "paan
 get the help answer. The model once filled in an example reference; values not typed are now
 ignored.
 
+**Improving the guide from unanswered questions.** With `ASSISTANT_COLLECT_UNANSWERED=True` in
+`.env` (only after the Data Privacy Officer approves), questions no article matched, and answers
+marked **This did not help**, are saved with account names, references, emails, and long numbers
+masked, and with the asker's role only. They are deleted after
+`ASSISTANT_UNANSWERED_RETENTION_DAYS` (default 90). HR or a System Administrator reviews them on
+**Help assistant questions** (`/assistant/unanswered/`): **Link to article** adds the wording as
+another way of asking for that article, which takes effect on the next question (the article
+vectors are recomputed automatically). To check a list of questions, or the saved ones, without
+writing answers:
+
+```bash
+cd /srv/evsu-recruitment
+sudo -u evsu .venv/bin/python manage.py assistant_check_questions --saved
+sudo -u evsu .venv/bin/python manage.py assistant_check_questions --file questions.txt   # "question => expected article title" per line
+```
+
 **When Ollama is stopped or missing,** the assistant still works as a word search of the help guide
 and says so. The rest of the system does not use Ollama.
 

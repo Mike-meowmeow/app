@@ -1,9 +1,11 @@
 # Staff help guide
 
 The staff assistant answers from these articles only. Each article starts with
-"## Title" and a "Roles:" line (HR, System Administrator, or both). Keep each
-article short and factual, and use the exact page and button names. HR should
-review this guide; changing it changes what the assistant can say.
+"## Title" and a "Roles:" line (HR, System Administrator, or both). An optional
+"Also asked as:" line after it lists other ways of asking, separated by "|"; the
+assistant matches questions against these too. Keep each article short and
+factual, and use the exact page and button names. HR should review this guide;
+changing it changes what the assistant can say.
 
 ## Verifying uploaded documents
 Roles: HR
@@ -104,3 +106,7 @@ AI in this system only proposes, checks, and compares. It never changes an appli
 ## What the help assistant can do for you
 Roles: HR, System Administrator
 Besides answering how-to questions, the assistant can do a few things for you after you press **Confirm** on the card it shows. It can open a page ("open the verification queue", "open the roster of VAC-1A2B3C4D", "open the review of APP-1A2B3C4D"). HR can also ask it to show pending work ("show my pending work"), list applications ("list applications under review for the Math vacancy"), run the advisory qualification checks or competency matching for an application, and retry failed AI reading jobs. It finds records only among those you are allowed to see; if several match, it shows one card for each so you can choose. It never makes decisions, shortlists, hires, approves or releases rosters, verifies documents, accepts or rejects facts, changes roles, or deletes anything: those are done on their own pages. Nothing happens until you press Confirm, and confirmed actions are recorded in the audit trail under your name.
+
+## Reviewing questions the help assistant could not answer
+Roles: HR, System Administrator
+When saving is switched on, questions the assistant could not answer, and answers someone marked **This did not help**, are saved without the asker's name. Names, references, email addresses, and long numbers are masked, and saved questions are deleted after 90 days. HR opens them from **HR workspace → Help assistant: questions it could not answer**; System Administrators from the account menu → **Help assistant questions**. Identical questions are grouped under the closest article. For each one choose **Link to article** if an existing article answers it with other words (edit the phrase if needed; the assistant matches that wording from then on), **New article added** once the help guide has a new article for it, or **Out of scope** if the assistant should not answer it. **Delete** removes a question that still shows personal data. Phrases you added are listed under "Other ways of asking", where **Remove** takes one away.

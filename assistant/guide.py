@@ -20,6 +20,11 @@ class Article:
     title: str
     roles: frozenset
     text: str
+    phrases: tuple = ()  # "Also asked as:" line in the guide
+
+    @property
+    def role_label(self):
+        return ', '.join(label for label, name in ROLE_NAMES.items() if name in self.roles)
 
     @property
     def search_text(self):
@@ -51,14 +56,25 @@ def _load(mtime):
         if not match:
             raise ValueError(f'Help article "{title.strip()}" has no Roles: line.')
         names = frozenset(ROLE_NAMES[r.strip()] for r in match.group(1).split(','))
-        text = ' '.join(body[match.end():].split())
-        articles.append(Article(number, title.strip(), names, text))
+        rest = body[match.end():]
+        also = re.match(r'Also asked as:\s*(.+)\n', rest)
+        phrases = ()
+        if also:
+            phrases = tuple(p.strip() for p in also.group(1).split('|') if p.strip())
+            rest = rest[also.end():]
+        text = ' '.join(rest.split())
+        articles.append(Article(number, title.strip(), names, text, phrases))
     return tuple(articles), hashlib.sha256(source.encode()).hexdigest()
 
 
 def articles():
     """(articles, guide hash); reloaded when the file changes."""
     return _load(GUIDE_PATH.stat().st_mtime)
+
+
+def by_title(title):
+    found, _ = articles()
+    return next((a for a in found if a.title == title), None)
 
 
 def for_roles(user_roles):

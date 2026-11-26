@@ -11,4 +11,5 @@ def assistant(request):
     user = getattr(request, 'user', None)
     visible = (settings.ASSISTANT_ENABLED and settings.SITE_PORTAL != PUBLIC
                and roles.has_role(user, *ASSISTANT_ROLES))
-    return {'assistant_visible': visible}
+    return {'assistant_visible': visible,
+            'assistant_collecting': visible and settings.ASSISTANT_COLLECT_UNANSWERED}

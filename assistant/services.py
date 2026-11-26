@@ -11,8 +11,12 @@ language model write a short answer from those articles only.
 - The articles used are always returned with the answer, so staff can check
   it. If no article is close enough, the model is not asked at all. If Ollama
   is down or switched off, a word search of the guide is shown instead.
+- Questions are matched against each article and its "also asked as" phrases
+  (from the guide and from reviewers). When ASSISTANT_COLLECT_UNANSWERED is on,
+  questions nothing matched are saved, masked, for review (collection.py).
 """
 
+import hashlib
 import json
 import math
 import re
@@ -65,13 +69,36 @@ def cosine(u, v):
     return dot / norm if norm else 0.0
 
 
+def phrases():
+    """{article title: [other ways of asking]}: the guide's "Also asked as"
+    lines plus the phrases reviewers added from unanswered questions."""
+    from .models import HelpPhrase
+    found, _ = guide.articles()
+    result = {a.title: list(a.phrases) for a in found}
+    for title, text in HelpPhrase.objects.values_list('article_title', 'text'):
+        if title in result and text not in result[title]:
+            result[title].append(text)
+    return result
+
+
 def _article_vectors():
+    """{article number: [vector of the article, vectors of its phrases...]}."""
     found, digest = guide.articles()
-    key = (settings.ASSISTANT_EMBED_MODEL, digest)
+    extra = phrases()
+    phrase_digest = hashlib.sha256(json.dumps(extra, sort_keys=True).encode()).hexdigest()
+    key = (settings.ASSISTANT_EMBED_MODEL, digest, phrase_digest)
     if key not in _vectors:
-        vectors = embed([a.search_text for a in found])
+        texts, owners = [], []
+        for article in found:
+            for text in [article.search_text] + extra[article.title]:
+                texts.append(text)
+                owners.append(article.number)
+        vectors = embed(texts)
+        by_article = {}
+        for number, vector in zip(owners, vectors):
+            by_article.setdefault(number, []).append(vector)
         _vectors.clear()
-        _vectors[key] = {a.number: v for a, v in zip(found, vectors)}
+        _vectors[key] = by_article
     return _vectors[key]
 
 
@@ -82,9 +109,12 @@ def _words(text):
 def search_by_words(question, candidates):
     """Fallback ranking when Ollama is unavailable: shared words, title first."""
     asked = _words(question)
+    extra = phrases()
     scored = []
     for article in candidates:
-        score = 2 * len(asked & _words(article.title)) + len(asked & _words(article.text))
+        said = _words(' '.join(extra.get(article.title, [])))
+        score = (2 * len(asked & _words(article.title)) + len(asked & _words(article.text))
+                 + 2 * len(asked & said))
         if score:
             scored.append((score, article))
     scored.sort(key=lambda pair: -pair[0])
@@ -92,10 +122,11 @@ def search_by_words(question, candidates):
 
 
 def rank(question, candidates):
-    """[(similarity, article)] closest first, by meaning."""
+    """[(similarity, article)] closest first, by meaning. An article's
+    similarity is the best of its text and its "also asked as" phrases."""
     vectors = _article_vectors()
     [asked] = embed([question])
-    return sorted(((cosine(asked, vectors[a.number]), a) for a in candidates),
+    return sorted(((max(cosine(asked, v) for v in vectors[a.number]), a) for a in candidates),
                   key=lambda pair: -pair[0])
 
 
@@ -197,30 +228,46 @@ def answer(question, user):
     return help_answer(question, user_roles)
 
 
-def help_answer(question, user_roles):
-    """{'mode', 'answer', 'sources': [Article], 'note'}.
+def match(question, user_roles):
+    """The articles that answer a question, without writing an answer.
 
-    mode: 'ai' (model answer from sources), 'none' (no article close enough),
-    'search' (Ollama unavailable: word-search results only)."""
+    Returns (sources, nearest articles, similarity of the nearest or None,
+    'meaning' or 'words'). Used by help_answer and the question check command."""
     candidates = guide.for_roles(user_roles)
     if not candidates:
-        return {'mode': 'none', 'answer': 'There are no help articles for your role.',
-                'sources': [], 'note': ''}
+        return [], [], None, 'meaning'
     try:
         ranked = rank(question, candidates)
     except Unavailable:
         sources = search_by_words(question, candidates)
-        return {'mode': 'search', 'sources': sources,
+        return sources, sources, None, 'words'
+    sources = [a for score, a in ranked[:TOP_ARTICLES]
+               if score >= settings.ASSISTANT_MIN_SIMILARITY]
+    return sources, [a for _, a in ranked[:TOP_ARTICLES]], ranked[0][0], 'meaning'
+
+
+def help_answer(question, user_roles):
+    """{'mode', 'answer', 'sources': [Article], 'note', 'unanswered',
+    'closest', 'similarity'}.
+
+    mode: 'ai' (model answer from sources), 'none' (no article close enough),
+    'search' (Ollama unavailable: word-search results only). 'unanswered' is
+    True when no article matched: such questions may be saved for review."""
+    if not guide.for_roles(user_roles):
+        return {'mode': 'none', 'answer': 'There are no help articles for your role.',
+                'sources': [], 'note': ''}
+    sources, nearest, similarity, how = match(question, user_roles)
+    found = {'closest': nearest[0].title if nearest else '', 'similarity': similarity,
+             'unanswered': not sources}
+    if how == 'words':
+        return {'mode': 'search', 'sources': sources, **found,
                 'answer': ('The assistant is not available right now. These help articles '
                            'may answer your question:' if sources else
                            'The assistant is not available right now, and no help article '
                            'matched your words.'),
                 'note': ''}
-    sources = [a for score, a in ranked[:TOP_ARTICLES]
-               if score >= settings.ASSISTANT_MIN_SIMILARITY]
     if not sources:
-        closest = [a for _, a in ranked[:TOP_ARTICLES]]
-        return {'mode': 'none', 'sources': closest,
+        return {'mode': 'none', 'sources': nearest, **found,
                 'answer': ('The staff help guide does not seem to cover this. The closest '
                            'articles are below; for anything else, ask the System '
                            'Administrator.'),
@@ -228,9 +275,9 @@ def help_answer(question, user_roles):
     try:
         text = chat(question, sources)
     except Unavailable:
-        return {'mode': 'search', 'sources': sources,
+        return {'mode': 'search', 'sources': sources, **found,
                 'answer': 'The assistant could not write an answer right now. These help '
                           'articles match your question:', 'note': ''}
-    return {'mode': 'ai', 'answer': text, 'sources': sources,
+    return {'mode': 'ai', 'answer': text, 'sources': sources, **found,
             'note': 'Written by a local AI model from the articles below. Check the source '
                     'before acting.'}

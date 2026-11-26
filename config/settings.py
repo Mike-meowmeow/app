@@ -301,6 +301,12 @@ ASSISTANT_EMBED_MODEL = env('ASSISTANT_EMBED_MODEL', 'all-minilm')
 ASSISTANT_MIN_SIMILARITY = float(env('ASSISTANT_MIN_SIMILARITY', '0.35'))
 ASSISTANT_TIMEOUT_SECONDS = int(env('ASSISTANT_TIMEOUT_SECONDS', '90'))
 ASSISTANT_MAX_QUESTIONS_PER_10_MINUTES = int(env('ASSISTANT_MAX_QUESTIONS_PER_10_MINUTES', '30'))
+# Save questions the assistant could not answer (and answers marked "This did
+# not help"), with names, references, emails, and numbers masked and without
+# the asker's identity, for the help guide review. Off until the Data Privacy
+# Officer approves; saved questions are deleted after the retention period.
+ASSISTANT_COLLECT_UNANSWERED = env_bool('ASSISTANT_COLLECT_UNANSWERED', False)
+ASSISTANT_UNANSWERED_RETENTION_DAYS = int(env('ASSISTANT_UNANSWERED_RETENTION_DAYS', '90'))
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

@@ -423,6 +423,21 @@ with the help articles it used underneath.
 | E20 | As a System Administrator: "open the audit trail" | A card that opens the Audit trail. Application operations are not offered to a System Administrator who is not HR |
 | E21 | (Person who manages the server) **System Admin → Audit trail**, action `assistant.` | An `assistant.operation_confirmed` entry for each confirmed check or matching run, with your name. Questions themselves are not recorded |
 
+**Saved questions (E22-E29).** Only after the Data Privacy Officer approves, or with made-up
+questions on test data: the person who manages the server sets `ASSISTANT_COLLECT_UNANSWERED=True`
+in `.env` and restarts `evsu-dev`.
+
+| # | Step | Expected |
+| --- | --- | --- |
+| E22 | Open the assistant | The opening message says unanswered questions are saved without your name |
+| E23 | Ask "what is the weather today" | The "does not cover" reply, with "This question was saved, without your name…" |
+| E24 | Ask "can I see the ranks of <a test applicant's last name>, APP-12345678, 09171234567" | Saved with the name shown as `[name]`, the reference as `[reference]`, and the number as `[number]` (see E26) |
+| E25 | Ask a how-to question that gets an answer, then press **This did not help** under it | "Thank you. The question was saved…" |
+| E26 | **HR workspace → Help assistant: questions it could not answer** (System Administrators: account menu → **Help assistant questions**) | The questions from E23-E25, grouped by closest article, masked, with the asker's role but not the name. Asking the same question twice shows "asked 2 times" |
+| E27 | On a question an existing article answers (for example "how can I ask for a new file" under **Requesting corrections from an applicant**): choose that article and press **Link to article**. Ask the same question again | It moves to **Recently reviewed** and the phrase appears under "Other ways of asking". The question now gets an answer from that article |
+| E28 | Mark one question **Out of scope** and delete another | Both leave the list; the audit trail (action `assistant.`) has `assistant.questions_reviewed` and `assistant.questions_deleted` entries without the question text |
+| E29 | (Person who manages the server) `sudo -u evsu .venv/bin/python manage.py assistant_check_questions --saved` | A line per open question, ANSWERED or NOT ANSWERED with the closest article, and "Answered: n of m". Then set `ASSISTANT_COLLECT_UNANSWERED` back unless it was approved |
+
 
 ---
 
@@ -455,6 +470,7 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | D2 Changes and failures (D2.1-D2.6) | | |
 | D3 Comparison with HR judgments (figures: ___) | | |
 | E Staff help assistant (E1-E21; list any wrong or invented steps or wrong cards) | | |
+| E Saved questions (E22-E29; list any personal data that was not masked) | | |
 
 **For each failure, include:**
 - the step number;

@@ -15,3 +15,4 @@
 @media print { .assistant { display: none; } }
 .assistant-card { margin-top: .5rem; padding: .5rem; border: 1px solid var(--bs-primary-border-subtle); border-radius: .4rem; background: var(--bs-body-bg); }
 .assistant-card-done { opacity: .7; }
+.assistant-feedback { display: block; margin-top: .35rem; font-size: .8rem; }

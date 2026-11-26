@@ -12,6 +12,7 @@
 import hashlib
 import json
 import re
+from functools import lru_cache
 
 from django import forms
 from django.templatetags.static import static
@@ -111,8 +112,21 @@ class CredentialNameInput(forms.TextInput):
                 f'<option value="">Choose the {label}...</option>{choices}'
                 f'<option value="__other__">Other (not in the list): type it below</option>'
                 f'</select>')
-        parts.append(f'<script src="{escape(static("core/credentials.js"))}" defer></script>')
+        parts.append(f'<script src="{escape(script_url())}" defer></script>')
         return mark_safe(''.join(parts))
+
+
+@lru_cache(maxsize=1)
+def script_url():
+    """The script's URL with a version from its content, so browsers fetch a
+    changed script instead of reusing an old cached copy."""
+    from django.contrib.staticfiles import finders
+    path = finders.find(SCRIPT)
+    version = hashlib.sha256(open(path, 'rb').read()).hexdigest()[:10] if path else ''
+    return static(SCRIPT) + (f'?v={version}' if version else '')
+
+
+SCRIPT = 'core/credentials.js'
 
 
 KINDS = (CredentialKind.LICENSE, CredentialKind.ELIGIBILITY)

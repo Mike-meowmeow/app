@@ -93,7 +93,7 @@ class CredentialListTests(TestCase):
         self.assertIn('<datalist id="id_name-eligibility-names">', html)
         self.assertIn('<option value="Professional Teacher">', html)
         self.assertIn('data-credential-switch="criterion_type"', html)
-        self.assertIn('core/credentials.js', html)
+        self.assertIn('core/credentials.js?v=', html)  # versioned: no stale cached copy
         # A real dropdown per kind, with "Other" for names not in the list.
         self.assertIn('data-credential-picker="id_name" data-credential-kind="license"', html)
         self.assertIn('data-credential-picker="id_name" data-credential-kind="eligibility"', html)

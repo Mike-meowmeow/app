@@ -88,7 +88,14 @@
       });
     }
     show();
+    refreshers.push(show);
   }
+
+  // Browsers restore a form's earlier choices on reload or Back (for example
+  // the criterion "Eligibility") without a change event, sometimes after this
+  // script has run; check again once the page is fully shown.
+  var refreshers = [];
+  function refresh() { refreshers.forEach(function (show) { show(); }); }
 
   function init() {
     document.querySelectorAll('input[list$="-names"]').forEach(setup);
@@ -98,4 +105,6 @@
   } else {
     init();
   }
+  window.addEventListener('load', refresh);
+  window.addEventListener('pageshow', refresh);
 })();

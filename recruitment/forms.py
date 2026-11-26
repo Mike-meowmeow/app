@@ -1,3 +1,5 @@
+import json
+
 from django import forms
 from django.contrib.auth import get_user_model
 
@@ -96,8 +98,51 @@ class DocumentRequirementForm(BootstrapFormMixin, forms.ModelForm):
         self.fields['document_type'].queryset = qs
 
 
+# Which optional fields each criterion uses (Description is always shown).
+STANDARD_FIELDS = {
+    CriterionType.EDUCATION: ('degree_level', 'field'),
+    CriterionType.EXPERIENCE: ('amount',),
+    CriterionType.TRAINING: ('amount',),
+    CriterionType.ELIGIBILITY: ('name',),
+    CriterionType.LICENSE: ('name',),
+    CriterionType.OTHER: (),
+}
+STANDARD_OPTIONAL_FIELDS = ('degree_level', 'amount', 'name', 'field')
+# Field labels that change with the criterion.
+FIELD_LABELS = {
+    'amount': {CriterionType.EXPERIENCE: 'Minimum years of work experience',
+               CriterionType.TRAINING: 'Minimum hours of training'},
+    'name': {CriterionType.ELIGIBILITY: 'Required eligibility',
+             CriterionType.LICENSE: 'Required professional license'},
+}
+
+
+class CriterionSelect(forms.Select):
+    """The criterion box; static/recruitment/standard_form.js shows only the
+    fields the chosen criterion uses. Without JavaScript every field shows."""
+
+    def get_context(self, name, value, attrs):
+        context = super().get_context(name, value, attrs)
+        context['widget']['attrs']['data-standard-fields'] = json.dumps(
+            {str(k): list(v) for k, v in STANDARD_FIELDS.items()})
+        context['widget']['attrs']['data-field-labels'] = json.dumps(
+            {field: {str(k): v for k, v in labels.items()}
+             for field, labels in FIELD_LABELS.items()})
+        return context
+
+    def render(self, name, value, attrs=None, renderer=None):
+        from django.utils.html import escape
+        from django.utils.safestring import mark_safe
+
+        from core.static_version import versioned_static
+        html = super().render(name, value, attrs, renderer)
+        script = versioned_static('recruitment/standard_form.js')
+        return mark_safe(f'{html}<script src="{escape(script)}" defer></script>')
+
+
 class QualificationStandardForm(BootstrapFormMixin, forms.Form):
-    criterion_type = forms.ChoiceField(choices=CriterionType.choices, label='Criterion')
+    criterion_type = forms.ChoiceField(choices=CriterionType.choices, label='Criterion',
+                                       widget=CriterionSelect)
     degree_level = forms.ChoiceField(choices=[('', '---------')] + DegreeLevel.choices,
                                      required=False, label='Minimum degree (education)')
     amount = forms.DecimalField(required=False, min_value=0, max_digits=7, decimal_places=2,
@@ -122,7 +167,14 @@ class QualificationStandardForm(BootstrapFormMixin, forms.Form):
 
     def clean(self):
         data = super().clean()
-        needed = self.REQUIRED_BY_CRITERION.get(data.get('criterion_type'))
+        criterion = data.get('criterion_type')
+        # Values left in fields this criterion does not use (hidden on the page)
+        # are ignored, so switching criterion cannot save a stray value.
+        used = STANDARD_FIELDS.get(criterion, STANDARD_OPTIONAL_FIELDS)
+        for name in STANDARD_OPTIONAL_FIELDS:
+            if name not in used and name in data:
+                data[name] = None if name == 'amount' else ''
+        needed = self.REQUIRED_BY_CRITERION.get(criterion)
         if needed and data.get(needed) in (None, ''):
             self.add_error(needed, 'Required for this criterion.')
         return data

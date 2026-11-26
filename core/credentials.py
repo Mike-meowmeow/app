@@ -12,10 +12,8 @@
 import hashlib
 import json
 import re
-from functools import lru_cache
 
 from django import forms
-from django.templatetags.static import static
 from django.utils.html import escape, format_html_join
 from django.utils.safestring import mark_safe
 
@@ -116,17 +114,9 @@ class CredentialNameInput(forms.TextInput):
         return mark_safe(''.join(parts))
 
 
-@lru_cache(maxsize=1)
 def script_url():
-    """The script's URL with a version from its content, so browsers fetch a
-    changed script instead of reusing an old cached copy."""
-    from django.contrib.staticfiles import finders
-    path = finders.find(SCRIPT)
-    version = hashlib.sha256(open(path, 'rb').read()).hexdigest()[:10] if path else ''
-    return static(SCRIPT) + (f'?v={version}' if version else '')
-
-
-SCRIPT = 'core/credentials.js'
+    from .static_version import versioned_static
+    return versioned_static('core/credentials.js')
 
 
 KINDS = (CredentialKind.LICENSE, CredentialKind.ELIGIBILITY)

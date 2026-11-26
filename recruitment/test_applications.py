@@ -252,7 +252,7 @@ class DocumentTests(ApplicationTestCase):
         with self.assertRaises(PermissionDenied):
             documents.verify(self.hr2, version, status='verified')
         documents.verify(self.hr, version, status='incomplete', notes='Page 2 missing')
-        documents.verify(self.hr, version, status='verified')
+        documents.verify(self.hr, version, status='verified', notes='Missing page received')
         version.refresh_from_db()
         self.assertEqual(version.verification_status, 'verified')
         self.assertEqual(list(version.verifications.values_list('status', flat=True)),

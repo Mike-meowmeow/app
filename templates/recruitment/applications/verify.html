@@ -10,10 +10,16 @@
         · <a href="{% url 'documents:download' version.pk %}">Download</a></p>
       <p class="small text-muted mb-3">Technical check: {{ version.get_validation_status_display }} · Malware scan: {{ version.get_malware_status_display }} · SHA-256 {{ version.sha256|truncatechars:20 }}</p>
       {% include "includes/form_errors.html" %}
+      {% if version.verification_status != 'pending' %}
+        <div class="alert alert-success small" role="status">
+          <strong>Already recorded: {{ version.get_verification_status_display }}</strong>{% if latest %} · {{ latest.reviewed_at|date:"M j, Y g:i A" }} · {{ latest.reviewed_by.full_name|default:latest.reviewed_by.username }}{% endif %}.
+          Only change it if it was recorded by mistake: choose the correct outcome and explain why in the notes. The earlier outcome stays in the history.
+        </div>
+      {% endif %}
       <form method="post" novalidate>{% csrf_token %}
         <input type="hidden" name="next" value="{{ next }}">
         {% for field in form %}{% include "includes/field.html" %}{% endfor %}
-        <button class="btn btn-primary" type="submit">Record verification</button>
+        <button class="btn {% if version.verification_status == 'pending' %}btn-primary{% else %}btn-outline-danger{% endif %}" type="submit">{% if version.verification_status == 'pending' %}Record verification{% else %}Change verification{% endif %}</button>
       </form>
       <p class="small text-muted mt-3 mb-0">Verification records a human review outcome. It does not claim automatic proof of authenticity.</p>
     </div></div>

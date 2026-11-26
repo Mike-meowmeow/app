@@ -311,6 +311,9 @@ def review_fact(actor, fact, *, decision, reason=''):
         raise ValidationError('This fact was superseded; review the current version.')
     if decision not in (FactReviewStatus.ACCEPTED, FactReviewStatus.REJECTED):
         raise ValidationError('Choose accept or reject.')
+    if fact.review_status != FactReviewStatus.PENDING:
+        raise ValidationError(f'This fact was already {fact.get_review_status_display().lower()}. '
+                              'Use Change decision, with a reason, if it was a mistake.')
     if decision == FactReviewStatus.REJECTED and not reason:
         raise ValidationError('A reason is required to reject a fact.')
     old = fact.review_status
@@ -327,6 +330,42 @@ def review_fact(actor, fact, *, decision, reason=''):
 
 
 @transaction.atomic
+def change_fact_decision(actor, fact, *, decision, reason):
+    """Change an accepted or rejected fact to the other decision when it was
+    recorded by mistake. A reason is always required; the earlier decision is
+    kept in the audit trail."""
+    application = _lock(fact.application)
+    _require_reviewer(actor, application)
+    fact = ApplicationFact.objects.select_for_update().get(pk=fact.pk)
+    if not fact.is_current:
+        raise ValidationError('This fact was superseded; review the current version.')
+    if fact.review_status == FactReviewStatus.PENDING:
+        raise ValidationError('This fact has no decision yet; accept or reject it instead.')
+    if decision not in (FactReviewStatus.ACCEPTED, FactReviewStatus.REJECTED):
+        raise ValidationError('Choose accept or reject.')
+    if decision == fact.review_status:
+        raise ValidationError(f'This fact is already {fact.get_review_status_display().lower()}.')
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValidationError('A reason is required to change a decision.')
+    old = fact.review_status
+    fact.review_status = decision
+    fact.reviewed_by = actor
+    fact.reviewed_at = timezone.now()
+    fact.review_reason = reason
+    fact.save(update_fields=['review_status', 'reviewed_by', 'reviewed_at', 'review_reason'])
+    _bump_revision(application)
+    audit.record('fact.decision_changed', entity=fact, actor=actor, reason=reason,
+                 changes={'review_status': {'old': old, 'new': decision},
+                          'application': application.reference})
+    events.review_changed(application, actor,
+                          what=f'the decision on a {fact.get_fact_type_display().lower()} fact',
+                          old=FactReviewStatus(old).label, new=fact.get_review_status_display(),
+                          key=f'fact:{fact.pk}:{fact.reviewed_at.timestamp()}')
+    return fact
+
+
+@transaction.atomic
 def set_relevance(actor, fact, relevance, *, reason=''):
     application = _lock(fact.application)
     _require_reviewer(actor, application)
@@ -334,14 +373,29 @@ def set_relevance(actor, fact, relevance, *, reason=''):
         raise ValidationError('Relevance applies to experience and training only.')
     if relevance not in (RelevanceStatus.RELEVANT, RelevanceStatus.NOT_RELEVANT):
         raise ValidationError('Choose relevant or not relevant.')
+    if relevance == fact.relevance_status:
+        raise ValidationError(f'This fact is already marked '
+                              f'{fact.get_relevance_status_display().lower()}.')
+    reason = (reason or '').strip()
+    changing = fact.relevance_status in (RelevanceStatus.RELEVANT, RelevanceStatus.NOT_RELEVANT)
+    if changing and not reason:
+        raise ValidationError('A reason is required to change the relevance.')
     old = fact.relevance_status
     fact.relevance_status = relevance
     fact.reviewed_by = actor
     fact.reviewed_at = timezone.now()
     fact.save(update_fields=['relevance_status', 'reviewed_by', 'reviewed_at'])
     _bump_revision(application)
-    audit.record('fact.relevance_set', entity=fact, actor=actor, reason=reason,
+    audit.record('fact.relevance_changed' if changing else 'fact.relevance_set', entity=fact,
+                 actor=actor, reason=reason,
                  changes={'relevance_status': {'old': old, 'new': relevance}})
+    if changing:
+        events.review_changed(application, actor,
+                              what=f'the relevance of a {fact.get_fact_type_display().lower()} '
+                                   'fact',
+                              old=RelevanceStatus(old).label,
+                              new=fact.get_relevance_status_display(),
+                              key=f'relevance:{fact.pk}:{fact.reviewed_at.timestamp()}')
     return fact
 
 

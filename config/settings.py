@@ -288,6 +288,9 @@ AI_QUALIFICATION_CHECKS_ENABLED = env_bool('AI_QUALIFICATION_CHECKS_ENABLED', Tr
 # default. SBERT_MODEL is a model name in HF_HOME or a local folder.
 AI_COMPETENCY_MATCHING_ENABLED = env_bool('AI_COMPETENCY_MATCHING_ENABLED', False)
 SBERT_MODEL = env('SBERT_MODEL', 'sentence-transformers/all-MiniLM-L6-v2')
+# Passages from verified documents shown under each competency (not reviewed by
+# HR, never scored) must be at least this similar (cosine, -1 to 1).
+AI_EVIDENCE_MIN_SIMILARITY = float(env('AI_EVIDENCE_MIN_SIMILARITY', '0.30'))
 
 # Staff help assistant (floating button for HR and System Administrators).
 # Answers only from assistant/help_guide.md, using models in a local Ollama

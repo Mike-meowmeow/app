@@ -54,7 +54,7 @@
                 {% if v.ai_job %}<a href="{% url 'ai_processing:extraction' application.pk v.ai_job.pk %}" class="badge text-decoration-none {% if v.ai_job.is_invalidated %}text-bg-dark{% elif v.ai_job.status == 'completed' %}text-bg-success{% elif v.ai_job.status == 'needs_review' %}text-bg-warning{% elif v.ai_job.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ v.ai_job.display_status }}</a>{% endif %}
                 {% if v.ai_can_run %}<form method="post" action="{% url 'ai_processing:run' application.pk v.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0 ms-1" type="submit">Extract</button></form>{% endif %}
               </td>{% endif %}
-              <td class="text-end">{% if can_review and v.document.current_version.pk == v.pk and v.is_usable %}<a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Verify</a>{% endif %}</td>
+              <td class="text-end text-nowrap">{% if can_review and v.document.current_version.pk == v.pk and v.is_usable %}{% if v.verification_status == 'pending' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Verify</a>{% else %}<button class="btn btn-sm {% if v.verification_status == 'verified' %}btn-success{% else %}btn-secondary{% endif %}" type="button" disabled>&#10003; {% if v.verification_status == 'verified' %}Verified{% else %}Done{% endif %}</button><div><a class="small" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Change</a></div>{% endif %}{% endif %}</td>
             </tr>
           {% empty %}<tr><td colspan="5" class="text-muted">No documents.</td></tr>{% endfor %}
         </tbody>
@@ -84,21 +84,54 @@
             {% if can_review %}<a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="{% url 'recruitment:fact_correct' application.pk fact.pk %}">Correct</a>{% endif %}
           </div>
           {% if can_review %}
-            <div class="d-flex flex-wrap gap-2 mt-2">
-              <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
-                <input type="hidden" name="decision" value="accepted">
-                <button class="btn btn-sm btn-outline-success" type="submit">Accept</button>
-              </form>
-              <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
-                <input type="hidden" name="decision" value="rejected">
-                <input class="form-control form-control-sm" name="reason" placeholder="Reason to reject" aria-label="Reason to reject">
-                <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
-              </form>
-              {% if fact.fact_type == 'experience' or fact.fact_type == 'training' %}
+            <div class="d-flex flex-wrap gap-2 mt-2 align-items-start">
+              {% if fact.review_status == 'pending' %}
                 <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
-                  <button class="btn btn-sm btn-outline-primary" name="relevance" value="relevant" type="submit">Relevant</button>
-                  <button class="btn btn-sm btn-outline-secondary" name="relevance" value="not_relevant" type="submit">Not relevant</button>
+                  <input type="hidden" name="decision" value="accepted">
+                  <button class="btn btn-sm btn-outline-success" type="submit">Accept</button>
                 </form>
+                <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
+                  <input type="hidden" name="decision" value="rejected">
+                  <input class="form-control form-control-sm" name="reason" placeholder="Reason to reject" aria-label="Reason to reject">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Reject</button>
+                </form>
+              {% else %}
+                {# Decided: the buttons are locked; a mistake is fixed with Change decision. #}
+                <div class="d-flex gap-1" role="group" aria-label="Decision recorded">
+                  <button class="btn btn-sm {% if fact.review_status == 'accepted' %}btn-success{% else %}btn-outline-secondary{% endif %}" type="button" disabled>{% if fact.review_status == 'accepted' %}&#10003; Accepted{% else %}Accept{% endif %}</button>
+                  <button class="btn btn-sm {% if fact.review_status == 'rejected' %}btn-danger{% else %}btn-outline-secondary{% endif %}" type="button" disabled>{% if fact.review_status == 'rejected' %}&#10007; Rejected{% else %}Reject{% endif %}</button>
+                </div>
+                <details class="fact-change">
+                  <summary class="btn btn-sm btn-link p-0">Change decision</summary>
+                  <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1 mt-1">{% csrf_token %}
+                    <input type="hidden" name="change" value="1">
+                    <input type="hidden" name="decision" value="{% if fact.review_status == 'accepted' %}rejected{% else %}accepted{% endif %}">
+                    <input class="form-control form-control-sm" name="reason" required placeholder="Why the earlier decision was a mistake" aria-label="Reason for changing the decision">
+                    <button class="btn btn-sm {% if fact.review_status == 'accepted' %}btn-outline-danger{% else %}btn-outline-success{% endif %} text-nowrap" type="submit">Change to {% if fact.review_status == 'accepted' %}Rejected{% else %}Accepted{% endif %}</button>
+                  </form>
+                </details>
+              {% endif %}
+              {% if fact.fact_type == 'experience' or fact.fact_type == 'training' %}
+                {% if fact.relevance_status == 'relevant' or fact.relevance_status == 'not_relevant' %}
+                  {# Marked: locked; a mistake is fixed with Change relevance and a reason. #}
+                  <div class="d-flex gap-1" role="group" aria-label="Relevance recorded">
+                    <button class="btn btn-sm {% if fact.relevance_status == 'relevant' %}btn-primary{% else %}btn-outline-secondary{% endif %}" type="button" disabled>{% if fact.relevance_status == 'relevant' %}&#10003; {% endif %}Relevant</button>
+                    <button class="btn btn-sm {% if fact.relevance_status == 'not_relevant' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" type="button" disabled>{% if fact.relevance_status == 'not_relevant' %}&#10003; {% endif %}Not relevant</button>
+                  </div>
+                  <details class="fact-change">
+                    <summary class="btn btn-sm btn-link p-0">Change relevance</summary>
+                    <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1 mt-1">{% csrf_token %}
+                      <input type="hidden" name="relevance" value="{% if fact.relevance_status == 'relevant' %}not_relevant{% else %}relevant{% endif %}">
+                      <input class="form-control form-control-sm" name="reason" required placeholder="Why the relevance was wrong" aria-label="Reason for changing the relevance">
+                      <button class="btn btn-sm btn-outline-primary text-nowrap" type="submit">Change to {% if fact.relevance_status == 'relevant' %}Not relevant{% else %}Relevant{% endif %}</button>
+                    </form>
+                  </details>
+                {% else %}
+                  <form method="post" action="{% url 'recruitment:fact_review' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
+                    <button class="btn btn-sm btn-outline-primary" name="relevance" value="relevant" type="submit">Relevant</button>
+                    <button class="btn btn-sm btn-outline-secondary" name="relevance" value="not_relevant" type="submit">Not relevant</button>
+                  </form>
+                {% endif %}
               {% endif %}
               {% if versions %}
                 <form method="post" action="{% url 'recruitment:fact_evidence' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}

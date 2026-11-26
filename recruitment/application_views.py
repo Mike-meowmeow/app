@@ -409,6 +409,8 @@ def verify_document(request, pk, version_pk):
     return render(request, 'recruitment/applications/verify.html', {
         'application': application, 'version': version, 'form': form,
         'history': version.verifications.select_related('reviewed_by'),
+        'latest': version.verifications.select_related('reviewed_by').order_by('-reviewed_at')
+        .first(),
         'next': request.GET.get('next', '')})
 
 
@@ -475,7 +477,14 @@ def fact_review(request, pk, fact_pk):
     fact = _fact_or_404(application, fact_pk)
     try:
         if request.POST.get('relevance'):
-            services.set_relevance(request.user, fact, request.POST['relevance'])
+            services.set_relevance(request.user, fact, request.POST['relevance'],
+                                   reason=request.POST.get('reason', ''))
+        elif request.POST.get('change'):
+            changed = services.change_fact_decision(request.user, fact,
+                                                    decision=request.POST.get('decision', ''),
+                                                    reason=request.POST.get('reason', ''))
+            messages.success(request, f'Decision changed to '
+                                      f'{changed.get_review_status_display()}.')
         else:
             services.review_fact(request.user, fact, decision=request.POST.get('decision', ''),
                                  reason=request.POST.get('reason', '').strip())

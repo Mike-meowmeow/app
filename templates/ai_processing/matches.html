@@ -37,6 +37,7 @@
   <div class="mt-2"><span class="text-muted">Model:</span> {{ job.model_version }}</div>
   {% if runtime %}<div class="text-muted">{{ runtime.dimensions }}-dimension embeddings{% if runtime.max_tokens %}; reads up to {{ runtime.max_tokens }} word pieces per text{% endif %}{% if runtime.revision %}; revision {{ runtime.revision }}{% endif %}</div>{% endif %}
   <div class="mt-1 text-muted">Inputs: accepted facts only, without experience or training marked not relevant. Only qualification wording is compared: no names, contact details, birthdate, sex, or school and employer names.</div>
+  <div class="mt-1 text-muted">Passages from verified documents: the text the AI read from the application's current verified documents, with the applicant's name, emails, and long numbers masked. They are listed to help you find qualifications to review and accept; they have not been reviewed and do not count toward the similarity of the facts above. OCR can misread scanned pages, so open the page before relying on a passage.</div>
   {% if job.last_error %}<div class="mt-2 text-danger">Last error: {{ job.last_error }}</div>{% endif %}
   {% if attempts %}
     <details class="mt-2"><summary>Attempts ({{ attempts|length }})</summary>
@@ -49,11 +50,13 @@
   <p class="text-muted">Waiting for the AI worker. Refresh this page in a moment.</p>
 {% endif %}
 
-{% for competency, items in groups %}
+{% for competency, items, passages in groups %}
   <div class="card shadow-sm mb-3"><div class="card-body">
     <h2 class="h6 mb-1">{{ competency.name }}</h2>
     {% if competency.description %}<p class="small text-muted mb-2">{{ competency.description }}</p>{% endif %}
-    <table class="table table-sm align-middle small mb-0">
+    <div class="small fw-semibold mb-1">Reviewed qualification facts</div>
+    {% if items %}
+    <table class="table table-sm align-middle small mb-2">
       <thead><tr><th style="width: 9rem">Similarity</th><th>Qualification compared</th></tr></thead>
       <tbody>
         {% for m in items %}
@@ -64,6 +67,22 @@
         {% endfor %}
       </tbody>
     </table>
+    {% else %}<p class="small text-muted mb-2">No accepted facts were compared.</p>{% endif %}
+    <div class="small fw-semibold mb-1">From verified documents <span class="badge text-bg-warning">not reviewed by HR</span></div>
+    {% if passages %}
+    <table class="table table-sm align-middle small mb-0">
+      <thead><tr><th style="width: 9rem">Similarity</th><th>Passage the AI read</th></tr></thead>
+      <tbody>
+        {% for p in passages %}
+          <tr>
+            <td>{% include "ai_processing/includes/similarity.html" with value=p.similarity percent=p.scale_percent %}</td>
+            <td><div class="fst-italic">"{{ p.excerpt }}"</div>
+              <div class="text-muted"><a href="{% url 'documents:download' p.document_version.pk %}?inline=1{% if p.page_number %}#page={{ p.page_number }}{% endif %}" target="_blank" rel="noopener">{{ p.document_version.document.document_type.name }} v{{ p.document_version.version }}{% if p.page_number %}, page {{ p.page_number }}{% endif %}</a></div></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<p class="small text-muted mb-0">No passage from the verified documents was close enough{% if evidence_min is not None %} (similarity {{ evidence_min }} or more){% endif %}.</p>{% endif %}
   </div></div>
 {% empty %}
   {% if job.status == 'completed' %}<p class="text-muted">No results.</p>{% endif %}

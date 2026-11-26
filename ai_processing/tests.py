@@ -111,7 +111,8 @@ class QueueTests(AITestCase):
         again, created = services.queue_extraction(self.hr, self.version)
         self.assertFalse(created)
         self.assertEqual(again.pk, job.pk)
-        self.verify()  # verified again: still the same job
+        with self.assertRaises(ValidationError):  # the same outcome cannot be recorded twice
+            self.verify()
         self.assertEqual(AIJob.objects.count(), 1)
         self.assertTrue(AuditLog.objects.filter(action='ai.job_queued', job=job).exists())
 
@@ -146,7 +147,7 @@ class QueueTests(AITestCase):
         self.verify(VerificationStatus.INVALID)
         first.refresh_from_db()
         self.assertTrue(first.is_invalidated)
-        self.verify()
+        self.verify(notes='Checked again: the file is valid')
         second = self.job()
         self.assertNotEqual(first.pk, second.pk)
         self.assertNotEqual(first.deduplication_key, second.deduplication_key)

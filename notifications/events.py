@@ -170,6 +170,24 @@ def panel_member_added(interview, member, event):
 
 
 # --------------------------------------------------------------------------
+# Review corrections (oversight)
+# --------------------------------------------------------------------------
+
+def review_changed(application, actor, *, what, old, new, key, category=Category.APPLICATION):
+    """An HR reviewer changed a recorded decision (fact decision, relevance, or
+    document verification) because of a mistake: tell the HR Head / Approver.
+    The reason stays on the application and in the audit trail."""
+    approvers = [u for u in _users_with_role(roles.APPROVER) if u.pk != actor.pk]
+    name = actor.full_name or actor.username
+    notify_many(approvers, category=category, event_key=f'review.changed:{key}',
+                title='Review decision changed',
+                message=f'{name} changed {what} on application {application.reference} for '
+                        f'{_position(application)} from {old} to {new}. The reason is recorded '
+                        'on the application.',
+                application=application)
+
+
+# --------------------------------------------------------------------------
 # Official roster approval
 # --------------------------------------------------------------------------
 

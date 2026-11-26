@@ -328,8 +328,12 @@ def matches(request, pk, job_pk):
     job = get_object_or_404(AIJob.objects.select_related('requested_by'), pk=job_pk,
                             application=application, job_type=JobType.COMPETENCY_MATCH)
     can_review = access.can_review(request.user, application)
+    evidence = matching.evidence_by_competency(job)
     return render(request, 'ai_processing/matches.html', {
-        'application': application, 'job': job, 'groups': matching.by_competency(job),
+        'application': application, 'job': job,
+        'groups': [(competency, items, evidence.get(competency.pk, []))
+                   for competency, items in matching.by_competency(job)],
+        'evidence_min': (job.configuration.get('documents') or {}).get('min_similarity'),
         'current': not job.is_invalidated and matching.is_current(job),
         'attempts': job.attempts.order_by('attempt_number'),
         'can_review': can_review,

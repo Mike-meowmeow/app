@@ -184,6 +184,12 @@ Use the staff site (8001), signed in as `hrtest` or your administrator account.
 | 8.1 | On 8001, open the vacancy, then **Applications** | `appltest`'s application is listed (same database) |
 | 8.2 | Open it, click **Start review**, then **Request correction** (choose the document, write a message, keep the deadline) | Terminal **2** prints an email whose link starts with `http://127.0.0.1:8000/` |
 | 8.3 | On 8000, as `appltest`, open **Notifications** | The correction request appears |
+| 8.4 | On 8001, on the application, press **Verify** on a document and record **Verified** | Back on the review page the button is a greyed-out green **✓ Verified** with a **Change** link under it; **Verify** is gone |
+| 8.5 | Press **Change**, choose **Incomplete**, and leave the notes empty | "A reason is required to change a recorded verification." The page says the outcome is already recorded. With a note it saves, and the history lists both outcomes |
+| 8.6 | Under **Application facts**, press **Accept** on a fact | Both buttons are greyed out, **✓ Accepted** highlighted, with a **Change decision** link |
+| 8.7 | Press **Change decision**, write a reason, press **Change to Rejected** | "Decision changed to Rejected." The badge shows Rejected and the reason; the audit trail (action `fact.`) has `fact.decision_changed` |
+| 8.8 | On an experience or training fact, press **Relevant** | Both buttons are greyed out with **✓ Relevant**, and a **Change relevance** link. Changing it needs a reason |
+| 8.9 | Sign in as an HR Head / Approver, open **Notifications** | "Review decision changed" for 8.5, 8.7, and 8.8, naming the application and the old and new values. The reasons are not in the message; they are on the application |
 
 ---
 

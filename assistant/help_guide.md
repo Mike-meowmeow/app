@@ -9,7 +9,7 @@ changing it changes what the assistant can say.
 
 ## Verifying uploaded documents
 Roles: HR
-Open **HR workspace → Document verification queue**. It lists the latest file versions waiting for verification, for vacancies you are assigned to, oldest first. Press **Verify** on a row, open the file, and choose a status: **Verified**, **Incomplete**, **Invalid**, or **Rejected**. Any status other than Verified needs a note explaining why. Verifying never changes the application's status by itself. When AI extraction is on, verifying a document also queues it for AI reading.
+Open **HR workspace → Document verification queue**. It lists the latest file versions waiting for verification, for vacancies you are assigned to, oldest first. Press **Verify** on a row, open the file, and choose a status: **Verified**, **Incomplete**, **Invalid**, or **Rejected**. Any status other than Verified needs a note explaining why. After that, the application review page shows a greyed-out **✓ Verified** (or **✓ Done** for the other statuses) instead of Verify. If the outcome was a mistake, press **Change** under it, choose the correct status, and explain why in the notes; the earlier outcome stays in the history and the HR Head / Approver is notified. Verifying never changes the application's status by itself. When AI extraction is on, verifying a document also queues it for AI reading.
 
 ## Starting the review of an application
 Roles: HR
@@ -17,7 +17,7 @@ Open the vacancy, then the application, and press **Start review**. The status c
 
 ## Reviewing application facts
 Roles: HR
-On the application review page, each fact (education, experience, training, eligibility, license) starts as Pending review. Press **Accept** if the evidence supports it, or **Reject** with a reason. For experience and training, also mark **Relevant** or **Not relevant** to the vacancy. To fix a wrong value, use **Correct**: a reason is required, the old value is kept in the history, and a new accepted fact replaces it. **Add fact manually** records a qualification that only appears in a document, with the reason and the document as evidence.
+On the application review page, each fact (education, experience, training, eligibility, license) starts as Pending review. Press **Accept** if the evidence supports it, or **Reject** with a reason. Once a fact is accepted or rejected, its buttons are greyed out and show the decision. If the decision was a mistake, press **Change decision**, write why, and press **Change to Rejected** or **Change to Accepted**; the earlier decision stays in the audit trail and the HR Head / Approver is notified. For experience and training, also mark **Relevant** or **Not relevant** to the vacancy; after that both are greyed out, and a mistake is fixed with **Change relevance** and a reason. To fix a wrong value, use **Correct**: a reason is required, the old value is kept in the history, and a new accepted fact replaces it. **Add fact manually** records a qualification that only appears in a document, with the reason and the document as evidence.
 
 ## Requesting corrections from an applicant
 Roles: HR
@@ -37,7 +37,7 @@ When AI extraction is on, verified documents are read in the background. In the 
 
 ## Using competency matching
 Roles: HR
-On the application, the **Competency matching** card has **Run competency matching**. The AI worker compares each vacancy competency with the accepted qualification wording and shows a similarity number from -1 to 1 for each pair, with both texts. It is not a score, percentage, or ranking, and it never changes the application or roster. It needs accepted facts first. Names, contact details, schools, and employers are never used. When facts change, it shows **Out of date**; run it again.
+On the application, the **Competency matching** card has **Run competency matching**. The AI worker compares each vacancy competency with the accepted qualification wording and shows a similarity number from -1 to 1 for each pair, with both texts. It is not a score, percentage, or ranking, and it never changes the application or roster. It needs accepted facts or a verified document the AI has read. Names, contact details, schools, and employers are never used in the facts compared. Under each competency, **From verified documents (not reviewed by HR)** also lists up to three passages from the verified documents that are close in meaning, with the document and page: use them to find qualifications to review and accept. They do not change the similarity of the facts. When facts or verified documents change, it shows **Out of date**; run it again.
 
 ## Creating and publishing a vacancy
 Roles: HR

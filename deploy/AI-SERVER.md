@@ -397,6 +397,15 @@ It prints each pair's similarity, the average for each judgment, and how often a
 scores above a not-related one (50% = chance). To compare another model, set `SBERT_MODEL`,
 download it as in step 5.5, and run the command again.
 
+**Passages from verified documents.** When AI extraction is also on, each matching run splits
+the text the AI read from the application's current, verified documents into short passages
+(at most 300 per application, each up to 300 characters). It masks the applicant's name, emails,
+and long numbers, and keeps the 3 passages closest to each competency, with document and page.
+They are shown as "not reviewed by HR" and never change the facts' similarity. Passages below
+`AI_EVIDENCE_MIN_SIMILARITY` (default 0.30) are not kept. A change in which documents are
+verified makes the result out of date. The passages add one embedding per passage to the run;
+with MiniLM on the server's CPU this is a few seconds for a typical application.
+
 ### 8.2 Staff help assistant (Ollama)
 
 The floating **?** button for HR and System Administrators answers how-to questions from

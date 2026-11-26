@@ -73,6 +73,9 @@ LINKS = (
     ('competency matches -> AI jobs', 'competency_matches', 'job_id', 'ai_jobs'),
     ('competency matches -> facts', 'competency_matches', 'application_fact_id',
      'application_facts'),
+    ('competency evidence -> AI jobs', 'competency_evidence', 'job_id', 'ai_jobs'),
+    ('competency evidence -> document versions', 'competency_evidence', 'document_version_id',
+     'document_versions'),
     ('documents -> profile files', 'documents', 'profile_document_id', 'profile_documents'),
 )
 

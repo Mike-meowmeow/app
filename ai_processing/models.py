@@ -238,3 +238,34 @@ class CompetencyMatch(BaseModel):
     def scale_percent(self):
         """Position on the -1..1 scale as 0..100, for the bar on the page."""
         return round((float(self.similarity) + 1) * 50)
+
+
+class CompetencyEvidence(BaseModel):
+    """A passage of a verified document's extracted text that is close in
+    meaning to one vacancy competency. Shown to help HR find and review
+    qualifications; it has not been reviewed by HR and never counts toward
+    the competency similarity, the shortlist, or the official roster."""
+
+    job = models.ForeignKey(AIJob, on_delete=models.PROTECT, related_name='competency_evidence')
+    vacancy_competency = models.ForeignKey('recruitment.VacancyCompetency',
+                                           on_delete=models.PROTECT, related_name='ai_evidence')
+    document_version = models.ForeignKey('documents.DocumentVersion', on_delete=models.PROTECT,
+                                         related_name='competency_evidence')
+    page_number = models.PositiveIntegerField(null=True, blank=True)
+    excerpt = models.TextField()
+    similarity = models.DecimalField(max_digits=5, decimal_places=4)
+    rank = models.PositiveSmallIntegerField()
+
+    class Meta:
+        db_table = 'competency_evidence'
+        ordering = ['job', 'vacancy_competency', 'rank']
+        constraints = [
+            models.UniqueConstraint(fields=['job', 'vacancy_competency', 'rank'],
+                                    name='competency_evidence_unique_rank'),
+            models.CheckConstraint(condition=Q(similarity__gte=-1) & Q(similarity__lte=1),
+                                   name='competency_evidence_similarity_range'),
+        ]
+
+    @property
+    def scale_percent(self):
+        return round((float(self.similarity) + 1) * 50)

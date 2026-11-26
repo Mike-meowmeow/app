@@ -367,10 +367,22 @@ If C1 is already published, create a copy of it with these competencies.
 | --- | --- | --- |
 | D2.1 | Mark the Research Writing Workshop **Not relevant** | The card shows **Out of date** and **Run matching again** |
 | D2.2 | Run again | A new run completes without the workshop. The old run is marked replaced |
-| D2.3 | Mark it **Relevant** again without running | Out of date again. Relevance itself is not compared; only which entries are included |
+| D2.3 | Press **Change relevance**, write a reason, press **Change to Relevant**, and do not run matching | Out of date again. Relevance itself is not compared; only which entries are included |
 | D2.4 | (Person who manages the server) stop the worker, run matching, then start the worker | The run waits as Queued, then completes once the worker is back |
 | D2.5 | Compare the application's status, shortlist, decisions, and roster before and after | Unchanged |
 | D2.6 | Sign in as an approver | The results can be viewed, but there is no run button |
+
+### D4. Passages from verified documents
+
+Needs AI extraction on (Part B), so the AI has read the C2 documents.
+
+| # | Step | Expected |
+| --- | --- | --- |
+| D4.1 | Verify the C2 Personal Data Sheet and wait for the extraction to finish. Run matching again | Under each competency, a second table **From verified documents (not reviewed by HR)** lists up to 3 passages with their similarity |
+| D4.2 | Read the passages | Each shows the document, version, and page, and opens that page. The applicant's name, emails, and long numbers appear as `[name]`, `[email]`, `[number]` |
+| D4.3 | Compare the **Reviewed qualification facts** table with D1.5-D1.6 | The same values: passages never change the facts' similarity |
+| D4.4 | Use **Change** under the verified document to set **Incomplete** (with a reason) | The matching result shows **Out of date**. Run again: no passages come from that document |
+| D4.5 | Reject every fact with **Change decision**, keeping a verified document | Matching can still run and shows passages only. Accept the facts again afterwards |
 
 ### D3. Comparing with HR's judgment (person who manages the server)
 
@@ -469,6 +481,7 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | D1 Running competency matching (D1.1-D1.8) | | |
 | D2 Changes and failures (D2.1-D2.6) | | |
 | D3 Comparison with HR judgments (figures: ___) | | |
+| D4 Passages from verified documents (D4.1-D4.5; note any passage that is irrelevant or misread) | | |
 | E Staff help assistant (E1-E21; list any wrong or invented steps or wrong cards) | | |
 | E Saved questions (E22-E29; list any personal data that was not masked) | | |
 

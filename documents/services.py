@@ -225,9 +225,16 @@ def verify(actor, version, *, status, notes=''):
         raise ValidationError('Only the latest version of a document can be verified.')
     if not version.is_usable:
         raise ValidationError('This file failed technical checks and cannot be verified.')
+    if version.verification_status != VerificationStatus.PENDING:
+        # Already verified: changing the outcome (a mistake) needs a reason.
+        if status == version.verification_status:
+            raise ValidationError(f'This file is already marked '
+                                  f'{version.get_verification_status_display()}.')
+        if not notes.strip():
+            raise ValidationError('A reason is required to change a recorded verification.')
     old = version.verification_status
-    DocumentVerification.objects.create(document_version=version, status=status,
-                                        reviewed_by=actor, notes=notes)
+    record = DocumentVerification.objects.create(document_version=version, status=status,
+                                                 reviewed_by=actor, notes=notes)
     version.verification_status = status
     version.save(update_fields=['verification_status'])
     applications._bump_revision(application)
@@ -237,6 +244,14 @@ def verify(actor, version, *, status, notes=''):
                  else 'document.verification_failed', entity=version, actor=actor, reason=notes,
                  changes={'verification_status': {'old': old, 'new': status},
                           'application': application.reference})
+    if old != VerificationStatus.PENDING:
+        from notifications import events
+        from notifications.models import Category
+        events.review_changed(
+            application, actor,
+            what=f'the verification of {version.document.document_type.name} v{version.version}',
+            old=VerificationStatus(old).label, new=version.get_verification_status_display(),
+            key=f'verification:{record.pk}', category=Category.VERIFICATION)
     return version
 
 

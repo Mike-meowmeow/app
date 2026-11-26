@@ -114,8 +114,9 @@ class MatchingTests(ApplicationTestCase):
         applications.set_relevance(self.hr, self.training, RelevanceStatus.NOT_RELEVANT)
         _, _, facts, _ = matching.check_inputs(self.application)
         self.assertEqual(facts, [self.education])
-        applications.review_fact(self.hr, self.education, decision=FactReviewStatus.REJECTED,
-                                 reason='Not supported by the TOR.')
+        applications.change_fact_decision(self.hr, self.education,
+                                          decision=FactReviewStatus.REJECTED,
+                                          reason='Not supported by the TOR.')
         self.assertTrue(matching.problems(self.application))  # nothing left to compare
         with self.assertRaises(ValidationError):
             matching.queue_matching(self.hr, self.application)
@@ -136,7 +137,8 @@ class MatchingTests(ApplicationTestCase):
         self.assertTrue(matching.is_current(first))
         applications.set_relevance(self.hr, self.training, RelevanceStatus.RELEVANT)
         self.assertTrue(matching.is_current(first))  # same texts compared: still current
-        applications.set_relevance(self.hr, self.training, RelevanceStatus.NOT_RELEVANT)
+        applications.set_relevance(self.hr, self.training, RelevanceStatus.NOT_RELEVANT,
+                                   reason='Not related to the subject')
         self.assertFalse(matching.is_current(first))
         second, created = matching.queue_matching(self.hr, self.application)
         self.assertTrue(created)

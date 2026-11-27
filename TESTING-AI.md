@@ -9,7 +9,12 @@ This guide tests the new AI features:
 - failures are retried, and manual review always keeps working;
 - advisory qualification checks compare the facts HR accepted with the vacancy's standards (Part C);
 - SBERT competency matching shows how close in meaning each competency is to the accepted
-  qualifications (Part D).
+  qualifications (Part D);
+- the **qualification review gate**: recorded outcomes, the advisory check, and matching open only
+  when every required document has a decision, every fact is accepted or rejected, and no
+  extraction is still running (HR can press **Continue without AI** with a reason).
+
+Updated 28 November 2026 for app `41b2155`.
 
 **Everything the AI produces is a suggestion.** It must never change an application's status,
 shortlist, decisions, or the official roster. If you ever see that happen, report it as a failure.
@@ -54,13 +59,13 @@ and `migrate` applies `ai_processing.0001_initial`, `audit.0002_auditlog_job`, a
 .\.venv\Scripts\python.exe manage.py test --noinput
 ```
 
-**Expected:** a final line `OK`, after about 406 tests. To run only the AI tests (about 3 minutes):
+**Expected:** a final line `OK`, after about 529 tests (529 on 28 November 2026). To run only the AI tests (about 4 minutes):
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py test ai_processing --noinput
 ```
 
-**Expected:** `Ran 33 tests` and `OK`.
+**Expected:** `Ran 74 tests` and `OK`.
 
 ### A3. Make the sample documents
 
@@ -159,7 +164,8 @@ Open `http://192.168.1.107:8000/accounts/staff/login/` and sign in. **Expected:*
 | --- | --- | --- |
 | B4.1 | As HR, open the application. Before verifying anything, look at the **AI** column | Empty for every document: unverified documents are never read |
 | B4.2 | **Start review**, then **Verify** each document as **Verified** | After each, the AI column shows **Queued** |
-| B4.3 | Wait about 10 seconds and refresh | Each badge becomes **Completed**, except the Personal Data Sheet, which shows **Needs Review** |
+| B4.2a | Right after verifying, look at the **Qualification review** card | The 🔒 checklist includes ✗ **AI extraction still running:** with the documents being read |
+| B4.3 | Wait about 10 seconds and refresh | Each badge becomes **Completed**, except the Personal Data Sheet, which shows **Needs Review**. The checklist now says ✓ **AI extraction finished** (the review may still wait for facts) |
 
 ### B5. What the AI read
 
@@ -219,6 +225,9 @@ on the right, with the source lines highlighted. Compare with this table:
 | B8.1 | `ssh admin-mike@192.168.1.107 "sudo systemctl stop evsu-ai-worker"` | No output |
 | B8.2 | Repeat B7.5 and B7.6 on another document (Invalid, then Verified) | The new job stays **Queued**; the site works normally |
 | B8.3 | `ssh admin-mike@192.168.1.107 "sudo systemctl start evsu-ai-worker"` and wait 10 seconds | The job completes by itself: nothing was lost while the worker was down |
+| B8.4 | Stop the worker again (B8.1) and repeat B8.2 on another document | The job stays **Queued**; the Qualification review checklist shows ✗ **AI extraction still running** and a **Continue without AI** button |
+| B8.5 | Press **Continue without AI**, leave the reason empty, submit; then write `Worker is stopped for testing` and press **Stop extraction and continue** | Empty: refused. With a reason: "Continued without AI: 1 extraction job stopped". The job's badge shows **Invalidated** with that reason; the checklist says ✓ **AI extraction finished** |
+| B8.6 | Start the worker (B8.3). On the document, press **Extract** | A new job runs and completes. The audit trail (action `ai.`) has `ai.extraction_skipped` with your reason |
 
 ### B9. One file from the command line (optional)
 
@@ -240,8 +249,9 @@ official outcome.
 
 Rules to keep in mind while testing:
 
-- Only accepted facts count. Pending facts are not used, but they make a "Does Not Meet" into
-  "Needs Review".
+- Only accepted facts count. The checks open only after every fact is accepted or rejected and
+  every required document has a decision (the qualification review gate), so no fact is pending
+  when they run.
 - Experience and training count only when HR marked them **Relevant**.
 - Overlapping work periods count once. Ongoing work counts up to the submission date.
 - A repeated training (same title and start date) counts once. A training without hours is
@@ -276,21 +286,21 @@ made-up entries in **My profile**:
 | --- | --- | --- |
 | C2.1 | Apply to the C1 vacancy, upload any PDF as the Personal Data Sheet, **Submit** | Submitted |
 
-### C3. Checks before any review (HR)
+### C3. Before review: the qualification review is closed (HR)
 
 | # | Step | Expected |
 | --- | --- | --- |
-| C3.1 | Open the application. Under **Qualification review** there is an **Advisory check** bar | "not run yet" and a **Run qualification checks** button |
-| C3.2 | Press **Run qualification checks** | The page stays on the application and scrolls to **Qualification review**. The overall result is **Needs Review**; each standard's reasoning is open and says its entries were "not yet reviewed by HR" |
-| C3.3 | Look at each standard | "Check suggests: Needs Review" with **Hide reasoning**; pressing it folds that standard only. Status, revision, and roster are unchanged |
+| C3.1 | Open the application. Look at the **Qualification review** card | A grey box "🔒 The qualification review opens when:" with ✗ **Required documents decided: 0 of 1** and ✗ **Facts decided (accepted or rejected): 0 of ...** |
+| C3.2 | Look at the **Advisory check** bar and the standards | "not run yet" with **no** Run button; no **Record outcome** buttons. Each standard lists **Documents:** with links |
+| C3.3 | Open **Document guidelines (what to check)** at the bottom of the card | The checklist for the Personal Data Sheet, marked **draft, HR to confirm** |
 
 ### C4. Checks after review
 
 | # | Step | Expected |
 | --- | --- | --- |
-| C4.1 | Accept all education, experience, training, and license facts. Mark both work entries and both trainings **Relevant** | Facts accepted |
-| C4.2 | Look at the Advisory check bar | **Out of date** badge, and a **Run checks again** button |
-| C4.3 | Press **Run checks again** | The page reloads with the new results open under each standard |
+| C4.1 | **Verify** the Personal Data Sheet. Accept every fact, including the identity and contact fact. Mark both work entries and both trainings **Relevant** | The 🔒 box disappears |
+| C4.2 | Look at the Advisory check bar | **Run qualification checks** button |
+| C4.3 | Press **Run qualification checks** | The page reloads and scrolls to **Qualification review**, with each standard's reasoning open and a **Hide reasoning** toggle per standard |
 | C4.4 | **Education** | **Meets Requirement**: "the program matches Mathematics" |
 | C4.5 | **Work experience (4 years)** | **Does Not Meet Requirement**: "Overlapping periods (365 days) are counted once", total **3.0 years** (not 4.0) |
 | C4.6 | **Training (16 hours)** | **Needs Review**: the seminar is counted (8 hours), and the workshop is "Not counted, hours not recorded" |
@@ -308,7 +318,7 @@ made-up entries in **My profile**:
 | C5.3 | Back on the application | Training shows the official outcome **Meets** and "Check suggests: Needs Review ... differs from the recorded outcome". Its button is a gray **Outcome recorded** with a **Change outcome** link; **Record outcome starting from this check** is gone |
 | C5.3a | Press **Change outcome**, choose another outcome, and submit without a reason | Refused: the reason why the recorded outcome was a mistake is required |
 | C5.3b | Submit again with a reason | Outcome changed; the standard shows "Changed: <reason>". An approver gets a "Review decision changed" notification |
-| C5.4 | Change any fact (for example mark a training **Not relevant**) | The bar shows **Out of date**. Training's button becomes **Record outcome again** with "New information since the outcome"; there are no **Record outcome starting from this check** links until the checks run again |
+| C5.4 | Change any fact (for example **Change relevance** on a training to **Not relevant**, with a reason) | The bar shows **Out of date**. Training's button becomes **Record outcome again** with "New information since the outcome"; there are no **Record outcome starting from this check** links until the checks run again |
 
 ### C6. Nothing else changes
 
@@ -354,8 +364,8 @@ If C1 is already published, create a copy of it with these competencies.
 
 | # | Step | Expected |
 | --- | --- | --- |
-| D1.1 | Open the application before accepting any facts | The **Competency matching** card says "Not run yet. Accept the qualification facts first." There is no run button |
-| D1.2 | Accept the facts (C4.1) | A **Run competency matching** button appears |
+| D1.1 | Open the application before reviewing (documents pending, facts pending) | The **Competency matching** card says "Not run yet. Accept the qualification facts first." There is no run button; the Qualification review card shows the 🔒 checklist |
+| D1.2 | Verify the documents and decide every fact (C4.1) | A **Run competency matching** button appears |
 | D1.3 | Press it | The matching page opens, showing **Queued** and "Waiting for the AI worker" |
 | D1.4 | Refresh after a few seconds | **Completed**. The model line shows `all-MiniLM-L6-v2 @ 1110a243fdf4` and the library versions |
 | D1.5 | Under **Teaches college mathematics** | The **Master's degree in Mathematics** is among the top entries. Write down the order you see |
@@ -468,15 +478,15 @@ Copy this table into your report and fill in **Pass** or **Fail** for each row.
 | B1 Accounts on the server | | |
 | B2 Vacancy | | |
 | B3 Test applicant and application | | |
-| B4 Verification starts the AI (B4.1-B4.3) | | |
+| B4 Verification starts the AI (B4.1-B4.3, B4.2a) | | |
 | B5 What the AI read (B5.1-B5.3; list any differing values) | | |
 | B6 HR review (B6.1-B6.13) | | |
 | B7 Replacing or withdrawing a document (B7.1-B7.6) | | |
-| B8 Worker stopped (B8.1-B8.3) | | |
+| B8 Worker stopped, Continue without AI (B8.1-B8.6) | | |
 | B9 Command line (optional) | | |
 | C1 Vacancy with five standards | | |
 | C2 Test applicant | | |
-| C3 Checks before review (C3.1-C3.3) | | |
+| C3 Review closed before review (C3.1-C3.3) | | |
 | C4 Checks after review (C4.1-C4.10; list any differing results) | | |
 | C5 Official outcome from a check (C5.1-C5.4) | | |
 | C6 Nothing else changes (C6.1-C6.4) | | |

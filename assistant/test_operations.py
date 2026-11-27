@@ -58,6 +58,7 @@ class OperationTests(ApplicationTestCase):
         self.assertNotIn(str(self.application.pk), sent)
 
     def test_run_checks_by_name_after_confirm(self):
+        self.open_review(self.application)  # checks wait for the qualification review gate
         data, _ = self.ask('run qualification checks for Santos',
                            tool=('run_qualification_checks', {'application': 'Santos'}))
         [card] = data['cards']
@@ -134,8 +135,7 @@ class OperationTests(ApplicationTestCase):
         self.assertIn('1 application', html)
 
     def test_matching_and_retry(self):
-        education = self.application.facts.get(fact_type=FactType.EDUCATION)
-        applications.review_fact(self.hr, education, decision=FactReviewStatus.ACCEPTED)
+        self.open_review(self.application)  # matching waits for the qualification review gate
         data, _ = self.ask('match competencies for Santos',
                            tool=('run_competency_matching', {'application': 'Santos'}))
         result = self.run_card(data['cards'][0]).json()

@@ -31,6 +31,7 @@ class EvidenceTests(ApplicationTestCase):
         applications.review_fact(self.hr, self.education, decision=FactReviewStatus.ACCEPTED)
         self.version = DocumentVersion.objects.get()
         documents.verify(self.hr, self.version, status='verified')
+        self.open_review(self.application)  # matching waits for the qualification review gate
         self.extraction = self.read_by_ai(self.version, PAGE_TEXT)
 
     def read_by_ai(self, version, text):

@@ -155,27 +155,38 @@ class ScreeningTests(ApplicationTestCase):
         super().setUp()
         self.application = self.submitted()
         self.education = self.application.facts.get(fact_type=FactType.EDUCATION)
+        self.open_review(self.application)  # the review opens only when everything is decided
+        self.education.refresh_from_db()
+        self.application.refresh_from_db()
 
     def accept_education(self):
-        applications.review_fact(self.hr, self.education, decision=FactReviewStatus.ACCEPTED)
+        """Already accepted by open_review (kept so the tests read naturally)."""
+        self.education.refresh_from_db()
+        self.assertEqual(self.education.review_status, FactReviewStatus.ACCEPTED)
+
+    def change_inputs(self):
+        """New information after a check: HR adds a fact found in a document."""
+        return applications.add_manual_fact(
+            self.hr, self.application, 'training',
+            {'title': 'Outcome-based teaching', 'hours': '8', 'provider': 'CHED',
+             'start_date': None, 'end_date': None}, reason='Certificate in the PDS')
 
     def test_check_uses_reviewed_facts_and_changes_nothing(self):
         revision, status = self.application.revision, self.application.status
         first, created = screening.run_checks(self.hr, self.application)
         self.assertTrue(created)
-        self.assertEqual(first.overall_status, rules.NEEDS_REVIEW)  # fact still pending
+        result = first.results.get()
+        self.assertEqual(result.result, rules.MEETS)
+        self.assertEqual(result.evidence_fact_ids, [str(self.education.pk)])
         self.application.refresh_from_db()
         self.assertEqual((self.application.revision, self.application.status), (revision, status))
         self.assertFalse(self.application.facts.filter(
             fact_type=FactType.QUALIFICATION_ASSESSMENT).exists())
 
-        self.accept_education()
+        self.change_inputs()
         self.assertFalse(screening.is_current(first))
         second, created = screening.run_checks(self.hr, self.application)
         self.assertTrue(created)
-        result = second.results.get()
-        self.assertEqual(result.result, rules.MEETS)
-        self.assertEqual(result.evidence_fact_ids, [str(self.education.pk)])
         first.job.refresh_from_db()
         self.assertTrue(first.job.is_invalidated)
         self.assertEqual(screening.latest(self.application), second)
@@ -254,7 +265,7 @@ class ScreeningTests(ApplicationTestCase):
 
     def test_out_of_date_check_hides_record_from_check(self):
         screening.run_checks(self.hr, self.application)
-        self.accept_education()  # inputs changed after the check
+        self.change_inputs()  # inputs changed after the check
         self.client.force_login(self.hr)
         page = self.client.get(reverse('recruitment:application_review',
                                        args=[self.application.pk]) + '?checked=1')
@@ -278,7 +289,7 @@ class ScreeningTests(ApplicationTestCase):
     def test_out_of_date_check_does_not_fill_the_form(self):
         check, _ = screening.run_checks(self.hr, self.application)
         result = check.results.get()
-        self.accept_education()  # inputs changed
+        self.change_inputs()  # inputs changed
         self.assertIsNone(screening.usable_result(self.application, result.standard,
                                                   str(result.pk)))
         self.assertIsNone(screening.usable_result(self.application, result.standard,

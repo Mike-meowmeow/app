@@ -74,6 +74,18 @@ class ApplicationTestCase(VacancyTestCase):
     def draft(self, user=None):
         return services.start_application(user or self.applicant, self.vacancy)[0]
 
+    def open_review(self, application):
+        """Do what HR does before the qualification review opens (review_gate):
+        verify the required documents still pending and accept pending facts."""
+        from documents.models import VerificationStatus
+        for requirement, docs in services.document_checklist(application):
+            for doc in docs if requirement.is_required else []:
+                version = doc.current_version()
+                if version and version.verification_status == VerificationStatus.PENDING:
+                    documents.verify(self.hr, version, status=VerificationStatus.VERIFIED)
+        for fact in application.facts.filter(review_status='pending'):
+            services.review_fact(self.hr, fact, decision='accepted')
+
     def submitted(self, user=None):
         user = user or self.applicant
         application = self.draft(user)
@@ -409,6 +421,7 @@ class FactReviewTests(ApplicationTestCase):
     def test_qualification_outcomes(self):
         standard = self.application.latest_snapshot().requirement_version \
             .qualification_standards.get()
+        self.open_review(self.application)  # outcomes wait for the review gate
         with self.assertRaises(ValidationError):
             services.record_qualification_outcome(self.hr, self.application, standard,
                                                   outcome='needs_review')

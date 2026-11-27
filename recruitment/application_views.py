@@ -11,13 +11,13 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts import roles
 from accounts.access import role_required
 from documents import services as documents
-from documents.models import Document, DocumentType, DocumentVersion
+from documents.models import Document, DocumentType, DocumentVersion, VerificationStatus
 from documents.storage import FileRejected
 
 from . import application_selectors as access
 from . import application_services as services
 from . import decision_services as decisions
-from . import fact_schema, selectors, stage_tracker
+from . import fact_schema, review_gate, selectors, stage_tracker
 from .application_forms import (ApplicationFilterForm, ApplicationSearchForm, CorrectionReasonForm,
                                 CorrectionRequestForm, ExceptionForm, ManualFactForm,
                                 OutcomeForm, ReasonForm, ReplaceForm, SubmitForm, UploadForm,
@@ -310,6 +310,7 @@ def review(request, pk):
         f.no_evidence = services.fact_needs_evidence(f)
     outcomes = services.qualification_outcomes(application)
     standards = list(requirement.qualification_standards.all()) if requirement else []
+    standard_docs, supporting_docs = review_gate.documents_by_standard(application, standards)
     snapshot = application.latest_snapshot()
     versions = list(DocumentVersion.objects.filter(document__application=application)
                     .select_related('document__document_type')
@@ -340,6 +341,7 @@ def review(request, pk):
         'show_ai': settings.AI_EXTRACTION_ENABLED or bool(ai_jobs),
         'application': application, 'can_review': can_review,
         'stages': stage_tracker.build(application),
+        'gate': review_gate.status(application),
         'snapshot': snapshot, 'snapshot_view': _snapshot_view(snapshot.data if snapshot else None),
         'checklist': services.document_checklist(application),
         'facts': [(f, fact_schema.display_items(f.fact_type, f.value)) for f in current],
@@ -347,8 +349,13 @@ def review(request, pk):
         'no_evidence_count': sum(1 for f in current if f.no_evidence),
         'standards': [(s, outcomes.get(str(s.pk)), check_results.get(str(s.pk)),
                        _check_facts(application, check_results.get(str(s.pk))),
-                       services.outcome_locked(application, outcomes.get(str(s.pk)), inputs_hash))
+                       services.outcome_locked(application, outcomes.get(str(s.pk)), inputs_hash),
+                       standard_docs.get(str(s.pk), []))
                       for s in standards],
+        'supporting_docs': supporting_docs,
+        # Step 4: what HR checks for each document type this application has.
+        'guideline_types': DocumentType.objects.filter(
+            documents__application=application).distinct().order_by('name'),
         # Just ran the checks: open every standard's reasoning.
         'expand_checks': request.GET.get('checked') == '1',
         'outcome_labels': fact_schema.OUTCOME_LABELS,
@@ -419,7 +426,8 @@ def verify_document(request, pk, version_pk):
         except ValidationError as exc:
             form.add_error(None, exc)
         else:
-            messages.success(request, f'{version.file_name}: {form.cleaned_data["status"]}.')
+            label = VerificationStatus(form.cleaned_data['status']).label
+            messages.success(request, f'{version.file_name}: {label}.')
             next_url = request.POST.get('next', '')
             if next_url and url_has_allowed_host_and_scheme(next_url, {request.get_host()}):
                 return redirect(next_url)
@@ -626,6 +634,11 @@ def qualification_outcome(request, pk, standard_pk):
                 .exclude(fact_type__in=[FactType.QUALIFICATION_ASSESSMENT, FactType.IDENTITY])]
     labelled = [(f, f'{f.get_fact_type_display()}: ' + ', '.join(
         str(v) for _, v in fact_schema.display_items(f.fact_type, f.value)[:3])) for f in accepted]
+    gate = review_gate.problems(application)
+    if gate:  # the qualification review is not open yet
+        for message in gate:
+            messages.info(request, message)
+        return redirect(f"{redirect('recruitment:application_review', pk=pk).url}#qualifications")
     current = services.qualification_outcomes(application).get(str(standard.pk))
     # A recorded outcome is locked until something it was based on changes;
     # a mistake is fixed with Change outcome (?change=1), which needs a reason.

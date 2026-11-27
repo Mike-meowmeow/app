@@ -22,6 +22,13 @@ class DocumentType(BaseModel):
     allowed_mime_types = models.JSONField(default=default_mime_types)
     max_size_bytes = models.PositiveBigIntegerField(default=DEFAULT_MAX_SIZE)
     is_active = models.BooleanField(default=True)
+    # What HR checks for this type (one point per line), shown in the
+    # qualification review. Drafts are seeded; HR confirms them in the admin.
+    guidelines = models.TextField(blank=True, help_text='What HR checks, one point per line. '
+                                                        'Shown to HR in the qualification review.')
+    guidelines_confirmed = models.BooleanField(
+        default=False, help_text='Tick when HR has confirmed the guidelines; until then they '
+                                 'show as a draft.')
 
     class Meta:
         db_table = 'document_types'
@@ -33,6 +40,11 @@ class DocumentType(BaseModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def guideline_points(self):
+        """Lines of the guidelines without list markers ('- ' or '* ')."""
+        return [line.strip(' -*\t') for line in self.guidelines.splitlines() if line.strip()]
 
     @property
     def max_size_mb(self):

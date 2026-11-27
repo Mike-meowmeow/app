@@ -200,7 +200,8 @@ def problems(application):
     if not facts and not manifest['documents']:
         found.append('No accepted qualification facts or verified documents read by the AI to '
                      'compare yet. Review the facts first.')
-    return found
+    from recruitment import review_gate
+    return found + review_gate.problems(application)
 
 
 def latest(application):

@@ -44,10 +44,24 @@ class WithdrawForm(BootstrapFormMixin, forms.Form):
         error_messages={'required': 'Please confirm the withdrawal.'})
 
 
+# What each verification outcome means (shown under the choices; fixed text).
+VERIFICATION_MEANINGS = (
+    '<ul class="mb-0 ps-3">'
+    '<li><strong>Verified</strong>: the right document, readable, and it shows what it '
+    'should.</li>'
+    '<li><strong>Incomplete</strong>: the right document, but pages or details are missing; '
+    'ask the applicant for a complete copy.</li>'
+    '<li><strong>Invalid</strong>: the right kind of document, but not acceptable (for '
+    'example expired, unsigned, or the wrong form version).</li>'
+    '<li><strong>Rejected</strong>: irrelevant or unusable (for example the wrong file, a '
+    'blank page, or junk).</li></ul>')
+
+
 class VerificationForm(BootstrapFormMixin, forms.Form):
     status = forms.ChoiceField(choices=[c for c in VerificationStatus.choices
                                         if c[0] != VerificationStatus.PENDING],
-                               widget=forms.RadioSelect, label='Outcome')
+                               widget=forms.RadioSelect, label='Outcome',
+                               help_text=VERIFICATION_MEANINGS)
     notes = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}),
                             label='Reason / comments',
                             help_text='Required unless Verified. Internal to HR; tell the '

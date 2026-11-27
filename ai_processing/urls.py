@@ -14,6 +14,7 @@ urlpatterns = [
     path(APP + 'items/<uuid:item_pk>/', views.item_action, name='item_action'),
     path(APP + 'items/<uuid:item_pk>/edit/', views.item_edit, name='item_edit'),
     path(APP + 'checks/run/', views.run_checks, name='run_checks'),
+    path(APP + 'extraction/skip/', views.skip_extraction, name='skip_extraction'),
     path(APP + 'checks/<uuid:screening_pk>/', views.screening_detail, name='screening'),
     path(APP + 'competencies/run/', views.run_matching, name='run_matching'),
     path(APP + 'competencies/<uuid:job_pk>/', views.matches, name='matches'),

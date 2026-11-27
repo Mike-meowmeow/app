@@ -82,7 +82,8 @@ def problems(application):
         return ['This application has no submitted information.']
     if not snapshot.requirement_version.qualification_standards.exists():
         return ['The published requirements have no qualification standards to check.']
-    return []
+    from recruitment import review_gate
+    return review_gate.problems(application)
 
 
 def latest(application):

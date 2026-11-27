@@ -36,6 +36,62 @@ DOCUMENT_TYPES = [
     ('OTHER', 'Other supporting documents'),
 ]
 
+# Draft guidelines: what HR checks for each document type (one point per
+# line). Written 28 November 2026 for HR to review; they show as a draft until
+# HR ticks "guidelines confirmed" in the admin. Only filled where empty, so
+# HR's edits are never overwritten.
+DOCUMENT_GUIDELINES = {
+    'LETTER': [
+        'Addressed to the school or HRMDO and names the position applied for',
+        'Signed and dated by the applicant',
+        'Readable and belongs to this applicant',
+    ],
+    'PDS': [
+        'Current CSC Form 212 (Revised 2017) with all pages',
+        'Signed and dated by the applicant, with the right thumbmark',
+        'Recent passport-size photo attached',
+        'Name, birthdate, and education match the profile and the other documents',
+    ],
+    'RESUME': [
+        'Readable and belongs to this applicant',
+        'Education and work history agree with the PDS and the certificates',
+    ],
+    'TOR': [
+        "Name matches the applicant (check maiden or married name)",
+        "Registrar's signature and the school's dry seal or official mark",
+        'Degree, major, and date of graduation are shown',
+        'Every page is included',
+        'Remarks such as "Not valid for transfer" or "For employment purposes" are acceptable',
+    ],
+    'DIPLOMA': [
+        'Name, degree, school, and date of graduation are shown',
+        'Signed by the school officials, with the school seal',
+        'Degree agrees with the Transcript of Records',
+    ],
+    'PRC': [
+        'Name and license or rating number are readable',
+        'For a PRC ID: not expired on the submission date (note an expired card as Needs Review)',
+        'Can be checked on the PRC online verification service',
+        'For a CSC eligibility: certificate or report of rating, with the rating and exam date',
+    ],
+    'TRAINING': [
+        'Title, date, number of hours, and organizer are shown',
+        'Signed by the organizer or issuing office',
+        'Name matches the applicant',
+    ],
+    'EMPLOYMENT': [
+        'Position, start date, and end date (or "to present") are shown',
+        'Shows full-time or part-time, if the vacancy counts only one kind',
+        "Signed by the employer's HR or head of office, on letterhead",
+        'Dates agree with the PDS work experience',
+    ],
+    'OTHER': [
+        'Relevant to the application (award, recommendation, and similar)',
+        'Readable and belongs to this applicant',
+        'Reject junk or unrelated files with a reason',
+    ],
+}
+
 SAMPLE_DEPARTMENT = ('DEV', 'Sample Department (development only)')
 
 
@@ -63,6 +119,7 @@ class Command(BaseCommand):
                 self.ensure(RecruitmentType, code, name)
             for code, name in DOCUMENT_TYPES:
                 self.ensure(DocumentType, code, name)
+            self.seed_guidelines()
             self.seed_credentials()
             if sample_department:
                 self.ensure(Department, *SAMPLE_DEPARTMENT)
@@ -99,6 +156,18 @@ class Command(BaseCommand):
             audit.record('reference.credentials_seeded', actor=None,
                          entity_type='credential_names', changes={'added': added})
             self.stdout.write(f'  licenses and eligibilities: {added} added')
+
+    def seed_guidelines(self):
+        """Fill the draft guidelines of document types that have none."""
+        filled = 0
+        for code, points in DOCUMENT_GUIDELINES.items():
+            empty = DocumentType.objects.filter(code=code, guidelines='')
+            filled += empty.update(guidelines='\n'.join(points))
+        if filled:
+            self.changed = True
+            audit.record('reference.document_guidelines_seeded', actor=None,
+                         entity_type='document_types', changes={'filled': filled})
+            self.stdout.write(f'  document guidelines (draft): {filled} filled')
 
     def ensure(self, model, code, name):
         obj, created = model.objects.get_or_create(code=code, defaults={'name': name})

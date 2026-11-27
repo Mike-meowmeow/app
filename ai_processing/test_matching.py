@@ -71,6 +71,7 @@ class MatchingTests(ApplicationTestCase):
             self.hr, self.application, FactType.TRAINING,
             {'title': 'Teaching Calculus Workshop', 'provider': 'Sample Office', 'hours': '8',
              'start_date': None, 'end_date': None}, reason='From the training certificate.')
+        self.open_review(self.application)  # matching waits for the qualification review gate
 
     def run_worker(self, fake=None):
         with (fake or FakeSBERT()):

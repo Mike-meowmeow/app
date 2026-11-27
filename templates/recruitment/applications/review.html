@@ -54,7 +54,16 @@
                 {% if v.ai_job %}<a href="{% url 'ai_processing:extraction' application.pk v.ai_job.pk %}" class="badge text-decoration-none {% if v.ai_job.is_invalidated %}text-bg-dark{% elif v.ai_job.status == 'completed' %}text-bg-success{% elif v.ai_job.status == 'needs_review' %}text-bg-warning{% elif v.ai_job.status == 'failed' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">{{ v.ai_job.display_status }}</a>{% endif %}
                 {% if v.ai_can_run %}<form method="post" action="{% url 'ai_processing:run' application.pk v.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-link p-0 ms-1" type="submit">Extract</button></form>{% endif %}
               </td>{% endif %}
-              <td class="text-end text-nowrap">{% if can_review and v.document.current_version.pk == v.pk and v.is_usable %}{% if v.verification_status == 'pending' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Verify</a>{% else %}<button class="btn btn-sm {% if v.verification_status == 'verified' %}btn-success{% else %}btn-secondary{% endif %}" type="button" disabled>&#10003; {% if v.verification_status == 'verified' %}Verified{% else %}Done{% endif %}</button><div><a class="small" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Change</a></div>{% endif %}{% endif %}</td>
+              <td class="text-end text-nowrap">{% if can_review and v.document.current_version.pk == v.pk and v.is_usable %}{% if v.verification_status == 'pending' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Verify</a>
+                <details class="d-inline-block text-start align-top doc-reject">
+                  <summary class="btn btn-sm btn-outline-danger">Reject</summary>
+                  <form method="post" action="{% url 'recruitment:verify_document' application.pk v.pk %}" class="d-flex gap-1 mt-1">{% csrf_token %}
+                    <input type="hidden" name="status" value="rejected">
+                    <input type="hidden" name="next" value="{% url 'recruitment:application_review' application.pk %}#documents">
+                    <input class="form-control form-control-sm" name="notes" required placeholder="Why: wrong file, blank, junk..." aria-label="Reason for rejecting {{ v.file_name }}">
+                    <button class="btn btn-sm btn-danger" type="submit">Reject</button>
+                  </form>
+                </details>{% else %}<button class="btn btn-sm {% if v.verification_status == 'verified' %}btn-success{% else %}btn-secondary{% endif %}" type="button" disabled>&#10003; {% if v.verification_status == 'verified' %}Verified{% else %}Done{% endif %}</button><div><a class="small" href="{% url 'recruitment:verify_document' application.pk v.pk %}">Change</a></div>{% endif %}{% endif %}</td>
             </tr>
           {% empty %}<tr><td colspan="5" class="text-muted">No documents.</td></tr>{% endfor %}
         </tbody>
@@ -174,6 +183,26 @@
     <div class="card shadow-sm mb-3" id="qualifications"><div class="card-body">
       <h2 class="h5">Qualification review</h2>
       <p class="small text-muted">Human-entered outcome per published standard (requirement version {{ snapshot.requirement_version.version }}). Outcomes never change shortlisting or roster inclusion by themselves.</p>
+      {% if not gate.ready %}
+        {# Not open yet: what is missing (review_gate.py). Recorded outcomes stay visible. #}
+        <div class="alert alert-secondary small" id="review-gate">
+          <div class="fw-semibold mb-1">&#128274; The qualification review opens when:</div>
+          <ul class="list-unstyled mb-0">
+            {% for done, text in gate.items %}
+              <li>{% if done %}<span class="text-success" aria-hidden="true">&#10003;</span><span class="visually-hidden">Done:</span>{% else %}<span class="text-danger" aria-hidden="true">&#10007;</span><span class="visually-hidden">Missing:</span>{% endif %} {{ text }}</li>
+            {% endfor %}
+          </ul>
+          {% if gate.running and can_review %}
+            <details class="mt-2">
+              <summary class="btn btn-sm btn-outline-secondary">Continue without AI</summary>
+              <form method="post" action="{% url 'ai_processing:skip_extraction' application.pk %}" class="d-flex gap-1 mt-1">{% csrf_token %}
+                <input class="form-control form-control-sm" name="reason" required placeholder="Why: extraction is stuck, failed, ..." aria-label="Reason for continuing without AI">
+                <button class="btn btn-sm btn-secondary text-nowrap" type="submit">Stop extraction and continue</button>
+              </form>
+            </details>
+          {% endif %}
+        </div>
+      {% endif %}
       {% if show_checks %}
         <div class="d-flex flex-wrap align-items-center gap-2 small border rounded p-2 mb-2">
           <span class="text-muted">Advisory check:</span>
@@ -188,7 +217,7 @@
         </div>
       {% endif %}
       <ul class="list-group">
-        {% for standard, outcome, check_result, check_facts, outcome_locked in standards %}
+        {% for standard, outcome, check_result, check_facts, outcome_locked, standard_docs in standards %}
           <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
             <div class="small">
               <span class="badge text-bg-light border">{{ standard.get_criterion_type_display }}</span> {{ standard.description }}
@@ -200,6 +229,7 @@
                   {% if outcome.value.change_reason %}<div class="text-warning-emphasis">Changed: {{ outcome.value.change_reason }}</div>{% endif %}
                 {% else %}<span class="badge text-bg-secondary">Not assessed</span>{% endif %}
               </div>
+              <div class="mt-1 standard-docs"><span class="text-muted">Documents:</span> {% include "recruitment/applications/_doc_links.html" with docs=standard_docs %}</div>
               {% if check_result %}
                 <div class="mt-1 text-muted">Check suggests: {% include "ai_processing/includes/result_badge.html" with result=check_result.result label=check_result.get_result_display %}{% if outcome and outcome.value.outcome != check_result.result %} <span class="text-warning-emphasis">differs from the recorded outcome</span>{% endif %}
                   <button class="btn btn-link btn-sm p-0 ms-1 align-baseline check-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#check-{{ standard.pk }}" aria-expanded="{% if expand_checks %}true{% else %}false{% endif %}" aria-controls="check-{{ standard.pk }}"><span class="when-closed">Show reasoning</span><span class="when-open">Hide reasoning</span></button>
@@ -219,12 +249,12 @@
                         {% endfor %}
                       </ul>
                     {% else %}<p class="text-muted mb-2">None.</p>{% endif %}
-                    {% if can_review and check_current and not outcome_locked %}<a class="btn btn-sm btn-outline-primary mb-1" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}?check={{ check_result.pk }}">Record outcome starting from this check</a>{% endif %}
+                    {% if can_review and gate.ready and check_current and not outcome_locked %}<a class="btn btn-sm btn-outline-primary mb-1" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}?check={{ check_result.pk }}">Record outcome starting from this check</a>{% endif %}
                   </div>
                 </div>
               {% endif %}
             </div>
-            {% if can_review %}
+            {% if can_review and gate.ready %}
               {% if outcome_locked %}
                 {# Recorded and nothing changed since: locked; a mistake is fixed with Change outcome. #}
                 <div class="d-flex flex-column align-items-end flex-shrink-0 gap-1">
@@ -241,6 +271,22 @@
           </li>
         {% empty %}<li class="list-group-item small text-muted">No qualification standards.</li>{% endfor %}
       </ul>
+      {% if supporting_docs %}<div class="small mt-2 supporting-docs"><span class="text-muted">Supporting documents:</span> {% include "recruitment/applications/_doc_links.html" with docs=supporting_docs %}</div>{% endif %}
+      {% if can_review and guideline_types %}
+        {# Step 4: guidelines per document type (HR only; edited in the Django admin). #}
+        <details class="mt-2 small document-guidelines">
+          <summary class="fw-semibold">Document guidelines (what to check)</summary>
+          {% for t in guideline_types %}
+            <div class="mt-2">
+              <span class="fw-semibold">{{ t.name }}</span>
+              {% if not t.guidelines_confirmed %}<span class="badge text-bg-warning">draft, HR to confirm</span>{% endif %}
+              {% if t.guideline_points %}
+                <ul class="mb-0 ps-3">{% for point in t.guideline_points %}<li>{{ point }}</li>{% endfor %}</ul>
+              {% else %}<div class="text-muted">No guidelines yet.</div>{% endif %}
+            </div>
+          {% endfor %}
+        </details>
+      {% endif %}
     </div></div>
 
     {% if show_matching %}

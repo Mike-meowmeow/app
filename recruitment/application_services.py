@@ -549,6 +549,10 @@ def record_qualification_outcome(actor, application, standard, *, outcome, reaso
     if standard.requirement_version_id != requirements_for(application).pk:
         raise ValidationError('This standard is not part of the requirements for this '
                               'application.')
+    from . import review_gate
+    gate = review_gate.problems(application)
+    if gate:
+        raise ValidationError(gate)
     if outcome not in fact_schema.OUTCOME_LABELS:
         raise ValidationError('Choose an outcome.')
     if outcome in ('does_not_meet', 'needs_review') and not reason:

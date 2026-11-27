@@ -9,7 +9,6 @@ from audit.models import AuditLog
 from notifications.models import Notification
 
 from . import application_services as services
-from .models import FactReviewStatus
 from .test_applications import ApplicationTestCase
 
 
@@ -23,6 +22,14 @@ class OutcomeLockTests(ApplicationTestCase):
         self.review_url = reverse('recruitment:application_review', args=[self.application.pk])
         self.outcome_url = reverse('recruitment:qualification_outcome',
                                    args=[self.application.pk, self.standard.pk])
+        self.open_review(self.application)  # the review opens only when everything is decided
+
+    def new_information(self):
+        """HR adds a fact found in a document: the outcome's inputs change."""
+        return services.add_manual_fact(
+            self.hr, self.application, 'training',
+            {'title': 'Outcome-based teaching', 'hours': '8', 'provider': 'CHED',
+             'start_date': None, 'end_date': None}, reason='Certificate in the PDS')
 
     def record(self, **kwargs):
         kwargs.setdefault('outcome', 'needs_review')
@@ -39,8 +46,8 @@ class OutcomeLockTests(ApplicationTestCase):
         self.assertTrue(services.outcome_locked(self.application, self.current()))
         with self.assertRaises(ValidationError):
             self.record(outcome='meets')
-        # New information: HR accepts the education fact.
-        services.review_fact(self.hr, self.education, decision=FactReviewStatus.ACCEPTED)
+        # New information after the outcome.
+        self.new_information()
         self.assertFalse(services.outcome_locked(self.application, self.current()))
         self.record(outcome='meets', supporting_facts=[self.education])  # no reason needed
         self.assertEqual(self.current().value['outcome'], 'meets')
@@ -74,7 +81,7 @@ class OutcomeLockTests(ApplicationTestCase):
         self.assertContains(page, '&#10003; Outcome recorded</button>')
         self.assertContains(page, self.outcome_url + '?change=1')
         self.assertNotContains(page, '>Record outcome</a>')
-        services.review_fact(self.hr, self.education, decision=FactReviewStatus.ACCEPTED)
+        self.new_information()
         page = self.client.get(self.review_url)
         self.assertContains(page, 'Record outcome again')
         self.assertContains(page, 'New information since the outcome')

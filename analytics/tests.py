@@ -301,6 +301,7 @@ class SearchTests(AnalyticsTestCase):
         self.assertEqual(self.search(self.hr, degree_level='doctorate'), set())
         self.assertEqual(self.search(self.hr, outcome='not_assessed'), everyone)
         standard = applications.requirements_for(self.app1).qualification_standards.first()
+        self.open_review(self.app1)  # outcomes wait for the qualification review gate
         applications.record_qualification_outcome(self.hr, self.app1, standard,
                                                   outcome='needs_review', reason='Check TOR')
         self.assertEqual(self.search(self.hr, outcome='needs_review'), {self.app1.pk})

@@ -157,6 +157,28 @@ def _invalidate(jobs, reason, actor=None):
     return count
 
 
+@transaction.atomic
+def skip_running_extraction(actor, application, *, reason):
+    """Continue without AI: stop the extraction jobs still queued or
+    processing for the application's current documents, so the qualification
+    review can open. Needs a reason; each job is invalidated (audited) and can be
+    run again later with Extract."""
+    from recruitment import review_gate
+    if not access.can_review(actor, application):
+        raise PermissionDenied
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValidationError('A reason is required to continue without AI.')
+    running = review_gate.running_extraction(application)
+    if not running:
+        raise ValidationError('No extraction is running for this application.')
+    count = _invalidate(AIJob.objects.filter(pk__in=[j.pk for j in running]),
+                        f'HR continued without AI: {reason}', actor=actor)
+    audit.record('ai.extraction_skipped', entity=application, actor=actor, reason=reason,
+                 changes={'jobs': count})
+    return count
+
+
 def on_verification_recorded(actor, version, old_status, new_status):
     """Called by documents.services.verify inside its transaction."""
     if old_status == VerificationStatus.VERIFIED and new_status != VerificationStatus.VERIFIED:

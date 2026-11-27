@@ -205,6 +205,23 @@ def item_edit(request, pk, item_pk):
 
 @role_required(roles.HR)
 @require_POST
+def skip_extraction(request, pk):
+    """Continue without AI: stop stuck extraction so the qualification review opens."""
+    application = _reviewable(request, pk)
+    try:
+        count = services.skip_running_extraction(request.user, application,
+                                                 reason=request.POST.get('reason', ''))
+    except ValidationError as exc:
+        _flash(request, exc)
+    else:
+        messages.success(request, f'Continued without AI: {count} extraction job'
+                                  f'{"s" if count != 1 else ""} stopped. You can run Extract '
+                                  'again later.')
+    return redirect(reverse('recruitment:application_review', args=[pk]) + '#qualifications')
+
+
+@role_required(roles.HR)
+@require_POST
 def run_checks(request, pk):
     application = _reviewable(request, pk)
     try:

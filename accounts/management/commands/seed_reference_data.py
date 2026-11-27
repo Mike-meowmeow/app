@@ -30,6 +30,10 @@ DOCUMENT_TYPES = [
     ('PRC', 'PRC license / eligibility certificate'),
     ('TRAINING', 'Training certificates'),
     ('EMPLOYMENT', 'Certificate of employment / service record'),
+    # Anything outside the list (awards, recommendations, ...). HR adds it to a
+    # vacancy as an optional item with a file limit. Not in AI_EXTRACTION_TYPES:
+    # its content varies, so HR reviews it manually.
+    ('OTHER', 'Other supporting documents'),
 ]
 
 SAMPLE_DEPARTMENT = ('DEV', 'Sample Department (development only)')

@@ -509,7 +509,6 @@ def qualification_outcomes(application):
             for f in _current_facts(application, FactType.QUALIFICATION_ASSESSMENT)}
 
 
-@transaction.atomic
 def fact_needs_evidence(fact):
     """True when a fact should show "No supporting document": it has no linked
     evidence, is not an identity/contact fact (those come from the profile),
@@ -538,6 +537,7 @@ def outcome_locked(application, outcome_fact, current_hash=None):
     return recorded == current_hash
 
 
+@transaction.atomic
 def record_qualification_outcome(actor, application, standard, *, outcome, reason='',
                                  supporting_facts=(), check_result=None, change_reason=''):
     """Human-entered outcome per standard: Meets / Does Not Meet / Needs Review

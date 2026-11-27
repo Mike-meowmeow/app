@@ -83,6 +83,7 @@
   EVSU-Ormoc HRMDO · Recruitment Management System · development build
 </footer>
 <script src="{% static 'vendor/bootstrap-5.3.3/bootstrap.bundle.min.js' %}"></script>
+<script src="{% versioned_static 'core/password_toggle.js' %}" defer></script>
 {% block scripts %}{% endblock %}
 {% if assistant_visible %}{% include "assistant/widget.html" %}{% endif %}
 </body>

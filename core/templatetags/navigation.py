@@ -14,3 +14,11 @@ def breadcrumbs(context):
         return {'trail': []}
     active_role = request.session.get(ACTIVE_WORKSPACE_SESSION_KEY)
     return {'trail': build_trail(request.user, match.view_name, match.kwargs, active_role)}
+
+
+@register.simple_tag
+def versioned_static(path):
+    """Static URL with a content version (?v=...), so a changed script is
+    fetched instead of an old cached copy."""
+    from core.static_version import versioned_static as _versioned
+    return _versioned(path)

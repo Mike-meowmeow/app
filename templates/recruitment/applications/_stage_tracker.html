@@ -1,0 +1,52 @@
+<style>
+  .stage-tracker { list-style: none; margin: 0; padding: 0; }
+  .stage-tracker li { position: relative; display: flex; gap: .75rem; padding-bottom: .9rem; }
+  .stage-tracker li:last-child { padding-bottom: 0; }
+  .stage-tracker li:not(:last-child)::before {
+    content: ""; position: absolute; left: .9rem; top: 1.9rem; bottom: .1rem;
+    width: 2px; margin-left: -1px; background: #dee2e6; }
+  .stage-tracker li.st-done:not(:last-child)::before,
+  .stage-tracker li.st-skipped:not(:last-child)::before { background: #a3cfbb; }
+  .stage-tracker .st-dot {
+    flex: 0 0 1.8rem; height: 1.8rem; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: .8rem; font-weight: 600;
+    border: 2px solid #ced4da; background: #f1f3f5; color: #adb5bd; }
+  .stage-tracker .st-label { font-weight: 600; line-height: 1.8rem; color: #adb5bd; }
+  .stage-tracker .st-note { font-size: .8rem; color: #adb5bd; margin-top: -.3rem; }
+  /* finished: light colour */
+  .stage-tracker .st-done .st-dot { background: #d1e7dd; border-color: #a3cfbb; color: #146c43; }
+  .stage-tracker .st-done .st-label { color: #146c43; font-weight: 500; }
+  .stage-tracker .st-done .st-note { color: #6c757d; }
+  /* current: highlighted */
+  .stage-tracker .st-current .st-dot { background: var(--evsu-maroon); border-color: var(--evsu-maroon);
+    color: #fff; box-shadow: 0 0 0 .25rem rgba(122, 31, 31, .2); }
+  .stage-tracker .st-current .st-label { color: var(--evsu-maroon); }
+  .stage-tracker .st-current .st-note { color: #997404; font-weight: 600; }
+  /* hired: the finished last step */
+  .stage-tracker .st-complete .st-dot { background: #198754; border-color: #198754; color: #fff;
+    box-shadow: 0 0 0 .25rem rgba(25, 135, 84, .2); }
+  .stage-tracker .st-complete .st-label { color: #146c43; }
+  .stage-tracker .st-complete .st-note { color: #146c43; }
+  /* stopped here */
+  .stage-tracker .st-ended .st-dot { background: #f8d7da; border-color: #dc3545; color: #b02a37; }
+  .stage-tracker .st-ended .st-label { color: #b02a37; }
+  .stage-tracker .st-ended .st-note { color: #b02a37; font-weight: 600; }
+  /* passed over */
+  .stage-tracker .st-skipped .st-dot { border-style: dashed; }
+  .stage-tracker .st-skipped .st-label { font-weight: 500; }
+</style>
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <h2 class="h6 mb-3">Application progress</h2>
+  <ol class="stage-tracker" aria-label="Application progress">
+    {% for step in stages %}
+      <li class="st-{{ step.state }}"{% if step.state == 'current' %} aria-current="step"{% endif %}>
+        <span class="st-dot" aria-hidden="true">{% if step.state == 'done' or step.state == 'complete' %}&#10003;{% elif step.state == 'ended' %}&#10005;{% else %}{{ step.number }}{% endif %}</span>
+        <div>
+          <div class="st-label">{{ step.label }}</div>
+          <span class="visually-hidden">({% if step.state == 'done' or step.state == 'complete' %}finished{% elif step.state == 'current' %}current stage{% elif step.state == 'ended' %}ended here{% elif step.state == 'skipped' %}skipped{% else %}not reached{% endif %})</span>
+          {% if step.note %}<div class="st-note">{{ step.note }}</div>{% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ol>
+</div></div>

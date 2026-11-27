@@ -17,7 +17,7 @@ from documents.storage import FileRejected
 from . import application_selectors as access
 from . import application_services as services
 from . import decision_services as decisions
-from . import fact_schema, selectors
+from . import fact_schema, selectors, stage_tracker
 from .application_forms import (ApplicationFilterForm, ApplicationSearchForm, CorrectionReasonForm,
                                 CorrectionRequestForm, ExceptionForm, ManualFactForm,
                                 OutcomeForm, ReasonForm, ReplaceForm, SubmitForm, UploadForm,
@@ -336,6 +336,7 @@ def review(request, pk):
         'show_checks': checks.enabled() or check is not None,
         'show_ai': settings.AI_EXTRACTION_ENABLED or bool(ai_jobs),
         'application': application, 'can_review': can_review,
+        'stages': stage_tracker.build(application),
         'snapshot': snapshot, 'snapshot_view': _snapshot_view(snapshot.data if snapshot else None),
         'checklist': services.document_checklist(application),
         'facts': [(f, fact_schema.display_items(f.fact_type, f.value)) for f in current],

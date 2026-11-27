@@ -29,7 +29,7 @@ Under **Qualification review** on the application, each published standard has *
 
 ## Using the advisory qualification checks
 Roles: HR
-Under **Qualification review**, press **Run qualification checks**. Fixed rules compare the facts you accepted with each standard and suggest an outcome with step-by-step reasoning: only accepted facts count, experience and training count only when marked Relevant, overlapping jobs count once, and ongoing degrees, other fields, expired license cards, and written requirements go to Needs Review. Open **Details and reasoning** to see the steps. **Record outcome starting from this check** fills in the outcome form for you to edit and submit. When facts change, the check shows **Out of date**; run it again.
+Under **Qualification review**, press **Run qualification checks**. Fixed rules compare the facts you accepted with each standard and suggest an outcome with step-by-step reasoning: only accepted facts count, experience and training count only when marked Relevant, overlapping jobs count once, and ongoing degrees, other fields, expired license cards, and written requirements go to Needs Review. The page stays on the application and opens each standard's reasoning and the facts used inside the card; use **Hide reasoning** / **Show reasoning** to fold each one. **Record outcome starting from this check** fills in the outcome form for you to edit and submit. When facts change, the check shows **Out of date**; run it again.
 
 ## Reviewing AI extraction results
 Roles: HR

@@ -385,10 +385,11 @@ def run(user, token):
     if op == 'run_qualification_checks':
         from ai_processing import screening
         check, created = screening.run_checks(user, application)
-        url = reverse('ai_processing:screening', args=[application.pk, check.pk])
+        url = reverse('recruitment:application_review',
+                      args=[application.pk]) + '?checked=1#qualifications'
         text = (f'Qualification checks done: {check.get_overall_status_display()} overall '
                 '(advisory).' if created else 'Nothing changed since the last check.')
-        return {'html': format_html('{} {}', text, _link(url, 'Open the details'))}
+        return {'html': format_html('{} {}', text, _link(url, 'Open the results'))}
     if op == 'run_competency_matching':
         from ai_processing import matching
         job, created = matching.queue_matching(user, application)

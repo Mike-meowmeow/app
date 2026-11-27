@@ -224,13 +224,42 @@ class ScreeningTests(ApplicationTestCase):
         response = self.client.post(reverse('ai_processing:run_checks',
                                             args=[self.application.pk]))
         check = AIScreening.objects.get()
-        self.assertRedirects(response, reverse('ai_processing:screening',
-                                               args=[self.application.pk, check.pk]))
-        page = self.client.get(response.url)
-        self.assertContains(page, 'Advisory')
+        # Stays on the review page; the reasoning opens inside the card.
+        self.assertRedirects(response, review + '?checked=1#qualifications',
+                             fetch_redirect_response=False)
+        page = self.client.get(review + '?checked=1')
+        self.assertContains(page, 'Check suggests')
         self.assertContains(page, 'Meets Requirement')
         self.assertContains(page, 'program matches')
-        self.assertContains(self.client.get(review), 'Check suggests')
+        self.assertContains(page, f'class="collapse show" id="check-{check.results.get().standard_id}"')
+        self.assertContains(page, 'aria-expanded="true"')
+        self.assertContains(page, 'MA Mathematics')  # facts used
+        self.assertContains(page, '?check=')  # record outcome starting from this check
+        self.assertNotContains(page, 'Details and reasoning')
+        # The details page still opens for old links.
+        detail = reverse('ai_processing:screening', args=[self.application.pk, check.pk])
+        self.assertContains(self.client.get(detail), 'Advisory')
+
+    def test_review_page_opens_the_reasoning_only_after_a_run(self):
+        self.accept_education()
+        check, _ = screening.run_checks(self.hr, self.application)
+        standard_id = check.results.get().standard_id
+        self.client.force_login(self.hr)
+        review = reverse('recruitment:application_review', args=[self.application.pk])
+        page = self.client.get(review)
+        self.assertContains(page, f'class="collapse" id="check-{standard_id}"')
+        self.assertContains(page, 'aria-expanded="false"')
+        self.assertContains(page, 'program matches')  # present, folded
+        self.assertContains(page, 'Show reasoning')
+
+    def test_out_of_date_check_hides_record_from_check(self):
+        screening.run_checks(self.hr, self.application)
+        self.accept_education()  # inputs changed after the check
+        self.client.force_login(self.hr)
+        page = self.client.get(reverse('recruitment:application_review',
+                                       args=[self.application.pk]) + '?checked=1')
+        self.assertContains(page, 'Out of date')
+        self.assertNotContains(page, '?check=')
 
     def test_hr_can_start_the_official_outcome_from_the_check(self):
         self.accept_education()

@@ -341,8 +341,11 @@ def review(request, pk):
         'checklist': services.document_checklist(application),
         'facts': [(f, fact_schema.display_items(f.fact_type, f.value)) for f in current],
         'superseded_count': sum(1 for f in facts if not f.is_current),
-        'standards': [(s, outcomes.get(str(s.pk)), check_results.get(str(s.pk)))
+        'standards': [(s, outcomes.get(str(s.pk)), check_results.get(str(s.pk)),
+                       _check_facts(application, check_results.get(str(s.pk))))
                       for s in standards],
+        # Just ran the checks: open every standard's reasoning.
+        'expand_checks': request.GET.get('checked') == '1',
         'outcome_labels': fact_schema.OUTCOME_LABELS,
         'versions': versions,
         'corrections_requested': application.correction_requests.select_related('requested_by'),
@@ -356,6 +359,15 @@ def review(request, pk):
                                   and application.open_correction_request() is None,
         'can_reopen': application.status in services.CONCLUDED,
     })
+
+
+def _check_facts(application, result):
+    """Facts an advisory check result used, ready for display."""
+    if result is None:
+        return []
+    from ai_processing import screening as checks
+    return [(f, fact_schema.display_items(f.fact_type, f.value))
+            for f in checks.evidence_facts(application, result)]
 
 
 def _reviewable_or_403(request, pk):

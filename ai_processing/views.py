@@ -215,7 +215,9 @@ def run_checks(request, pk):
     messages.success(request, 'Qualification checks done. They are advisory: record the '
                               'official outcome yourself.' if created else
                      'Nothing changed since the last check; showing it again.')
-    return redirect('ai_processing:screening', pk=pk, screening_pk=screening_record.pk)
+    # Stay on the review page; the results open inside the Qualification review card.
+    return redirect(reverse('recruitment:application_review', args=[pk])
+                    + '?checked=1#qualifications')
 
 
 @role_required(*STAFF_ROLES)

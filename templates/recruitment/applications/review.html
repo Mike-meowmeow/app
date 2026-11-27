@@ -149,6 +149,10 @@
     </div></div>
 
     {# Qualifications #}
+    <style>
+      .check-toggle[aria-expanded="true"] .when-closed,
+      .check-toggle[aria-expanded="false"] .when-open { display: none; }
+    </style>
     <div class="card shadow-sm mb-3" id="qualifications"><div class="card-body">
       <h2 class="h5">Qualification review</h2>
       <p class="small text-muted">Human-entered outcome per published standard (requirement version {{ snapshot.requirement_version.version }}). Outcomes never change shortlisting or roster inclusion by themselves.</p>
@@ -159,7 +163,6 @@
             {% include "ai_processing/includes/result_badge.html" with result=check.overall_status label=check.get_overall_status_display %}
             <span class="text-muted">{{ check.screened_at|date:"M j, Y g:i A" }}</span>
             {% if not check_current %}<span class="badge text-bg-light border text-warning-emphasis">Out of date</span>{% endif %}
-            <a href="{% url 'ai_processing:screening' application.pk check.pk %}">Details and reasoning</a>
           {% else %}<span class="text-muted">not run yet</span>{% endif %}
           {% if can_run_checks and not check_current %}
             <form class="ms-auto" method="post" action="{% url 'ai_processing:run_checks' application.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-primary" type="submit">{% if check %}Run checks again{% else %}Run qualification checks{% endif %}</button></form>
@@ -167,7 +170,7 @@
         </div>
       {% endif %}
       <ul class="list-group">
-        {% for standard, outcome, check_result in standards %}
+        {% for standard, outcome, check_result, check_facts in standards %}
           <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
             <div class="small">
               <span class="badge text-bg-light border">{{ standard.get_criterion_type_display }}</span> {{ standard.description }}
@@ -179,7 +182,27 @@
                 {% else %}<span class="badge text-bg-secondary">Not assessed</span>{% endif %}
               </div>
               {% if check_result %}
-                <div class="mt-1 text-muted">Check suggests: {% include "ai_processing/includes/result_badge.html" with result=check_result.result label=check_result.get_result_display %}{% if outcome and outcome.value.outcome != check_result.result %} <span class="text-warning-emphasis">differs from the recorded outcome</span>{% endif %}</div>
+                <div class="mt-1 text-muted">Check suggests: {% include "ai_processing/includes/result_badge.html" with result=check_result.result label=check_result.get_result_display %}{% if outcome and outcome.value.outcome != check_result.result %} <span class="text-warning-emphasis">differs from the recorded outcome</span>{% endif %}
+                  <button class="btn btn-link btn-sm p-0 ms-1 align-baseline check-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#check-{{ standard.pk }}" aria-expanded="{% if expand_checks %}true{% else %}false{% endif %}" aria-controls="check-{{ standard.pk }}"><span class="when-closed">Show reasoning</span><span class="when-open">Hide reasoning</span></button>
+                </div>
+                <div class="collapse{% if expand_checks %} show{% endif %}" id="check-{{ standard.pk }}">
+                  <div class="border-start border-3 ps-2 mt-2">
+                    <div class="fw-semibold">Reasoning</div>
+                    <ol class="mb-2 ps-3">{% for line in check_result.explanation_lines %}<li>{{ line }}</li>{% endfor %}</ol>
+                    <div class="fw-semibold">Facts used</div>
+                    {% if check_facts %}
+                      <ul class="mb-2 ps-3">
+                        {% for fact, items in check_facts %}
+                          <li>{{ fact.get_fact_type_display }}: {% for label, value in items %}{{ value }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                            <span class="text-muted">({{ fact.get_review_status_display|lower }}{% if fact.fact_type == 'experience' or fact.fact_type == 'training' %}, {{ fact.get_relevance_status_display|lower }}{% endif %})</span>
+                            {% for link in fact.evidence.all %}<a class="ms-1" href="{% url 'documents:download' link.document_version.pk %}?inline=1" target="_blank" rel="noopener">{{ link.document_version.document.document_type.name }} v{{ link.document_version.version }}</a>{% empty %}<span class="text-muted ms-1">no evidence linked</span>{% endfor %}
+                          </li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}<p class="text-muted mb-2">None.</p>{% endif %}
+                    {% if can_review and check_current %}<a class="btn btn-sm btn-outline-primary mb-1" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}?check={{ check_result.pk }}">Record outcome starting from this check</a>{% endif %}
+                  </div>
+                </div>
               {% endif %}
             </div>
             {% if can_review %}<a class="btn btn-sm btn-outline-primary flex-shrink-0" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}">Record outcome</a>{% endif %}

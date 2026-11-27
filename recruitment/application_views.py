@@ -528,6 +528,22 @@ def fact_evidence(request, pk, fact_pk):
 
 
 @role_required(roles.HR)
+@require_POST
+def fact_unlink(request, pk, fact_pk, link_pk):
+    application = _reviewable_or_403(request, pk)
+    fact = _fact_or_404(application, fact_pk)
+    from documents.models import FactEvidence
+    link = get_object_or_404(FactEvidence, pk=link_pk, application_fact=fact)
+    try:
+        services.unlink_evidence(request.user, link, reason=request.POST.get('reason', ''))
+    except ValidationError as exc:
+        _flash(request, exc)
+    else:
+        messages.success(request, 'Document unlinked. You can link the right one now.')
+    return redirect(f"{redirect('recruitment:application_review', pk=pk).url}#facts")
+
+
+@role_required(roles.HR)
 @require_http_methods(['GET', 'POST'])
 def fact_correct(request, pk, fact_pk):
     application = _reviewable_or_403(request, pk)

@@ -29,7 +29,7 @@ NO_TRAIL = {
     'recruitment:apply', 'recruitment:upload_document', 'recruitment:remove_document',
     'recruitment:submit_application', 'recruitment:resubmit_corrections',
     'recruitment:application_start_review', 'recruitment:application_reopen',
-    'recruitment:fact_review', 'recruitment:fact_evidence',
+    'recruitment:fact_review', 'recruitment:fact_evidence', 'recruitment:fact_unlink',
     'recruitment:position_set_active', 'recruitment:position_item_remove',
     'recruitment:requirements_start', 'recruitment:requirements_discard',
     'recruitment:requirement_remove', 'recruitment:vacancy_publish',

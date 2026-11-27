@@ -137,7 +137,18 @@
                   </form>
                 {% endif %}
               {% endif %}
-              {% if versions %}
+              {% if fact.evidence.all %}
+                {# Linked: only Unlink (with a reason) is offered; link another document after unlinking. #}
+                {% for e in fact.evidence.all %}
+                  <details class="fact-change">
+                    <summary class="btn btn-sm btn-outline-danger">Unlink {{ e.document_version.document.document_type.name }} v{{ e.document_version.version }}</summary>
+                    <form method="post" action="{% url 'recruitment:fact_unlink' application.pk fact.pk e.pk %}" class="d-flex gap-1 mt-1">{% csrf_token %}
+                      <input class="form-control form-control-sm" name="reason" required placeholder="Why this document is the wrong evidence" aria-label="Reason for unlinking">
+                      <button class="btn btn-sm btn-danger text-nowrap" type="submit">Unlink</button>
+                    </form>
+                  </details>
+                {% endfor %}
+              {% elif versions %}
                 <form method="post" action="{% url 'recruitment:fact_evidence' application.pk fact.pk %}" class="d-flex gap-1">{% csrf_token %}
                   <select class="form-select form-select-sm" name="version" aria-label="Evidence document">
                     {% for v in versions %}{% if v.document.current_version.pk == v.pk %}<option value="{{ v.pk }}">{{ v.document.document_type.name }} v{{ v.version }}</option>{% endif %}{% endfor %}

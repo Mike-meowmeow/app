@@ -38,6 +38,8 @@ urlpatterns = [
     path(APP + 'facts/add/', apps.fact_add, name='fact_add'),
     path(APP + 'facts/<uuid:fact_pk>/review/', apps.fact_review, name='fact_review'),
     path(APP + 'facts/<uuid:fact_pk>/evidence/', apps.fact_evidence, name='fact_evidence'),
+    path(APP + 'facts/<uuid:fact_pk>/evidence/<uuid:link_pk>/unlink/', apps.fact_unlink,
+         name='fact_unlink'),
     path(APP + 'facts/<uuid:fact_pk>/correct/', apps.fact_correct, name='fact_correct'),
     path(APP + 'qualifications/<uuid:standard_pk>/', apps.qualification_outcome,
          name='qualification_outcome'),

@@ -461,6 +461,15 @@ def link_evidence(actor, fact, version, *, location=None):
     _require_reviewer(actor, fact.application)
     if version.document.application_id != fact.application_id:
         raise ValidationError('Evidence must come from the same application.')
+    # One link per fact from the Link button: to use another document, Unlink
+    # first (with a reason). Automatic links (profile files, AI items) are made
+    # elsewhere.
+    existing = fact.evidence.exclude(document_version=version).first()
+    if existing is not None:
+        raise ValidationError(f'This fact is already linked to '
+                              f'{existing.document_version.document.document_type.name} '
+                              f'v{existing.document_version.version}. Unlink it first, with a '
+                              'reason, to link another document.')
     link, created = FactEvidence.objects.get_or_create(
         application_fact=fact, document_version=version,
         defaults={'source_location': location or {}})
@@ -468,6 +477,30 @@ def link_evidence(actor, fact, version, *, location=None):
         audit.record('fact.evidence_linked', entity=fact, actor=actor,
                      changes={'document_version': str(version.pk), 'file': version.file_name})
     return link
+
+
+@transaction.atomic
+def unlink_evidence(actor, link, *, reason):
+    """Remove an evidence link (manual, from a profile file, or from an AI
+    item) when it was wrong. A reason is required; what was linked, where, and
+    why it was removed stay in the audit trail."""
+    fact = link.application_fact
+    _lock(fact.application)
+    _require_reviewer(actor, fact.application)
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValidationError('A reason is required to unlink a document.')
+    version = link.document_version
+    audit.record('fact.evidence_unlinked', entity=fact, actor=actor, reason=reason,
+                 changes={'document_version': str(version.pk), 'file': version.file_name,
+                          'document_type': version.document.document_type.code,
+                          'version': version.version,
+                          'source_location': link.source_location,
+                          'extraction_item': str(link.extraction_item_id)
+                          if link.extraction_item_id else None,
+                          'application': fact.application.reference})
+    link.delete()
+    return fact
 
 
 def qualification_outcomes(application):

@@ -116,9 +116,11 @@
                 </details>
               {% endif %}
               {% if fact.fact_type == 'experience' or fact.fact_type == 'training' %}
+                <div class="d-flex flex-wrap align-items-center gap-1">
+                <span class="small text-muted" id="relevance-{{ fact.pk }}">Relevant to this vacancy?</span>
                 {% if fact.relevance_status == 'relevant' or fact.relevance_status == 'not_relevant' %}
                   {# Marked: locked; a mistake is fixed with Change relevance and a reason. #}
-                  <div class="d-flex gap-1" role="group" aria-label="Relevance recorded">
+                  <div class="d-flex gap-1" role="group" aria-label="Relevance recorded" aria-describedby="relevance-{{ fact.pk }}">
                     <button class="btn btn-sm {% if fact.relevance_status == 'relevant' %}btn-primary{% else %}btn-outline-secondary{% endif %}" type="button" disabled>{% if fact.relevance_status == 'relevant' %}&#10003; {% endif %}Relevant</button>
                     <button class="btn btn-sm {% if fact.relevance_status == 'not_relevant' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" type="button" disabled>{% if fact.relevance_status == 'not_relevant' %}&#10003; {% endif %}Not relevant</button>
                   </div>
@@ -136,6 +138,7 @@
                     <button class="btn btn-sm btn-outline-secondary" name="relevance" value="not_relevant" type="submit">Not relevant</button>
                   </form>
                 {% endif %}
+                </div>
               {% endif %}
               {% if fact.evidence.all %}
                 {# Linked: only Unlink (with a reason) is offered; link another document after unlinking. #}

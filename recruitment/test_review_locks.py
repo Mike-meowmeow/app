@@ -97,6 +97,9 @@ class FactDecisionLockTests(ApplicationTestCase):
         page = self.client.get(self.review_url)
         self.assertContains(page, 'disabled>&#10003; Relevant</button>')
         self.assertContains(page, 'Change to Not relevant')
+        # Labelled, so it is not confused with the evidence link; only on
+        # experience and training facts (the education fact has none).
+        self.assertContains(page, 'Relevant to this vacancy?', count=1)
         url = reverse('recruitment:fact_review', args=[self.application.pk, experience.pk])
         self.client.post(url, {'relevance': 'not_relevant', 'reason': 'Unrelated subject'})
         experience.refresh_from_db()

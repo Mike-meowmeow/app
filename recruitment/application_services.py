@@ -477,6 +477,17 @@ def qualification_outcomes(application):
 
 
 @transaction.atomic
+def fact_needs_evidence(fact):
+    """True when a fact should show "No supporting document": it has no linked
+    evidence, is not an identity/contact fact (those come from the profile),
+    and was not rejected. A warning only; HR may still accept it."""
+    if fact.fact_type in (FactType.IDENTITY, FactType.QUALIFICATION_ASSESSMENT):
+        return False
+    if fact.review_status == FactReviewStatus.REJECTED:
+        return False
+    return not fact.evidence.all()
+
+
 def outcome_locked(application, outcome_fact, current_hash=None):
     """True when an outcome is recorded and nothing it was based on has changed
     since (facts, relevance, corrected submission, requirements, credential

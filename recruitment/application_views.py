@@ -306,6 +306,8 @@ def review(request, pk):
                  .order_by('fact_type', 'created_at'))
     current = [f for f in facts if f.is_current
                and f.fact_type != FactType.QUALIFICATION_ASSESSMENT]
+    for f in current:
+        f.no_evidence = services.fact_needs_evidence(f)
     outcomes = services.qualification_outcomes(application)
     standards = list(requirement.qualification_standards.all()) if requirement else []
     snapshot = application.latest_snapshot()
@@ -342,6 +344,7 @@ def review(request, pk):
         'checklist': services.document_checklist(application),
         'facts': [(f, fact_schema.display_items(f.fact_type, f.value)) for f in current],
         'superseded_count': sum(1 for f in facts if not f.is_current),
+        'no_evidence_count': sum(1 for f in current if f.no_evidence),
         'standards': [(s, outcomes.get(str(s.pk)), check_results.get(str(s.pk)),
                        _check_facts(application, check_results.get(str(s.pk))),
                        services.outcome_locked(application, outcomes.get(str(s.pk)), inputs_hash))

@@ -63,10 +63,13 @@
 
     {# Facts #}
     <div class="card shadow-sm mb-3" id="facts"><div class="card-body">
-      <h2 class="h5">Application facts</h2>
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <h2 class="h5">Application facts</h2>
+        {% if no_evidence_count %}<span class="badge text-bg-warning">&#9888; {{ no_evidence_count }} fact{{ no_evidence_count|pluralize:" has,s have" }} no supporting document</span>{% endif %}
+      </div>
       <p class="small text-muted">Information from the submitted snapshot and HR entries. Accept, reject (with reason), or correct each item; corrections keep the original. {% if superseded_count %}{{ superseded_count }} earlier version{{ superseded_count|pluralize }} kept in history.{% endif %}</p>
       {% for fact, items in facts %}
-        <div class="border rounded p-2 mb-2 bg-white">
+        <div class="border rounded p-2 mb-2 bg-white{% if fact.no_evidence %} border-warning border-2{% endif %}">
           <div class="d-flex justify-content-between align-items-start gap-2">
             <div class="small">
               <span class="badge text-bg-light border">{{ fact.get_fact_type_display }}</span>
@@ -74,11 +77,12 @@
               {% if fact.value.manual %}<span class="badge text-bg-info">HR entry</span>{% endif %}
               {% if fact.value.extraction_item_id %}<span class="badge text-bg-info">From AI extraction, HR reviewed</span>{% endif %}
               {% if fact.supersedes_id %}<span class="badge text-bg-light border">corrected</span>{% endif %}
+              {% if fact.no_evidence %}<span class="badge text-bg-warning">&#9888; No supporting document</span>{% endif %}
               {% if fact.relevance_status != 'not_applicable' %}<span class="badge text-bg-light border">{{ fact.get_relevance_status_display }}</span>{% endif %}
               <div class="mt-1">{% for label, value in items %}{% if not forloop.first %} · {% endif %}<span class="text-muted">{{ label }}:</span> {{ value }}{% endfor %}</div>
               {% if fact.review_reason %}<div class="text-muted fst-italic">{{ fact.review_reason|linebreaksbr }}</div>{% endif %}
               <div class="mt-1">Evidence:
-                {% for e in fact.evidence.all %}<a href="{% url 'documents:download' e.document_version.pk %}?inline=1" target="_blank" rel="noopener">{{ e.document_version.document.document_type.name }} v{{ e.document_version.version }}</a>{% if e.source_location.note %} ({{ e.source_location.note }}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}<span class="text-muted">none linked</span>{% endfor %}
+                {% for e in fact.evidence.all %}<a href="{% url 'documents:download' e.document_version.pk %}?inline=1" target="_blank" rel="noopener">{{ e.document_version.document.document_type.name }} v{{ e.document_version.version }}</a>{% if e.source_location.note %} ({{ e.source_location.note }}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}{% if fact.no_evidence %}<span class="text-warning-emphasis">none linked: link the document that proves it</span>{% else %}<span class="text-muted">none linked</span>{% endif %}{% endfor %}
               </div>
             </div>
             {% if can_review %}<a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="{% url 'recruitment:fact_correct' application.pk fact.pk %}">Correct</a>{% endif %}

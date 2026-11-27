@@ -477,10 +477,29 @@ def qualification_outcomes(application):
 
 
 @transaction.atomic
+def outcome_locked(application, outcome_fact, current_hash=None):
+    """True when an outcome is recorded and nothing it was based on has changed
+    since (facts, relevance, corrected submission, requirements, credential
+    list). A locked outcome changes only through Change outcome, with a reason.
+    Outcomes recorded before the lock existed carry no fingerprint and count
+    as locked."""
+    if outcome_fact is None:
+        return False
+    recorded = outcome_fact.value.get('inputs_hash')
+    if recorded is None:
+        return True
+    if current_hash is None:
+        from ai_processing import screening as checks
+        current_hash = checks.inputs_hash(application)
+    return recorded == current_hash
+
+
 def record_qualification_outcome(actor, application, standard, *, outcome, reason='',
-                                 supporting_facts=(), check_result=None):
+                                 supporting_facts=(), check_result=None, change_reason=''):
     """Human-entered outcome per standard: Meets / Does Not Meet / Needs Review
-    / Not Required, with the requirement and supporting evidence recorded."""
+    / Not Required, with the requirement and supporting evidence recorded.
+    Once recorded, the outcome is locked until its inputs change; a mistake is
+    fixed with a change reason (Change outcome)."""
     application = _lock(application)
     _require_reviewer(actor, application)
     if standard.requirement_version_id != requirements_for(application).pk:
@@ -492,9 +511,18 @@ def record_qualification_outcome(actor, application, standard, *, outcome, reaso
         raise ValidationError('Explain the outcome.')
     supporting = [f for f in supporting_facts if f.application_id == application.pk]
     previous = qualification_outcomes(application).get(str(standard.pk))
+    change_reason = (change_reason or '').strip()
+    changed = outcome_locked(application, previous)
+    if changed and not change_reason:
+        raise ValidationError('An outcome is already recorded and nothing has changed since. '
+                              'Use Change outcome, with a reason, if it was a mistake.')
+    from ai_processing import screening as checks
     value = {'standard_id': str(standard.pk), 'criterion_type': standard.criterion_type,
              'requirement': standard.description, 'outcome': outcome, 'reason': reason,
-             'supporting_fact_ids': [str(f.pk) for f in supporting]}
+             'supporting_fact_ids': [str(f.pk) for f in supporting],
+             'inputs_hash': checks.inputs_hash(application)}
+    if changed:
+        value['change_reason'] = change_reason
     if check_result is not None:  # HR started from the advisory check (13.4)
         value['advisory_check'] = {'result_id': str(check_result.pk),
                                    'result': check_result.result}
@@ -505,11 +533,20 @@ def record_qualification_outcome(actor, application, standard, *, outcome, reaso
     if previous:
         _supersede(previous, 'Replaced by a newer assessment')
     _bump_revision(application)
-    audit.record('qualification.assessed', entity=fact, actor=actor, reason=reason,
+    audit.record('qualification.outcome_changed' if changed else 'qualification.assessed',
+                 entity=fact, actor=actor, reason=change_reason if changed else reason,
                  changes={'standard': standard.description, 'outcome': outcome,
                           'previous': previous.value.get('outcome') if previous else None,
-                          'advisory_check': value.get('advisory_check')},
+                          'advisory_check': value.get('advisory_check'),
+                          'change_reason': change_reason if changed else None},
                  job=check_result.screening.job if check_result is not None else None)
+    if changed:
+        labels = fact_schema.OUTCOME_LABELS
+        events.review_changed(application, actor,
+                              what=f'the qualification outcome for "{standard.description}"',
+                              old=labels.get(previous.value.get('outcome'), 'none'),
+                              new=labels.get(outcome, outcome),
+                              key=f'outcome:{fact.pk}')
     return fact
 
 

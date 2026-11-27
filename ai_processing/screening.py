@@ -92,6 +92,14 @@ def latest(application):
             .select_related('job', 'job__requested_by').order_by('-screened_at').first())
 
 
+def inputs_hash(application):
+    """Fingerprint of everything the checks read ('' before submission). A
+    recorded qualification outcome stores it; when it changes, the outcome
+    can be recorded again."""
+    *_, manifest = check_inputs(application)
+    return _hash(manifest) if manifest else ''
+
+
 def is_current(screening):
     """True when the facts, reviews, and requirements are unchanged since."""
     *_, manifest = check_inputs(screening.job.application)

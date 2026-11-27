@@ -415,7 +415,8 @@ class FactReviewTests(ApplicationTestCase):
         services.record_qualification_outcome(self.hr, self.application, standard,
                                               outcome='needs_review', reason='TOR unclear')
         services.record_qualification_outcome(self.hr, self.application, standard,
-                                              outcome='meets', supporting_facts=[self.education])
+                                              outcome='meets', supporting_facts=[self.education],
+                                              change_reason='Read the TOR again')
         outcomes = services.qualification_outcomes(self.application)
         current = outcomes[str(standard.pk)]
         self.assertEqual(current.value['outcome'], 'meets')

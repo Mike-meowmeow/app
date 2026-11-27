@@ -25,7 +25,7 @@ On a submitted or under-review application, press **Request correction**. Write 
 
 ## Recording a qualification outcome
 Roles: HR
-Under **Qualification review** on the application, each published standard has **Record outcome**. Choose **Meets Requirement**, **Does Not Meet Requirement**, **Needs Review**, or **Not Required**, tick the supporting accepted facts, and write a reason (required for Does Not Meet and Needs Review). Outcomes are HR decisions; they never change shortlisting or roster inclusion by themselves.
+Under **Qualification review** on the application, each published standard has **Record outcome**. Choose **Meets Requirement**, **Does Not Meet Requirement**, **Needs Review**, or **Not Required**, tick the supporting accepted facts, and write a reason (required for Does Not Meet and Needs Review). Outcomes are HR decisions; they never change shortlisting or roster inclusion by themselves. Once recorded, the button turns gray (**Outcome recorded**) until something the outcome was based on changes: accepted facts or their relevance, corrected submissions, the vacancy's requirements, or the license list. Then it shows **Record outcome again**. To fix a mistake before that, press **Change outcome** and give the reason; the HR Head / Approver is notified.
 
 ## Using the advisory qualification checks
 Roles: HR

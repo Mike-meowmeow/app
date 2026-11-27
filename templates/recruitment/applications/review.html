@@ -170,7 +170,7 @@
         </div>
       {% endif %}
       <ul class="list-group">
-        {% for standard, outcome, check_result, check_facts in standards %}
+        {% for standard, outcome, check_result, check_facts, outcome_locked in standards %}
           <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
             <div class="small">
               <span class="badge text-bg-light border">{{ standard.get_criterion_type_display }}</span> {{ standard.description }}
@@ -179,6 +179,7 @@
                   {% with o=outcome.value.outcome %}<span class="badge {% if o == 'meets' %}text-bg-success{% elif o == 'does_not_meet' %}text-bg-danger{% elif o == 'needs_review' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{% for key, label in outcome_labels.items %}{% if key == o %}{{ label }}{% endif %}{% endfor %}</span>{% endwith %}
                   <span class="text-muted">by {{ outcome.reviewed_by.full_name|default:outcome.reviewed_by.username }}, {{ outcome.reviewed_at|date:"M j, Y" }} · {{ outcome.value.supporting_fact_ids|length }} supporting fact{{ outcome.value.supporting_fact_ids|length|pluralize }}</span>
                   {% if outcome.value.reason %}<div class="text-muted">{{ outcome.value.reason }}</div>{% endif %}
+                  {% if outcome.value.change_reason %}<div class="text-warning-emphasis">Changed: {{ outcome.value.change_reason }}</div>{% endif %}
                 {% else %}<span class="badge text-bg-secondary">Not assessed</span>{% endif %}
               </div>
               {% if check_result %}
@@ -200,12 +201,25 @@
                         {% endfor %}
                       </ul>
                     {% else %}<p class="text-muted mb-2">None.</p>{% endif %}
-                    {% if can_review and check_current %}<a class="btn btn-sm btn-outline-primary mb-1" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}?check={{ check_result.pk }}">Record outcome starting from this check</a>{% endif %}
+                    {% if can_review and check_current and not outcome_locked %}<a class="btn btn-sm btn-outline-primary mb-1" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}?check={{ check_result.pk }}">Record outcome starting from this check</a>{% endif %}
                   </div>
                 </div>
               {% endif %}
             </div>
-            {% if can_review %}<a class="btn btn-sm btn-outline-primary flex-shrink-0" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}">Record outcome</a>{% endif %}
+            {% if can_review %}
+              {% if outcome_locked %}
+                {# Recorded and nothing changed since: locked; a mistake is fixed with Change outcome. #}
+                <div class="d-flex flex-column align-items-end flex-shrink-0 gap-1">
+                  <button class="btn btn-sm btn-secondary" type="button" disabled>&#10003; Outcome recorded</button>
+                  <a class="btn btn-sm btn-link p-0" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}?change=1">Change outcome</a>
+                </div>
+              {% else %}
+                <div class="d-flex flex-column align-items-end flex-shrink-0 gap-1">
+                  <a class="btn btn-sm btn-outline-primary" href="{% url 'recruitment:qualification_outcome' application.pk standard.pk %}">{% if outcome %}Record outcome again{% else %}Record outcome{% endif %}</a>
+                  {% if outcome %}<span class="small text-warning-emphasis text-end">New information since the outcome</span>{% endif %}
+                </div>
+              {% endif %}
+            {% endif %}
           </li>
         {% empty %}<li class="list-group-item small text-muted">No qualification standards.</li>{% endfor %}
       </ul>

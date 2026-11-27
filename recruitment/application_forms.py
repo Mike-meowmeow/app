@@ -119,9 +119,16 @@ class OutcomeForm(BootstrapFormMixin, forms.Form):
                                                  widget=forms.CheckboxSelectMultiple,
                                                  label='Supporting accepted facts')
 
-    def __init__(self, *args, facts=(), **kwargs):
+    def __init__(self, *args, facts=(), change=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['supporting_facts'].choices = [(str(f.pk), label) for f, label in facts]
+        if change:  # the outcome is locked: changing it needs a reason
+            self.fields['change_reason'] = forms.CharField(
+                label='Why the recorded outcome was a mistake',
+                widget=forms.Textarea(attrs={'rows': 2}),
+                help_text='Kept in the history and the audit log; the HR Head / Approver '
+                          'is notified.')
+            self.fields['change_reason'].widget.attrs.setdefault('class', 'form-control')
 
     def clean(self):
         data = super().clean()

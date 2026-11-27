@@ -281,8 +281,8 @@ made-up entries in **My profile**:
 | # | Step | Expected |
 | --- | --- | --- |
 | C3.1 | Open the application. Under **Qualification review** there is an **Advisory check** bar | "not run yet" and a **Run qualification checks** button |
-| C3.2 | Press **Run qualification checks** | The check page opens with an **Advisory** notice. The overall result is **Needs Review**, and each standard says its entries were "not yet reviewed by HR" |
-| C3.3 | Go back to the application | Each standard shows "Check suggests: Needs Review". Status, revision, and roster are unchanged |
+| C3.2 | Press **Run qualification checks** | The page stays on the application and scrolls to **Qualification review**. The overall result is **Needs Review**; each standard's reasoning is open and says its entries were "not yet reviewed by HR" |
+| C3.3 | Look at each standard | "Check suggests: Needs Review" with **Hide reasoning**; pressing it folds that standard only. Status, revision, and roster are unchanged |
 
 ### C4. Checks after review
 
@@ -290,7 +290,7 @@ made-up entries in **My profile**:
 | --- | --- | --- |
 | C4.1 | Accept all education, experience, training, and license facts. Mark both work entries and both trainings **Relevant** | Facts accepted |
 | C4.2 | Look at the Advisory check bar | **Out of date** badge, and a **Run checks again** button |
-| C4.3 | Press **Run checks again** | A new check opens. The old one is marked replaced |
+| C4.3 | Press **Run checks again** | The page reloads with the new results open under each standard |
 | C4.4 | **Education** | **Meets Requirement**: "the program matches Mathematics" |
 | C4.5 | **Work experience (4 years)** | **Does Not Meet Requirement**: "Overlapping periods (365 days) are counted once", total **3.0 years** (not 4.0) |
 | C4.6 | **Training (16 hours)** | **Needs Review**: the seminar is counted (8 hours), and the workshop is "Not counted, hours not recorded" |
@@ -303,10 +303,12 @@ made-up entries in **My profile**:
 
 | # | Step | Expected |
 | --- | --- | --- |
-| C5.1 | On the check page, under Training, press **Record outcome starting from this check** | The outcome form opens with "Needs Review", the reasoning as the reason, and the counted facts ticked |
+| C5.1 | Under Training, in the open reasoning, press **Record outcome starting from this check** | The outcome form opens with "Needs Review", the reasoning as the reason, and the counted facts ticked |
 | C5.2 | Change the outcome to **Meets Requirement**, write your own reason, and submit | Outcome recorded |
-| C5.3 | Back on the application | Training shows the official outcome **Meets** and "Check suggests: Needs Review ... differs from the recorded outcome" |
-| C5.4 | Change any fact (for example mark a training **Not relevant**), then open the check page from the bar | A yellow notice says facts changed after this check. There are no **Record outcome starting from this check** links until the checks run again |
+| C5.3 | Back on the application | Training shows the official outcome **Meets** and "Check suggests: Needs Review ... differs from the recorded outcome". Its button is a gray **Outcome recorded** with a **Change outcome** link; **Record outcome starting from this check** is gone |
+| C5.3a | Press **Change outcome**, choose another outcome, and submit without a reason | Refused: the reason why the recorded outcome was a mistake is required |
+| C5.3b | Submit again with a reason | Outcome changed; the standard shows "Changed: <reason>". An approver gets a "Review decision changed" notification |
+| C5.4 | Change any fact (for example mark a training **Not relevant**) | The bar shows **Out of date**. Training's button becomes **Record outcome again** with "New information since the outcome"; there are no **Record outcome starting from this check** links until the checks run again |
 
 ### C6. Nothing else changes
 
@@ -314,7 +316,7 @@ made-up entries in **My profile**:
 | --- | --- | --- |
 | C6.1 | Run the checks, then change nothing and go back to the application | The bar has no run button and no **Out of date** badge: the check is current, so running it again would give the same result |
 | C6.2 | Compare the application's status, shortlist, decisions, and the roster before and after the checks | Identical. Only HR's recorded outcomes appear on the roster review |
-| C6.3 | Sign in as an approver and open the application | The check details can be viewed, but there is no run button and no Record outcome link |
+| C6.3 | Sign in as an approver and open the application | The check results can be opened, but there is no run button and no Record outcome or Change outcome link |
 | C6.4 | (Person who manages the server) set `AI_QUALIFICATION_CHECKS_ENABLED=False` in `.env` and restart | The Advisory check bar disappears. Manual qualification review still works |
 
 

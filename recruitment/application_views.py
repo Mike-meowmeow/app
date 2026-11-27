@@ -323,6 +323,7 @@ def review(request, pk):
     from ai_processing import screening as checks
     check = checks.latest(application)
     check_results = checks.results_by_standard(check)
+    inputs_hash = checks.inputs_hash(application)  # for the outcome locks
     match_job = matching.latest(application)
     return render(request, 'recruitment/applications/review.html', {
         'match_job': match_job,
@@ -342,7 +343,8 @@ def review(request, pk):
         'facts': [(f, fact_schema.display_items(f.fact_type, f.value)) for f in current],
         'superseded_count': sum(1 for f in facts if not f.is_current),
         'standards': [(s, outcomes.get(str(s.pk)), check_results.get(str(s.pk)),
-                       _check_facts(application, check_results.get(str(s.pk))))
+                       _check_facts(application, check_results.get(str(s.pk))),
+                       services.outcome_locked(application, outcomes.get(str(s.pk)), inputs_hash))
                       for s in standards],
         # Just ran the checks: open every standard's reasoning.
         'expand_checks': request.GET.get('checked') == '1',
@@ -606,12 +608,20 @@ def qualification_outcome(request, pk, standard_pk):
     labelled = [(f, f'{f.get_fact_type_display()}: ' + ', '.join(
         str(v) for _, v in fact_schema.display_items(f.fact_type, f.value)[:3])) for f in accepted]
     current = services.qualification_outcomes(application).get(str(standard.pk))
+    # A recorded outcome is locked until something it was based on changes;
+    # a mistake is fixed with Change outcome (?change=1), which needs a reason.
+    locked = services.outcome_locked(application, current)
+    if locked and request.GET.get('change') != '1':
+        messages.info(request, 'This outcome is already recorded and nothing has changed since. '
+                               'Use Change outcome, with a reason, if it was a mistake.')
+        return redirect(f"{redirect('recruitment:application_review', pk=pk).url}#qualifications")
     initial = {'outcome': current.value['outcome'], 'reason': current.value.get('reason', ''),
                'supporting_facts': current.value.get('supporting_fact_ids', [])} if current else {}
     # "Record outcome starting from this check": the advisory result fills the
     # form; HR still reads, edits, and submits it.
     from ai_processing import screening as checks
-    check_result = checks.usable_result(application, standard, request.GET.get('check'))
+    check_result = None if locked else checks.usable_result(application, standard,
+                                                           request.GET.get('check'))
     intro = f'{standard.get_criterion_type_display()}: {standard.description}'
     if check_result:
         accepted_ids = {str(f.pk) for f in accepted}
@@ -621,20 +631,26 @@ def qualification_outcome(request, pk, standard_pk):
                                         if i in accepted_ids]}
         intro += (f'. Filled in from the advisory check ({check_result.get_result_display()}); '
                   'review and edit before recording.')
-    form = OutcomeForm(request.POST or None, facts=labelled, initial=initial)
+    if locked:
+        intro += ('. Changing a recorded outcome: give the reason it was a mistake. The earlier '
+                  'outcome stays in the history.')
+    form = OutcomeForm(request.POST or None, facts=labelled, initial=initial, change=locked)
     if request.method == 'POST' and form.is_valid():
         chosen = [f for f in accepted if str(f.pk) in form.cleaned_data['supporting_facts']]
         try:
             services.record_qualification_outcome(
                 request.user, application, standard, outcome=form.cleaned_data['outcome'],
                 reason=form.cleaned_data['reason'], supporting_facts=chosen,
-                check_result=check_result)
+                check_result=check_result,
+                change_reason=form.cleaned_data.get('change_reason', ''))
         except ValidationError as exc:
             form.add_error(None, exc)
         else:
-            messages.success(request, 'Qualification outcome recorded.')
+            messages.success(request, 'Qualification outcome changed.' if locked
+                             else 'Qualification outcome recorded.')
             return redirect(f"{redirect('recruitment:application_review', pk=pk).url}#qualifications")
     return render(request, 'form_page.html', {
         'form': form, 'title': 'Qualification outcome', 'intro': intro,
-        'submit_label': 'Record outcome', 'cancel_url': 'recruitment:application_review',
+        'submit_label': 'Change outcome' if locked else 'Record outcome',
+        'cancel_url': 'recruitment:application_review',
         'cancel_arg': pk})

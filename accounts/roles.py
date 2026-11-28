@@ -46,6 +46,9 @@ ROLE_PERMISSIONS = {
         'core.change_recruitmenttype', 'audit.view_auditlog',
         'documents.view_documenttype', 'documents.add_documenttype',
         'documents.change_documenttype',
+        # Position catalog in the Django admin: deactivate, reactivate, and
+        # delete never-used positions (recruitment/admin.py).
+        'recruitment.view_position',
     ],
 }
 

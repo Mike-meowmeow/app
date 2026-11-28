@@ -1,0 +1,44 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+  &rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+  &rsaquo; Delete positions
+</div>
+{% endblock %}
+
+{% block content %}
+{% if deletable %}
+  <p>These positions were never used for a vacancy and will be deleted with their default requirements. The audit trail keeps your reason and a copy of each one.</p>
+  <ul>{% for p in deletable %}<li>{{ p.title }}{% if not p.is_active %} (inactive){% endif %}</li>{% endfor %}</ul>
+{% else %}
+  <p>None of the selected positions can be deleted.</p>
+{% endif %}
+
+{% if used %}
+  <p><strong>Not deleted:</strong> vacancies were created from these positions, so they can only be deactivated (use "Deactivate selected positions").</p>
+  <ul>{% for p in used %}<li>{{ p.title }} ({{ p.vacancies_used }} vacanc{{ p.vacancies_used|pluralize:"y,ies" }})</li>{% endfor %}</ul>
+{% endif %}
+
+{% if deletable %}
+<form method="post">{% csrf_token %}
+  {% for p in positions %}<input type="hidden" name="{{ action_checkbox_name }}" value="{{ p.pk }}">{% endfor %}
+  <input type="hidden" name="action" value="delete_positions">
+  <input type="hidden" name="confirm" value="yes">
+  <div>
+    <label for="id_reason"><strong>Reason for deleting</strong> (required)</label><br>
+    {% if error %}<ul class="errorlist"><li>{{ error }}</li></ul>{% endif %}
+    <textarea id="id_reason" name="reason" rows="3" cols="60" required>{{ reason }}</textarea>
+  </div>
+  <div class="submit-row" style="margin-top: 1em">
+    <input type="submit" value="Yes, delete">
+    <a href="{% url opts|admin_urlname:'changelist' %}" class="button cancel-link">No, go back</a>
+  </div>
+</form>
+{% else %}
+  <p><a href="{% url opts|admin_urlname:'changelist' %}" class="button cancel-link">Back to positions</a></p>
+{% endif %}
+{% endblock %}

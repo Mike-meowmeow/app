@@ -126,14 +126,15 @@ class CatalogManagementTests(CatalogTestCase):
         self.assertEqual(updated.changes['description']['new'], 'Updated text.')
 
     def test_only_hr_manages_the_catalog(self):
-        for user in (self.approver, self.dept_head, self.applicant,
-                     make_user('sysadm', roles.SYSTEM_ADMIN)):
+        sysadmin = make_user('sysadm', roles.SYSTEM_ADMIN)
+        for user in (self.approver, self.dept_head, self.applicant, sysadmin):
             with self.assertRaises(PermissionDenied):
                 catalog.create_position(user, title='X', description='Y')
             with self.assertRaises(PermissionDenied):
                 catalog.update_position(user, self.math, description='Changed')
-            with self.assertRaises(PermissionDenied):
-                catalog.set_position_active(user, self.math, False)
+            if user is not sysadmin:  # System Administrators deactivate in the Django admin
+                with self.assertRaises(PermissionDenied):
+                    catalog.set_position_active(user, self.math, False)
             with self.assertRaises(PermissionDenied):
                 catalog.add_competency_default(user, self.math, name='Algebra')
             with self.assertRaises(PermissionDenied):

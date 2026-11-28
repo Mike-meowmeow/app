@@ -26,6 +26,12 @@ def can_manage_catalog(user):
     return roles.has_role(user, roles.HR)
 
 
+def can_administer_catalog(user):
+    """System Administrators deactivate, reactivate, and delete positions from
+    the Django admin (recruitment/admin.py)."""
+    return roles.has_role(user, roles.SYSTEM_ADMIN)
+
+
 def _require_catalog(actor):
     if not can_manage_catalog(actor):
         raise PermissionDenied('Only HR Personnel can manage the position catalog.')
@@ -89,8 +95,11 @@ def update_position(actor, position, *, reason='', **data):
 @transaction.atomic
 def set_position_active(actor, position, active, *, reason=''):
     """Deactivated positions cannot be chosen for new vacancies; vacancies
-    already linked to them are unaffected."""
-    _require_catalog(actor)
+    already linked to them are unaffected. HR (catalog pages) or a System
+    Administrator (Django admin)."""
+    if not (can_manage_catalog(actor) or can_administer_catalog(actor)):
+        raise PermissionDenied('Only HR Personnel or System Administrators can deactivate or '
+                               'reactivate positions.')
     position = _locked(position)
     if position.is_active == active:
         return position
@@ -100,6 +109,30 @@ def set_position_active(actor, position, active, *, reason=''):
                  entity=position, reason=reason,
                  changes={'is_active': {'old': not active, 'new': active}})
     return position
+
+
+@transaction.atomic
+def delete_position(actor, position, *, reason):
+    """Delete a position no vacancy was ever created from (System
+    Administrators, Django admin). A used position can only be deactivated, so
+    vacancies keep their link to it. The audit entry keeps the reason and a
+    copy of the position and its default requirements, which are deleted
+    with it."""
+    if not can_administer_catalog(actor):
+        raise PermissionDenied('Only System Administrators can delete positions.')
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValidationError('Give a reason for deleting the position.')
+    position = _locked(position)
+    used = position.vacancies.count()
+    if used:
+        raise ValidationError(f'"{position.title}" was used by {used} '
+                              f'vacanc{"y" if used == 1 else "ies"} and cannot be deleted; '
+                              'deactivate it instead.')
+    snapshot = {'is_active': position.is_active, **defaults_manifest(position)}
+    audit.record('position.deleted', entity=position, reason=reason,
+                 changes={'deleted': snapshot})
+    position.delete()  # default requirements are deleted with it (CASCADE)
 
 
 # --------------------------------------------------------------------------

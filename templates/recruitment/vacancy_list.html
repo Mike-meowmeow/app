@@ -20,7 +20,7 @@
 </form>
 <div class="card shadow-sm"><div class="table-responsive">
 <table class="table table-hover align-middle mb-0">
-  <thead class="table-light"><tr><th>Reference</th><th>Position</th><th>Department</th><th>Status</th><th>Deadline</th></tr></thead>
+  <thead class="table-light"><tr><th>Reference</th><th>Position</th><th>Department</th><th>Status</th><th>Applicants</th><th>Deadline</th></tr></thead>
   <tbody>
     {% for v in page %}
       <tr>
@@ -28,10 +28,11 @@
         <td>{{ v.position_title }}<div class="small text-muted">{{ v.recruitment_type }}</div></td>
         <td>{{ v.department.name }}</td>
         <td>{% include "recruitment/_status_badge.html" with v=v %}{% if v.merit_warning %}<div class="small {% if v.merit_warning.0 == 'fill_limit' %}text-danger{% else %}text-warning-emphasis{% endif %}">{% if v.merit_warning.0 == 'fill_limit' %}Past the fill limit: publish again{% else %}Publication validity lapsed{% endif %}</div>{% endif %}</td>
+        <td>{% if v.status == 'draft' %}<span class="text-muted">—</span>{% else %}<a class="badge rounded-pill {% if v.submitted_count %}text-bg-primary{% else %}text-bg-light border text-muted{% endif %} text-decoration-none" href="{% url 'recruitment:vacancy_applications' v.pk %}" title="Submitted applications, including withdrawn">{{ v.submitted_count }} applicant{{ v.submitted_count|pluralize }}</a>{% endif %}</td>
         <td>{{ v.deadline_at|date:"M j, Y g:i A"|default:"—" }}</td>
       </tr>
     {% empty %}
-      <tr><td colspan="5" class="text-center text-muted py-4">No vacancies match.</td></tr>
+      <tr><td colspan="6" class="text-center text-muted py-4">No vacancies match.</td></tr>
     {% endfor %}
   </tbody>
 </table>

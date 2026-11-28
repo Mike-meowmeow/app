@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db.models import Count
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
@@ -8,10 +9,12 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts import roles
 from accounts.access import role_required
 
+from . import decision_services as decisions
 from . import merit, position_services, selectors, services
 from .forms import (ApplyPositionForm, AssignmentForm, CompetencyForm, DocumentRequirementForm,
                     QualificationStandardForm, ReasonForm, VacancyFilterForm, VacancyForm)
-from .models import Position, Vacancy, VacancyAssignment, VacancyStatus
+from .models import (Application, ApplicationStatus, Position, Vacancy, VacancyAssignment,
+                     VacancyStatus)
 
 STAFF_ROLES = (roles.HR, roles.APPROVER, roles.DEPARTMENT_HEAD)
 
@@ -43,13 +46,42 @@ def vacancy_list(request):
                                  recruitment_type=filters.get('recruitment_type'),
                                  status=filters.get('status', ''))
     page = Paginator(vacancies, 20).get_page(request.GET.get('page'))
+    counts = submitted_counts(page)
     for vacancy in page:
         vacancy.merit_warning = merit.publication_warning(vacancy)
+        vacancy.submitted_count = counts.get(vacancy.pk, 0)
     query = request.GET.copy()
     query.pop('page', None)
     return render(request, 'recruitment/vacancy_list.html', {
         'form': form, 'page': page, 'query': query.urlencode(),
         'can_create': roles.has_role(request.user, roles.HR)})
+
+
+def submitted_counts(vacancies):
+    """{vacancy id: submitted applications}, counted like the vacancy page's
+    "Applications (N)" button: every submitted application, including ones
+    later withdrawn. Drafts are private to the applicant and never counted."""
+    return dict(Application.objects.filter(
+        vacancy__in=[v.pk for v in vacancies], submitted_at__isnull=False)
+        .values('vacancy').annotate(n=Count('pk')).values_list('vacancy', 'n'))
+
+
+def applicant_badges(user, vacancies):
+    """{vacancy id: 'applied' | 'draft' | 'withdrawn'} for the applicant's own
+    applications among these vacancies."""
+    if not roles.has_role(user, roles.APPLICANT):
+        return {}
+    badges = {}
+    for vacancy_id, status, submitted_at in Application.objects.filter(
+            applicant__user=user, vacancy__in=[v.pk for v in vacancies]).values_list(
+            'vacancy', 'status', 'submitted_at'):
+        if status == ApplicationStatus.WITHDRAWN:
+            badges[vacancy_id] = 'withdrawn'
+        elif submitted_at:
+            badges[vacancy_id] = 'applied'
+        else:
+            badges[vacancy_id] = 'draft'
+    return badges
 
 
 def _position_defaults():
@@ -342,15 +374,23 @@ def public_list(request):
     if q:
         vacancies = selectors.search(vacancies, q=q)
     page = Paginator(vacancies, 20).get_page(request.GET.get('page'))
+    badges = applicant_badges(request.user, page)
+    for vacancy in page:
+        vacancy.my_application = badges.get(vacancy.pk)
     return render(request, 'recruitment/public_list.html', {'page': page, 'q': q})
 
 
 def public_detail(request, pk):
     vacancy = get_object_or_404(Vacancy.objects.select_related('department', 'recruitment_type'),
                                 pk=pk, status=VacancyStatus.PUBLISHED)
-    existing = None
+    existing = public_status = None
     if roles.has_role(request.user, roles.APPLICANT):
         existing = vacancy.applications.filter(applicant__user=request.user).first()
+        if existing:
+            # The released status, as on My applications: internal decisions
+            # stay hidden until HR or the approver releases them.
+            public_status = decisions.PublicStatus(decisions.applicant_status(existing))
     return render(request, 'recruitment/public_detail.html', {
         'vacancy': vacancy, 'req': vacancy.current_requirements(), 'existing': existing,
+        'public_status': public_status,
         'is_applicant': roles.has_role(request.user, roles.APPLICANT)})

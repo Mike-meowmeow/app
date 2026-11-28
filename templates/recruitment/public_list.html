@@ -13,7 +13,12 @@
     <div class="col-md-6">
       <a class="card shadow-sm workspace-card text-decoration-none h-100" href="{% url 'recruitment:public_detail' v.pk %}">
         <div class="card-body">
-          <h2 class="h6 text-body mb-1">{{ v.position_title }}</h2>
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <h2 class="h6 text-body mb-1">{{ v.position_title }}</h2>
+            {% if v.my_application == 'applied' %}<span class="badge text-bg-primary">Applied</span>
+            {% elif v.my_application == 'draft' %}<span class="badge text-bg-secondary" title="Started but not submitted yet">Draft</span>
+            {% elif v.my_application == 'withdrawn' %}<span class="badge text-bg-light border text-muted">Withdrawn</span>{% endif %}
+          </div>
           <div class="small text-muted">{{ v.department.name }} · {{ v.recruitment_type }}</div>
           <div class="small mt-2">
             {% if v.application_window == 'upcoming' %}<span class="badge text-bg-info">Opens {{ v.opens_at|date:"M j, Y g:i A" }}</span>

@@ -23,7 +23,7 @@
       <p class="small mb-1">Opens: {{ vacancy.opens_at|date:"M j, Y g:i A" }}</p>
       <p class="small mb-2">Deadline: <strong>{{ vacancy.deadline_at|date:"M j, Y g:i A" }}</strong> (Asia/Manila time)</p>
       {% if existing %}
-        <p class="small mb-2">You have an application for this vacancy ({{ existing.get_status_display }}).</p>
+        <p class="small mb-2">You have an application for this vacancy ({{ public_status.get_status_display }}).</p>
         <a class="btn btn-primary w-100" href="{% url 'recruitment:my_application' existing.pk %}">View my application</a>
       {% elif vacancy.is_accepting_applications %}
         <span class="badge text-bg-success mb-2">Accepting applications</span>

@@ -16,7 +16,7 @@ class StandardFormTests(TestCase):  # the name field reads the credential list
         rules = json.loads(re.search(r'data-standard-fields="([^"]+)"', html).group(1)
                            .replace('&quot;', '"'))
         self.assertEqual(rules['education'], ['degree_level', 'field'])
-        self.assertEqual(rules['license'], ['name'])
+        self.assertEqual(rules['license'], ['name', 'board_courses_only'])
         self.assertEqual(rules['other'], [])
         labels = json.loads(re.search(r'data-field-labels="([^"]+)"', html).group(1)
                             .replace('&quot;', '"'))

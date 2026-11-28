@@ -218,6 +218,13 @@ ROSTER_ALLOW_SELF_APPROVAL = env_bool('ROSTER_ALLOW_SELF_APPROVAL', False)
 # Recruitment type codes allowed to use the PART-TIME roster form.
 ROSTER_PART_TIME_TYPES = ('PTI',)
 
+# Publication rules of the CSC model merit system for SUC faculty (CSC MC No.
+# 19, s. 2005; recruitment/merit.py). HR confirms them against EVSU's approved
+# Merit Selection Plan.
+RECRUITMENT_MIN_POSTING_DAYS = 10
+RECRUITMENT_PUBLICATION_VALID_MONTHS = 6
+RECRUITMENT_FILL_LIMIT_MONTHS = 9
+
 # Committees and decisions (Stage 7). Development defaults until HR confirms
 # shortlisting, final-decision, release, and conflict-resolution authority
 # (FR-026). 'HR Personnel' additionally needs an active HR assignment on the

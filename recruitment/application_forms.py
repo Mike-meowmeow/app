@@ -8,7 +8,7 @@ from core.forms import BootstrapFormMixin
 from documents.models import DocumentType, VerificationStatus
 
 from . import fact_schema
-from .models import ApplicationStatus, FactType
+from .models import ApplicationStatus, AppointmentKind, FactType
 
 DATETIME_WIDGET = forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M')
 
@@ -191,6 +191,11 @@ class ApplicationSearchForm(ApplicationFilterForm):
 # Decisions (Stage 7)
 # --------------------------------------------------------------------------
 
+APPOINTMENT_FIELDS = ('appointment_reference', 'appointment_at', 'appointment_kind')
+APPOINTMENT_KIND_HELP = ('Contract of service and job order are not government service '
+                         '(CSC MC No. 19, s. 2005).')
+
+
 class DecisionForm(BootstrapFormMixin, forms.Form):
     outcome = forms.ChoiceField(widget=forms.RadioSelect)
     reason = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}), label='Justification',
@@ -207,6 +212,9 @@ class DecisionForm(BootstrapFormMixin, forms.Form):
     appointment_at = forms.DateTimeField(widget=DATETIME_WIDGET, required=False,
                                          input_formats=['%Y-%m-%dT%H:%M'],
                                          label='Appointment date')
+    appointment_kind = forms.ChoiceField(choices=[('', '---------')] + AppointmentKind.choices,
+                                         required=False, label='Kind of appointment',
+                                         help_text=APPOINTMENT_KIND_HELP)
 
     def __init__(self, *args, decision_type, outcomes, committees, **kwargs):
         super().__init__(*args, **kwargs)
@@ -218,11 +226,11 @@ class DecisionForm(BootstrapFormMixin, forms.Form):
         else:
             self.fields['committee'].help_text = 'Optional.'
         if decision_type != 'appointment':
-            del self.fields['appointment_reference']
-            del self.fields['appointment_at']
+            for name in APPOINTMENT_FIELDS:
+                del self.fields[name]
         else:
-            self.fields['appointment_reference'].required = True
-            self.fields['appointment_at'].required = True
+            for name in APPOINTMENT_FIELDS:
+                self.fields[name].required = True
 
 
 class CorrectDecisionForm(BootstrapFormMixin, forms.Form):
@@ -238,6 +246,9 @@ class CorrectDecisionForm(BootstrapFormMixin, forms.Form):
     appointment_at = forms.DateTimeField(widget=DATETIME_WIDGET, required=False,
                                          input_formats=['%Y-%m-%dT%H:%M'],
                                          label='Appointment date')
+    appointment_kind = forms.ChoiceField(choices=[('', '---------')] + AppointmentKind.choices,
+                                         required=False, label='Kind of appointment',
+                                         help_text=APPOINTMENT_KIND_HELP)
 
     def __init__(self, *args, decision, **kwargs):
         kwargs.setdefault('initial', {
@@ -245,11 +256,14 @@ class CorrectDecisionForm(BootstrapFormMixin, forms.Form):
             'references': '\n'.join(decision.supporting_references.get('references', [])),
             'appointment_reference': decision.appointment_reference,
             'appointment_at': decision.appointment_at and timezone.localtime(
-                decision.appointment_at)})
+                decision.appointment_at),
+            'appointment_kind': decision.appointment_kind})
         super().__init__(*args, **kwargs)
         if decision.decision_type != 'appointment':
-            del self.fields['appointment_reference']
-            del self.fields['appointment_at']
+            for name in APPOINTMENT_FIELDS:
+                del self.fields[name]
+        else:
+            self.fields['appointment_kind'].required = True
 
 
 class ReleaseForm(BootstrapFormMixin, forms.Form):

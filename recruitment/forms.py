@@ -103,11 +103,13 @@ STANDARD_FIELDS = {
     CriterionType.EDUCATION: ('degree_level', 'field'),
     CriterionType.EXPERIENCE: ('amount',),
     CriterionType.TRAINING: ('amount',),
-    CriterionType.ELIGIBILITY: ('name',),
-    CriterionType.LICENSE: ('name',),
+    CriterionType.ELIGIBILITY: ('name', 'board_courses_only'),
+    CriterionType.LICENSE: ('name', 'board_courses_only'),
     CriterionType.OTHER: (),
 }
-STANDARD_OPTIONAL_FIELDS = ('degree_level', 'amount', 'name', 'field')
+# board_courses_only exists only on the position catalog form.
+STANDARD_OPTIONAL_FIELDS = ('degree_level', 'amount', 'name', 'field', 'board_courses_only')
+BLANK_VALUES = {'amount': None, 'board_courses_only': False}
 # Field labels that change with the criterion.
 FIELD_LABELS = {
     'amount': {CriterionType.EXPERIENCE: 'Minimum years of work experience',
@@ -173,11 +175,24 @@ class QualificationStandardForm(BootstrapFormMixin, forms.Form):
         used = STANDARD_FIELDS.get(criterion, STANDARD_OPTIONAL_FIELDS)
         for name in STANDARD_OPTIONAL_FIELDS:
             if name not in used and name in data:
-                data[name] = None if name == 'amount' else ''
+                data[name] = BLANK_VALUES.get(name, '')
         needed = self.REQUIRED_BY_CRITERION.get(criterion)
         if needed and data.get(needed) in (None, ''):
             self.add_error(needed, 'Required for this criterion.')
         return data
+
+
+class PositionStandardForm(QualificationStandardForm):
+    """Catalog defaults can be limited to board-exam courses; each vacancy then
+    confirms whether the standard applies before publishing."""
+
+    board_courses_only = forms.BooleanField(
+        required=False, label='Only for courses covered by a board or bar law (RA 1080)',
+        help_text='Vacancies created from this position must keep or remove this standard '
+                  'before publishing, depending on the subjects to be taught.')
+
+    field_order = ['criterion_type', 'degree_level', 'amount', 'name', 'board_courses_only',
+                   'field', 'description']
 
 
 class CompetencyForm(BootstrapFormMixin, forms.Form):

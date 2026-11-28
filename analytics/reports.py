@@ -108,9 +108,9 @@ def _decisions(vacancies, start, end):
                      d.get_outcome_display(), _date(d.decision_at), _name(d.decided_by),
                      'Current' if d.is_current else 'Superseded',
                      _date(d.released_at) if d.released_at else 'Not released',
-                     d.appointment_reference])
+                     d.appointment_reference, d.get_appointment_kind_display()])
     columns = ['Application', 'Applicant', 'Vacancy', 'Decision', 'Outcome', 'Decided',
-               'Recorded by', 'Record', 'Released', 'Appointment ref.']
+               'Recorded by', 'Record', 'Released', 'Appointment ref.', 'Kind of appointment']
     return 'Recorded decisions', columns, rows, [
         'Superseded records are corrections kept for history. Justifications are not '
         'reproduced; see the application record.']

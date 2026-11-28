@@ -15,6 +15,7 @@ from audit.context import audit_reason
 from core.credential_list import ELIGIBILITIES, LICENSES
 from core.models import Credential, CredentialKind, Department, RecruitmentType
 from documents.models import DocumentType
+from recruitment.models import CriterionType, Position, PositionQualificationStandard
 
 # Confirmed capstone scope. Other recruitment types need HR confirmation.
 RECRUITMENT_TYPES = [('PTI', 'Part-Time Instructor')]
@@ -94,6 +95,30 @@ DOCUMENT_GUIDELINES = {
 
 SAMPLE_DEPARTMENT = ('DEV', 'Sample Department (development only)')
 
+# Catalog positions with the CSC minimum qualification standards for SUC
+# faculty (CSC MC No. 1, s. 1997, as cited in the model merit system, CSC MC
+# No. 19, s. 2005). Created only when no position has the title; HR edits
+# them like any other position and confirms them against EVSU's approved
+# Merit Selection Plan.
+CSC_POSITIONS = [{
+    'title': 'Instructor I (Part-Time)',
+    'description': (
+        'Part-time faculty position at the rank of Instructor I. The instructor teaches the '
+        'assigned subjects, prepares lessons and course materials, assesses students, and '
+        'keeps class records.\n\n'
+        'Minimum qualifications: a bachelor\'s degree in the area of specialization. No '
+        'experience, training, or civil service eligibility is required, except RA 1080 '
+        '(board or bar eligibility) for courses covered by a board or bar law.'),
+    'standards': [
+        # (criterion, values, description, board courses only)
+        (CriterionType.EDUCATION, {'degree_level': 'bachelor'},
+         "Bachelor's degree in the area of specialization", False),
+        (CriterionType.ELIGIBILITY, {'name': 'RA 1080 (Board/Bar)'},
+         'RA 1080 (board or bar eligibility), for courses requiring board or bar eligibility',
+         True),
+    ],
+}]
+
 
 def resolve_permission(dotted):
     app_label, codename = dotted.split('.', 1)
@@ -121,6 +146,7 @@ class Command(BaseCommand):
                 self.ensure(DocumentType, code, name)
             self.seed_guidelines()
             self.seed_credentials()
+            self.seed_positions()
             if sample_department:
                 self.ensure(Department, *SAMPLE_DEPARTMENT)
         self.stdout.write(self.style.SUCCESS(
@@ -156,6 +182,26 @@ class Command(BaseCommand):
             audit.record('reference.credentials_seeded', actor=None,
                          entity_type='credential_names', changes={'added': added})
             self.stdout.write(f'  licenses and eligibilities: {added} added')
+
+    def seed_positions(self):
+        """Add the CSC-based catalog positions that do not exist yet."""
+        from recruitment.services import build_standard
+        for spec in CSC_POSITIONS:
+            if Position.objects.filter(title__iexact=spec['title']).exists():
+                continue
+            position = Position.objects.create(title=spec['title'],
+                                               description=spec['description'])
+            for criterion, values, description, board_only in spec['standards']:
+                operator, unit, value = build_standard(criterion, **values)
+                PositionQualificationStandard.objects.create(
+                    position=position, criterion_type=criterion, operator=operator, unit=unit,
+                    required_value=value, description=description,
+                    board_courses_only=board_only)
+            self.changed = True
+            audit.record('position.created', entity=position, actor=None, changes={
+                'title': position.title, 'source': 'CSC MC No. 1, s. 1997 (seed)',
+                'standards': len(spec['standards'])})
+            self.stdout.write(f'  position {position.title}: created')
 
     def seed_guidelines(self):
         """Fill the draft guidelines of document types that have none."""

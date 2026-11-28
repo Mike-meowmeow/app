@@ -21,6 +21,10 @@
   </div>
 </div>
 
+{% if merit_warning %}
+  <div class="alert {% if merit_warning.0 == 'fill_limit' %}alert-danger{% else %}alert-warning{% endif %} small">{{ merit_warning.1 }}</div>
+{% endif %}
+
 <div class="row g-3">
   <div class="col-lg-8">
     <div class="card shadow-sm mb-3"><div class="card-body">

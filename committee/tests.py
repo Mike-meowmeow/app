@@ -411,7 +411,7 @@ class DecisionTests(CommitteeTestCase):
             self.decide(T.COMMITTEE_RECOMMENDATION, O.RECOMMENDED, committee=self.committee)
         with self.assertRaises(ValidationError):
             self.decide(T.APPOINTMENT, O.APPOINTED, appointment_reference='A-1',
-                        appointment_at=timezone.now())
+                        appointment_at=timezone.now(), appointment_kind='part_time')
         with self.assertRaises(ValidationError):
             self.decide(T.SHORTLISTING, O.SHORTLISTED,
                         decision_at=timezone.now() + timedelta(days=1))
@@ -425,14 +425,19 @@ class DecisionTests(CommitteeTestCase):
         self.assertEqual(self.application.status, S.RECOMMENDED)
         with self.assertRaises(ValidationError):  # no final outcome yet
             self.decide(T.APPOINTMENT, O.APPOINTED, appointment_reference='APPT-2026-001',
-                        appointment_at=timezone.now())
+                        appointment_at=timezone.now(), appointment_kind='part_time')
         self.decide(T.FINAL_OUTCOME, O.SELECTED)
         self.assertEqual(self.application.status, S.RECOMMENDED)  # selection is not hiring
         with self.assertRaises(ValidationError):  # reference and date required
             self.decide(T.APPOINTMENT, O.APPOINTED, appointment_reference='')
+        with self.assertRaises(ValidationError):  # the kind of appointment is required
+            self.decide(T.APPOINTMENT, O.APPOINTED, appointment_reference='APPT-2026-001',
+                        appointment_at=timezone.now())
         appointment = self.decide(T.APPOINTMENT, O.APPOINTED,
                                   appointment_reference='APPT-2026-001',
-                                  appointment_at=timezone.now())
+                                  appointment_at=timezone.now(),
+                                  appointment_kind='contract_of_service')
+        self.assertEqual(appointment.get_appointment_kind_display(), 'Contract of service')
         self.assertEqual(self.application.status, S.HIRED)
         self.vacancy.refresh_from_db()
         self.assertEqual(self.vacancy.status, VacancyStatus.FILLED)

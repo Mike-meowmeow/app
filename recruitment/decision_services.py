@@ -3,8 +3,8 @@
 Shortlisting, committee recommendation, final outcome, and appointment are
 separate recorded events. Recording is internal: the resulting status change
 is logged as internal history, and the applicant sees a decision only after an
-authorized release. Hired requires a recorded appointment (reference and
-date) that follows a final outcome of Selected. Corrections add a record that
+authorized release. Hired requires a recorded appointment (reference, date,
+and kind of appointment) that follows a final outcome of Selected. Corrections add a record that
 supersedes the previous one. No decision is ever inferred from roster order,
 AI output, or exports.
 """
@@ -19,9 +19,9 @@ from audit import services as audit
 from notifications import events
 
 from . import application_services as applications
-from . import selectors
-from .models import (ApplicationStatus, DecisionOutcome, DecisionType, RecruitmentDecision,
-                     Vacancy, VacancyStatus, WorkflowVisibility)
+from . import merit, selectors
+from .models import (ApplicationStatus, AppointmentKind, DecisionOutcome, DecisionType,
+                     RecruitmentDecision, Vacancy, VacancyStatus, WorkflowVisibility)
 
 S = ApplicationStatus
 T = DecisionType
@@ -111,7 +111,7 @@ def _hired_count(vacancy):
 @transaction.atomic
 def record_decision(actor, application, *, decision_type, outcome, reason, decision_at=None,
                     committee=None, references='', appointment_reference='',
-                    appointment_at=None):
+                    appointment_at=None, appointment_kind=''):
     # Vacancy lock first, as in submission and roster approval.
     vacancy = Vacancy.objects.select_for_update().get(pk=application.vacancy_id)
     application = applications._lock(application)
@@ -141,6 +141,10 @@ def record_decision(actor, application, *, decision_type, outcome, reason, decis
         appointment_reference = (appointment_reference or '').strip()
         if not appointment_reference or appointment_at is None:
             raise ValidationError('An appointment needs its reference and date.')
+        _check_kind(appointment_kind)
+        warning = merit.publication_warning(vacancy)
+        if warning and warning[0] == 'fill_limit':
+            extra['publication_warning'] = warning[1]
         final = current(application, T.FINAL_OUTCOME)
         if final is None or final.outcome != O.SELECTED:
             raise ValidationError('Record a final outcome of Selected before the appointment.')
@@ -148,14 +152,15 @@ def record_decision(actor, application, *, decision_type, outcome, reason, decis
             raise ValidationError(f'All {vacancy.positions_available} position(s) for this '
                                   'vacancy are already filled.')
     else:
-        appointment_reference, appointment_at = '', None
+        appointment_reference, appointment_at, appointment_kind = '', None, ''
 
     previous = current(application, decision_type)
     decision = RecruitmentDecision.objects.create(
         application=application, committee=committee, decision_type=decision_type,
         outcome=outcome, reason=reason, supporting_references=_references(references, extra),
         decided_by=actor, decision_at=decision_at, supersedes=previous,
-        appointment_reference=appointment_reference, appointment_at=appointment_at)
+        appointment_reference=appointment_reference, appointment_at=appointment_at,
+        appointment_kind=appointment_kind)
     old_status = application.status
     if new_status:
         applications.transition(application, new_status, actor=actor,
@@ -181,7 +186,8 @@ def record_decision(actor, application, *, decision_type, outcome, reason, decis
 
 @transaction.atomic
 def correct_decision(actor, decision, *, correction_reason, reason, decision_at=None,
-                     references='', appointment_reference='', appointment_at=None):
+                     references='', appointment_reference='', appointment_at=None,
+                     appointment_kind=''):
     """Correct the record of a decision without changing its outcome: a new
     record supersedes the old one, which stays in history. To change an
     outcome, reopen the application and record a new decision."""
@@ -202,8 +208,9 @@ def correct_decision(actor, decision, *, correction_reason, reason, decision_at=
         appointment_reference = (appointment_reference or '').strip()
         if not appointment_reference or appointment_at is None:
             raise ValidationError('An appointment needs its reference and date.')
+        _check_kind(appointment_kind)
     else:
-        appointment_reference, appointment_at = '', None
+        appointment_reference, appointment_at, appointment_kind = '', None, ''
     extra = {k: v for k, v in decision.supporting_references.items()
              if k not in ('schema_version', 'references', 'correction_reason')}
     extra['correction_reason'] = correction_reason
@@ -212,7 +219,8 @@ def correct_decision(actor, decision, *, correction_reason, reason, decision_at=
         decision_type=decision.decision_type, outcome=decision.outcome, reason=reason,
         supporting_references=_references(references, extra), decided_by=actor,
         decision_at=decision_at, supersedes=decision,
-        appointment_reference=appointment_reference, appointment_at=appointment_at)
+        appointment_reference=appointment_reference, appointment_at=appointment_at,
+        appointment_kind=appointment_kind)
     audit.record('decision.corrected', entity=new, actor=actor, reason=correction_reason,
                  changes=audit.diff(audit.snapshot(decision, CORRECTABLE),
                                     audit.snapshot(new, CORRECTABLE)))
@@ -220,7 +228,12 @@ def correct_decision(actor, decision, *, correction_reason, reason, decision_at=
 
 
 CORRECTABLE = ['reason', 'supporting_references', 'decision_at', 'appointment_reference',
-               'appointment_at']
+               'appointment_at', 'appointment_kind']
+
+
+def _check_kind(appointment_kind):
+    if appointment_kind not in AppointmentKind.values:
+        raise ValidationError('Choose the kind of appointment.')
 
 
 @transaction.atomic

@@ -11,6 +11,7 @@ from accounts import roles
 from accounts.access import role_required
 
 from . import decision_services as decisions
+from . import merit
 from .application_forms import CorrectDecisionForm, DecisionForm, ReleaseForm
 from .application_views import STAFF_ROLES, _flash, _visible_or_404
 from .models import DecisionType, RecruitmentDecision
@@ -79,10 +80,16 @@ def decision_new(request, pk, decision_type):
             messages.success(request, 'Decision recorded. It is internal until released.')
             return redirect('recruitment:application_selection', pk=pk)
     label = DecisionType(decision_type).label
+    intro = (f'{application.applicant.user.full_name} ({application.reference}). The '
+             'decision is recorded internally; the applicant sees it only after release.')
+    if decision_type == DecisionType.APPOINTMENT:
+        warning = merit.publication_warning(application.vacancy)
+        if warning and warning[0] == 'fill_limit':
+            messages.warning(request, f'{warning[1]} Recording it anyway keeps this warning '
+                                      'in the decision record.')
     return render(request, 'form_page.html', {
         'form': form, 'title': f'Record {label.lower()}',
-        'intro': f'{application.applicant.user.full_name} ({application.reference}). The '
-                 'decision is recorded internally; the applicant sees it only after release.',
+        'intro': intro,
         'submit_label': 'Record decision', 'cancel_url': 'recruitment:application_selection',
         'cancel_arg': application.pk})
 

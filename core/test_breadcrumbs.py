@@ -32,7 +32,7 @@ NO_TRAIL = {
     'recruitment:fact_review', 'recruitment:fact_evidence', 'recruitment:fact_unlink',
     'recruitment:position_set_active', 'recruitment:position_item_remove',
     'recruitment:requirements_start', 'recruitment:requirements_discard',
-    'recruitment:requirement_remove', 'recruitment:vacancy_publish',
+    'recruitment:requirement_remove', 'recruitment:requirement_keep', 'recruitment:vacancy_publish',
     'recruitment:vacancy_close', 'recruitment:vacancy_cancel', 'recruitment:vacancy_delete',
     'recruitment:assignment_add', 'recruitment:assignment_end',
     'matrix:template_approve', 'matrix:download', 'matrix:regenerate', 'matrix:new_version',

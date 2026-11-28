@@ -187,7 +187,7 @@ class AcceptanceScenario(RosterTestCase):
         appointment = decisions.record_decision(
             self.approver, application, decision_type=T.APPOINTMENT, outcome=O.APPOINTED,
             reason='Appointment issued', appointment_reference='APPT-2026-007',
-            appointment_at=timezone.now())
+            appointment_at=timezone.now(), appointment_kind='part_time')
         decisions.release_decision(self.approver, appointment, note='Welcome.')
         application.refresh_from_db()
         self.assertEqual(application.status, S.HIRED)

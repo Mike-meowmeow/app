@@ -3,7 +3,7 @@
 // (years or hours; eligibility or license). Description is always shown. Without JavaScript every
 // field shows, and the server ignores values in fields the criterion does not use.
 (function () {
-  var OPTIONAL = ['degree_level', 'amount', 'name', 'field'];
+  var OPTIONAL = ['degree_level', 'amount', 'name', 'field', 'board_courses_only'];
 
   function row(form, name) {
     var el = form.querySelector('[name="' + name + '"]');

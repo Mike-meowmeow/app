@@ -25,10 +25,17 @@
     <li class="list-group-item d-flex justify-content-between align-items-start">
       <div>
         <span class="badge text-bg-light border me-1">{{ s.get_criterion_type_display }}</span>{{ s.description }}
+        {% if s.board_courses_only %}<div class="small text-warning-emphasis mt-1"><span class="badge text-bg-warning me-1">Confirm</span>Only for courses covered by a board or bar law. Keep it if the subjects to be taught are, otherwise remove it.</div>{% endif %}
       </div>
       {% if editable %}
-        <form method="post" action="{% url 'recruitment:requirement_remove' vacancy.pk 'standard' s.pk %}">{% csrf_token %}
-          <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+        <div class="d-flex gap-1">
+          {% if s.board_courses_only %}
+            <form method="post" action="{% url 'recruitment:requirement_keep' vacancy.pk s.pk %}">{% csrf_token %}
+              <button class="btn btn-sm btn-outline-success" type="submit">Keep</button></form>
+          {% endif %}
+          <form method="post" action="{% url 'recruitment:requirement_remove' vacancy.pk 'standard' s.pk %}">{% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
+        </div>
       {% endif %}
     </li>
   {% empty %}<li class="list-group-item text-muted">None yet.</li>{% endfor %}

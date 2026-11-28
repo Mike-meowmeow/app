@@ -13,11 +13,13 @@ from django.db import transaction
 from accounts import roles
 from audit import services as audit
 
-from .models import (Position, PositionCompetency, PositionDocumentRequirement,
+from .models import (CriterionType, Position, PositionCompetency, PositionDocumentRequirement,
                      PositionQualificationStandard, QualificationStandard, VacancyCompetency,
                      VacancyDocumentRequirement)
 
 POSITION_FIELDS = ('title', 'description')
+# Criteria that can be limited to courses covered by a board or bar law (RA 1080).
+BOARD_CRITERIA = (CriterionType.ELIGIBILITY, CriterionType.LICENSE)
 
 
 def can_manage_catalog(user):
@@ -124,16 +126,22 @@ def add_document_default(actor, position, *, document_type, is_required=True, ma
 
 
 @transaction.atomic
-def add_standard_default(actor, position, *, criterion_type, description, **values):
+def add_standard_default(actor, position, *, criterion_type, description,
+                         board_courses_only=False, **values):
     from .services import build_standard
     _require_catalog(actor)
     position = _locked(position)
     operator, unit, required_value = build_standard(criterion_type, **values)
+    if board_courses_only and criterion_type not in BOARD_CRITERIA:
+        raise ValidationError('Only an eligibility or license can be limited to board-exam '
+                              'courses.')
     item = PositionQualificationStandard.objects.create(
         position=position, criterion_type=criterion_type, operator=operator, unit=unit,
-        required_value=required_value, description=description)
+        required_value=required_value, description=description,
+        board_courses_only=board_courses_only)
     audit.record('position.requirement_added', entity=position, changes={
-        'standard': criterion_type, 'value': required_value})
+        'standard': criterion_type, 'value': required_value,
+        'board_courses_only': board_courses_only})
     return item
 
 
@@ -171,7 +179,8 @@ def _summary(kind, item):
     if kind == 'document':
         return item.document_type.code
     if kind == 'standard':
-        return {'criterion_type': item.criterion_type, 'value': item.required_value}
+        return {'criterion_type': item.criterion_type, 'value': item.required_value,
+                'board_courses_only': item.board_courses_only}
     return item.name
 
 
@@ -191,7 +200,8 @@ def defaults_manifest(position):
                       for d in position.document_requirements.select_related('document_type')],
         'standards': [{'criterion_type': s.criterion_type, 'operator': s.operator,
                        'required_value': s.required_value, 'unit': s.unit,
-                       'description': s.description}
+                       'description': s.description,
+                       'board_courses_only': s.board_courses_only}
                       for s in position.qualification_standards.all()],
         'competencies': [{'name': c.name, 'description': c.description}
                          for c in position.competencies.all()],
@@ -213,7 +223,8 @@ def copy_defaults(position, draft):
     for s in position.qualification_standards.all():
         QualificationStandard.objects.create(
             requirement_version=draft, criterion_type=s.criterion_type, operator=s.operator,
-            required_value=s.required_value, unit=s.unit, description=s.description)
+            required_value=s.required_value, unit=s.unit, description=s.description,
+            board_courses_only=s.board_courses_only)
     for c in position.competencies.all():
         VacancyCompetency.objects.create(requirement_version=draft, name=c.name,
                                          description=c.description)

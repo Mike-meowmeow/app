@@ -33,7 +33,7 @@
               {% if d.is_released %}<span class="badge text-bg-success">released {{ d.released_at|date:"M j, Y" }}</span>{% elif d.decision_type != 'committee_recommendation' %}<span class="badge text-bg-warning">not released</span>{% else %}<span class="badge text-bg-light border">internal</span>{% endif %}
               <div class="mt-1">{{ d.decision_at|date:"M j, Y g:i A" }} · {{ d.decided_by.full_name|default:d.decided_by.username }}{% if d.committee %} · {{ d.committee.name }}{% endif %}</div>
               <div class="text-muted" style="white-space: pre-line">{{ d.reason }}</div>
-              {% if d.appointment_reference %}<div>Appointment {{ d.appointment_reference }}, {{ d.appointment_at|date:"M j, Y" }}</div>{% endif %}
+              {% if d.appointment_reference %}<div>Appointment {{ d.appointment_reference }}{% if d.appointment_kind %} ({{ d.get_appointment_kind_display }}){% endif %}, {{ d.appointment_at|date:"M j, Y" }}</div>{% endif %}
               {% if d.supporting_references.references %}<div>References: {{ d.supporting_references.references|join:"; " }}</div>{% endif %}
               {% if d.supporting_references.evaluation_ids %}<div>{{ d.supporting_references.evaluation_ids|length }} submitted evaluation{{ d.supporting_references.evaluation_ids|length|pluralize }} on record at the time</div>{% endif %}
               {% if d.supporting_references.correction_reason %}<div>Correction: {{ d.supporting_references.correction_reason }}</div>{% endif %}

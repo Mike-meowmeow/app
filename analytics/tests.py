@@ -109,7 +109,7 @@ class AnalyticsTestCase(CommitteeTestCase):
                     committee=self.committee)
         self.record(self.app1, T.FINAL_OUTCOME, O.SELECTED)
         self.record(self.app1, T.APPOINTMENT, O.APPOINTED, appointment_reference='APPT-1',
-                    appointment_at=timezone.now())
+                    appointment_at=timezone.now(), appointment_kind='part_time')
 
         self.interview_for(self.app2, cancel=True)
         self.interview_for(self.app2, attendance=AttendanceStatus.NO_SHOW)

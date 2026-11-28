@@ -119,7 +119,7 @@
           <div class="small border-bottom pb-2 mb-2">
             <span class="fw-semibold">{{ d.get_decision_type_display }}: {{ d.get_outcome_display }}</span>
             <span class="text-muted">· released {{ d.released_at|date:"M j, Y" }}</span>
-            {% if d.decision_type == 'appointment' %}<div>Appointment {{ d.appointment_reference }}, effective {{ d.appointment_at|date:"M j, Y" }}</div>{% endif %}
+            {% if d.decision_type == 'appointment' %}<div>Appointment {{ d.appointment_reference }}{% if d.appointment_kind %} ({{ d.get_appointment_kind_display }}){% endif %}, effective {{ d.appointment_at|date:"M j, Y" }}</div>{% endif %}
             {% if d.release_note %}<div style="white-space: pre-line">{{ d.release_note }}</div>{% endif %}
           </div>
         {% endfor %}

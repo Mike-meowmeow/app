@@ -48,7 +48,7 @@ class CatalogTestCase(VacancyTestCase):
         now = timezone.now()
         data = dict(position=position or self.math, department=self.dept,
                     recruitment_type=self.pti, positions_available=1,
-                    opens_at=now - timedelta(hours=1), deadline_at=now + timedelta(days=7))
+                    opens_at=now - timedelta(hours=1), deadline_at=now + timedelta(days=14))
         data.update(overrides)
         return services.create_vacancy(self.hr, **data)
 
@@ -336,7 +336,7 @@ class LegacyVacancyTests(CatalogTestCase):
         vacancy = Vacancy.objects.create(
             department=self.dept, recruitment_type=self.pti, position_title='Old title',
             description='Old description', opens_at=now - timedelta(hours=1),
-            deadline_at=now + timedelta(days=5))
+            deadline_at=now + timedelta(days=14))
         VacancyRequirementVersion.objects.create(vacancy=vacancy, version=1)
         services.assign_staff(self.approver, vacancy, self.hr, 'hr')
         return vacancy

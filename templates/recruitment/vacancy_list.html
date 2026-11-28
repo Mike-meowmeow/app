@@ -27,7 +27,7 @@
         <td><a href="{% url 'recruitment:vacancy_detail' v.pk %}">{{ v.reference }}</a></td>
         <td>{{ v.position_title }}<div class="small text-muted">{{ v.recruitment_type }}</div></td>
         <td>{{ v.department.name }}</td>
-        <td>{% include "recruitment/_status_badge.html" with v=v %}</td>
+        <td>{% include "recruitment/_status_badge.html" with v=v %}{% if v.merit_warning %}<div class="small {% if v.merit_warning.0 == 'fill_limit' %}text-danger{% else %}text-warning-emphasis{% endif %}">{% if v.merit_warning.0 == 'fill_limit' %}Past the fill limit: publish again{% else %}Publication validity lapsed{% endif %}</div>{% endif %}</td>
         <td>{{ v.deadline_at|date:"M j, Y g:i A"|default:"—" }}</td>
       </tr>
     {% empty %}

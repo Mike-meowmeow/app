@@ -12,7 +12,7 @@ from accounts import roles
 from accounts.access import role_required
 
 from . import position_services as catalog
-from .forms import CompetencyForm, PositionDocumentForm, PositionForm, QualificationStandardForm
+from .forms import CompetencyForm, PositionDocumentForm, PositionForm, PositionStandardForm
 from .models import Position
 
 
@@ -107,7 +107,7 @@ def position_set_active(request, pk, action):
 
 ITEM_FORMS = {
     'document': ('Add default document', PositionDocumentForm),
-    'standard': ('Add default qualification standard', QualificationStandardForm),
+    'standard': ('Add default qualification standard', PositionStandardForm),
     'competency': ('Add default subject or competency', CompetencyForm),
 }
 
@@ -130,7 +130,8 @@ def position_item_add(request, pk, kind):
                 catalog.add_standard_default(
                     request.user, position, criterion_type=data['criterion_type'],
                     description=data['description'], degree_level=data['degree_level'],
-                    amount=data['amount'], name=data['name'], field=data['field'])
+                    amount=data['amount'], name=data['name'], field=data['field'],
+                    board_courses_only=data['board_courses_only'])
             else:
                 catalog.add_competency_default(request.user, position, **data)
         except ValidationError as exc:

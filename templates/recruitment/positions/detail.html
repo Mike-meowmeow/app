@@ -51,7 +51,7 @@
   <ul class="list-group mb-2">
     {% for s in standards %}
       <li class="list-group-item d-flex justify-content-between align-items-start">
-        <div><span class="badge text-bg-light border me-1">{{ s.get_criterion_type_display }}</span>{{ s.description }}</div>
+        <div><span class="badge text-bg-light border me-1">{{ s.get_criterion_type_display }}</span>{{ s.description }}{% if s.board_courses_only %}<div class="small text-muted mt-1"><span class="badge text-bg-warning me-1">Board-exam courses only</span>Each vacancy keeps or removes it before publishing.</div>{% endif %}</div>
         <form method="post" action="{% url 'recruitment:position_item_remove' position.pk 'standard' s.pk %}">{% csrf_token %}
           <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button></form>
       </li>

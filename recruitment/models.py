@@ -191,6 +191,10 @@ class QualificationStandard(RequirementItem):
     required_value = models.JSONField(default=dict, blank=True)
     unit = models.CharField(max_length=20, blank=True)
     description = models.TextField()
+    # Copied from a catalog default that applies only to courses covered by a
+    # board or bar law (RA 1080). While True, the draft cannot be published
+    # until HR keeps it (sets False) or removes it. Published rows are False.
+    board_courses_only = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'qualification_standards'
@@ -261,6 +265,9 @@ class PositionQualificationStandard(BaseModel):
     required_value = models.JSONField(default=dict, blank=True)
     unit = models.CharField(max_length=20, blank=True)
     description = models.TextField()
+    # Applies only to courses covered by a board or bar law (RA 1080); each
+    # vacancy confirms it before publishing (CSC MC No. 19, s. 2005).
+    board_courses_only = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'position_qualification_standards'
@@ -549,6 +556,18 @@ class DecisionType(models.TextChoices):
     APPOINTMENT = 'appointment', 'Appointment'
 
 
+class AppointmentKind(models.TextChoices):
+    """Kinds of appointment in the CSC model merit system for SUC faculty
+    (MC No. 19, s. 2005). Contract of service and job order are not government
+    service."""
+    PERMANENT = 'permanent', 'Permanent'
+    TEMPORARY = 'temporary', 'Temporary'
+    CONTRACTUAL = 'contractual', 'Contractual'
+    PART_TIME = 'part_time', 'Part-time (plantilla position)'
+    CONTRACT_OF_SERVICE = 'contract_of_service', 'Contract of service'
+    JOB_ORDER = 'job_order', 'Job order'
+
+
 class DecisionOutcome(models.TextChoices):
     SHORTLISTED = 'shortlisted', 'Shortlisted'
     NOT_SHORTLISTED = 'not_shortlisted', 'Not shortlisted'
@@ -589,6 +608,10 @@ class RecruitmentDecision(BaseModel):
     release_note = models.TextField(blank=True, help_text='Applicant-facing message.')
     appointment_reference = models.CharField(max_length=100, blank=True)
     appointment_at = models.DateTimeField(null=True, blank=True)
+    # Required for new appointment records (checked in decision_services, not
+    # in the database, so appointments recorded before this field stay valid).
+    appointment_kind = models.CharField(max_length=30, choices=AppointmentKind.choices,
+                                        blank=True)
 
     class Meta:
         db_table = 'recruitment_decisions'

@@ -8,7 +8,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from accounts import roles
 from accounts.access import role_required
 
-from . import position_services, selectors, services
+from . import merit, position_services, selectors, services
 from .forms import (ApplyPositionForm, AssignmentForm, CompetencyForm, DocumentRequirementForm,
                     QualificationStandardForm, ReasonForm, VacancyFilterForm, VacancyForm)
 from .models import Position, Vacancy, VacancyAssignment, VacancyStatus
@@ -43,6 +43,8 @@ def vacancy_list(request):
                                  recruitment_type=filters.get('recruitment_type'),
                                  status=filters.get('status', ''))
     page = Paginator(vacancies, 20).get_page(request.GET.get('page'))
+    for vacancy in page:
+        vacancy.merit_warning = merit.publication_warning(vacancy)
     query = request.GET.copy()
     query.pop('page', None)
     return render(request, 'recruitment/vacancy_list.html', {
@@ -119,6 +121,7 @@ def vacancy_detail(request, pk):
         'can_assign': selectors.can_assign_staff(request.user, vacancy),
         'assignments': vacancy.assignments.select_related('user', 'assigned_by'),
         'problems': services.publication_problems(vacancy, draft) if draft else [],
+        'merit_warning': merit.publication_warning(vacancy),
         'editable': vacancy.status in (VacancyStatus.DRAFT, VacancyStatus.PUBLISHED),
         'reason_form': ReasonForm(),
         'assignment_form': AssignmentForm(),
@@ -225,6 +228,14 @@ def _action(request, pk, func, success, *, needs_reason=False, **extra):
     else:
         messages.success(request, success)
     return redirect('recruitment:vacancy_detail', pk=pk)
+
+
+@role_required(roles.HR)
+@require_POST
+def requirement_keep(request, pk, item_pk):
+    """Keep a "board-exam courses only" standard: it applies to this vacancy."""
+    return _action(request, pk, lambda u, v: services.keep_board_standard(u, v, item_pk),
+                   'Standard kept: it applies to this vacancy.')
 
 
 @role_required(roles.HR)

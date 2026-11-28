@@ -9,7 +9,7 @@ from django.utils import timezone
 from accounts import roles
 from audit import services as audit
 
-from . import position_services, selectors
+from . import merit, position_services, selectors
 from .models import (AssignmentRole, CriterionType, Position, QualificationStandard,
                      StandardOperator, Vacancy, VacancyAssignment, VacancyCompetency,
                      VacancyDocumentRequirement, VacancyRequirementVersion, VacancyStatus)
@@ -133,6 +133,9 @@ def update_vacancy(actor, vacancy, *, reason='', **data):
         deadline = data.get('deadline_at', vacancy.deadline_at)
         if deadline and deadline <= timezone.now():
             raise ValidationError('The deadline of a published vacancy must be in the future.')
+        problem = merit.posting_problem(vacancy.opens_at, deadline, posted_at=vacancy.posted_at)
+        if problem:
+            raise ValidationError(problem)
     else:
         raise ValidationError(f'A {vacancy.get_status_display().lower()} vacancy cannot be edited.')
     if vacancy.position_id:
@@ -204,7 +207,7 @@ def start_requirements_update(actor, vacancy):
             QualificationStandard.objects.create(
                 requirement_version=draft, criterion_type=item.criterion_type,
                 operator=item.operator, required_value=item.required_value, unit=item.unit,
-                description=item.description)
+                description=item.description, board_courses_only=item.board_courses_only)
         for item in source.competencies.all():
             VacancyCompetency.objects.create(requirement_version=draft, name=item.name,
                                              description=item.description)
@@ -281,6 +284,24 @@ def add_qualification_standard(actor, vacancy, *, criterion_type, description, *
 
 
 @transaction.atomic
+def keep_board_standard(actor, vacancy, item_id):
+    """HR confirms that a "board-exam courses only" standard copied from the
+    position applies to this vacancy; it then becomes an ordinary standard."""
+    _require_manage(actor, vacancy)
+    draft = _draft(vacancy)
+    try:
+        item = draft.qualification_standards.get(pk=item_id, board_courses_only=True)
+    except QualificationStandard.DoesNotExist:
+        raise ValidationError('That standard is not waiting for confirmation.')
+    item.board_courses_only = False
+    item.save(update_fields=['board_courses_only'])
+    audit.record('vacancy.board_standard_kept', entity=vacancy, changes={
+        'version': draft.version, 'standard': item.criterion_type,
+        'value': item.required_value, 'description': item.description})
+    return item
+
+
+@transaction.atomic
 def add_competency(actor, vacancy, *, name, description=''):
     _require_manage(actor, vacancy)
     draft = _draft(vacancy)
@@ -324,6 +345,10 @@ def publication_problems(vacancy, draft):
         problems.append('Set the application deadline.')
     elif vacancy.deadline_at <= timezone.now():
         problems.append('The application deadline must be in the future.')
+    elif vacancy.status == VacancyStatus.DRAFT:
+        problem = merit.posting_problem(vacancy.opens_at, vacancy.deadline_at)
+        if problem:
+            problems.append(problem)
     if draft is None:
         problems.append('There are no draft requirements to publish.')
         return problems
@@ -335,6 +360,9 @@ def publication_problems(vacancy, draft):
         problems.append(f'Inactive document types in the checklist: {", ".join(inactive)}.')
     if not draft.qualification_standards.exists():
         problems.append('Add at least one qualification standard.')
+    for s in draft.qualification_standards.filter(board_courses_only=True):
+        problems.append(f'Confirm whether "{s.description}" applies: keep it if the subjects '
+                        f'are covered by a board or bar law, otherwise remove it.')
     return problems
 
 

@@ -84,6 +84,8 @@ urlpatterns = [
          name='requirements_discard'),
     path('manage/vacancies/<uuid:pk>/requirements/<slug:kind>/add/', views.requirement_add,
          name='requirement_add'),
+    path('manage/vacancies/<uuid:pk>/requirements/standard/<uuid:item_pk>/keep/',
+         views.requirement_keep, name='requirement_keep'),
     path('manage/vacancies/<uuid:pk>/requirements/<slug:kind>/<uuid:item_pk>/remove/',
          views.requirement_remove, name='requirement_remove'),
     path('manage/vacancies/<uuid:pk>/publish/', views.vacancy_publish, name='vacancy_publish'),

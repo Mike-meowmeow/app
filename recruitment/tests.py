@@ -44,7 +44,7 @@ class VacancyTestCase(TestCase):
         title = overrides.pop('position_title', 'Part-Time Instructor - Mathematics')
         data = dict(department=self.dept, recruitment_type=self.pti,
                     description='Teach undergraduate mathematics.', positions_available=2,
-                    opens_at=now - timedelta(hours=1), deadline_at=now + timedelta(days=7))
+                    opens_at=now - timedelta(hours=1), deadline_at=now + timedelta(days=14))
         data.update(overrides)
         data.setdefault('position', self.position(title))
         return services.create_vacancy(actor or self.hr, **data)
@@ -319,7 +319,7 @@ class HttpFlowTests(VacancyTestCase):
             'recruitment_type': self.pti.pk, 'description': 'Teach physics.',
             'positions_available': 1,
             'opens_at': (now - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'),
-            'deadline_at': (now + timedelta(days=5)).strftime('%Y-%m-%dT%H:%M')})
+            'deadline_at': (now + timedelta(days=14)).strftime('%Y-%m-%dT%H:%M')})
         vacancy = Vacancy.objects.get(position_title='Part-Time Instructor - Physics')
         self.assertRedirects(response, reverse('recruitment:vacancy_detail', args=[vacancy.pk]))
         detail = self.client.get(response.url)
